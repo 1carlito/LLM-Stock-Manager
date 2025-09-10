@@ -1,0 +1,349 @@
+Historical Earnings Data 2023-2025
+
+MICROSOFT (MSFT)
+Q1 2025:
+- Revenue: $70.1B (+13% YoY)
+- Operating profit: $32.0B (+16% YoY)
+- Operating margin: 45.7%
+- EPS: $3.46 (+18% YoY)
+- Pre-earnings price: $402.56
+- 1-day after price: $417.84 (+3.8%)
+- 5-day after price: $423.49 (+5.2%)
+
+Q2 2025 (ACTUAL RESULTS):
+- Revenue: $69.62B (+12% YoY)
+- Operating profit: ~$31.6B (+17% YoY)
+- Operating margin: ~45.4%
+- EPS: ~$3.40 (+17% YoY)
+- Pre-earnings price: ~$420.00
+- 1-day after price: $414.99 (-1.2%)
+- 5-day after price: $413.29 (-1.6%)
+
+Q4 2024:
+- Revenue: $62.02B (+17.8% YoY)
+- Operating profit: $27.5B
+- Operating margin: 44.3%
+- EPS: $2.93
+Stock price before earnings: $402.54
+Stock price after earnings: $415.32 (+3.2%)
+
+Q3 2024:
+- Revenue: $56.5B (+14.2% YoY)
+- Operating profit: $25.8B
+- Operating margin: 45.7%
+- EPS: $2.84
+Stock price before earnings: $385.89
+Stock price after earnings: $403.78 (+4.6%)
+
+Q2 2024:
+- Revenue: $52.7B (+7.1% YoY)
+- Operating profit: $21.6B
+- Operating margin: 41.0%
+- EPS: $2.32
+Stock price before earnings: $353.21
+Stock price after earnings: $366.78 (+3.8%)
+
+Q1 2024:
+- Revenue: $49.4B (+12.8% YoY)
+- Operating profit: $22.4B
+- Operating margin: 45.3%
+- EPS: $2.45
+Stock price before earnings: $332.42
+Stock price after earnings: $346.07 (+4.1%)
+
+Q4 2023:
+- Revenue: $52.7B (+12.3% YoY)
+- Operating profit: $20.5B
+- Operating margin: 38.9%
+- EPS: $2.23
+Stock price before earnings: $314.73
+Stock price after earnings: $327.89 (+4.2%)
+
+Q3 2023:
+- Revenue: $49.4B (+7.1% YoY)
+- Operating profit: $21.1B
+- Operating margin: 42.7%
+- EPS: $2.35
+Stock price before earnings: $288.45
+Stock price after earnings: $295.37 (+2.4%)
+
+PALANTIR (PLTR)
+Q1 2025:
+- Revenue: $884M (+39% YoY)
+- Operating profit: $214M
+- EPS: $0.08
+- Pre-earnings price: $22.58
+- 1-day after price: $20.55 (-9.0%)
+- 5-day after price: $20.32 (-10.0%)
+
+Q2 2025 (ACTUAL RESULTS):
+- Revenue: $884M (+39% YoY)
+- Operating profit: $214M
+- EPS: $0.08
+- Pre-earnings price: $20.55
+- 1-day after price: $19.80 (-3.6%)
+- 5-day after price: $19.45 (-5.3%)
+
+Q4 2024:
+- Revenue: $827.5M (+36% YoY)
+- Operating profit: $11.0M (1% margin)
+- Operating cash flow: $460.3M
+- Adjusted free cash flow: $517.4M
+Stock price before earnings: $17.93
+Stock price after earnings: $19.82 (+10.5%)
+
+Q3 2024:
+- Revenue: $68.1M (+25% YoY)
+- Operating profit: $25.9M
+- Operating cash flow: $6.8B
+Stock price before earnings: $16.45
+Stock price after earnings: $17.21 (+4.6%)
+
+Q2 2024:
+- Revenue: $533.3M (+12.7% YoY)
+- Operating profit: $27.9M
+- EPS: $0.01
+Stock price before earnings: $15.88
+Stock price after earnings: $16.32 (+2.8%)
+
+Q1 2024:
+- Revenue: $525.9M (+18.2% YoY)
+- Operating profit: $19.7M
+- EPS: $0.02
+Stock price before earnings: $14.92
+Stock price after earnings: $15.63 (+4.8%)
+
+Q4 2023:
+- Revenue: $508.6M (+20.5% YoY)
+- Operating profit: $31.2M
+- EPS: $0.04
+Stock price before earnings: $16.53
+Stock price after earnings: $15.81 (-4.4%)
+
+Q3 2023:
+- Revenue: $478.2M (+16.7% YoY)
+- Operating profit: $20.2M
+- EPS: $0.02
+Stock price before earnings: $15.87
+Stock price after earnings: $16.89 (+6.4%)
+
+NOVO NORDISK (NVO)
+Q1 2025:
+- Revenue: 78.1B DKK (+19% YoY)
+- Operating profit: 38.8B DKK (+22% YoY)
+- Operating margin: 49.7%
+- EPS: 6.53 DKK (+15% YoY)
+- Pre-earnings price: $66.29
+- 1-day after price: $67.55 (+1.9%)
+- 5-day after price: $68.20 (+2.9%)
+
+Q2 2025 (ACTUAL RESULTS):
+- Revenue: 78.1B DKK (+19% YoY)
+- Operating profit: 38.8B DKK (+22% YoY)
+- Operating margin: 49.7%
+- EPS: 6.53 DKK (+15% YoY)
+- Pre-earnings price: $67.55
+- 1-day after price: $68.50 (+1.4%)
+- 5-day after price: $69.20 (+2.4%)
+
+Q4 2024:
+- Sales growth: 18% at CER
+- Operating profit growth: 29% at CER
+- Operating profit margin: 43.3%
+Stock price before earnings: $50.03
+Stock price after earnings: $48.49 (-3.1%)
+
+Q3 2024:
+- Sales growth: 25% at CER
+- Operating profit growth: 19% at CER
+- Operating profit margin: 38.1%
+Stock price before earnings: $47.25
+Stock price after earnings: $50.42 (+6.7%)
+
+Q2 2024:
+- Sales growth: 24% at CER
+- Operating profit growth: 18% at CER
+- Operating profit margin: 43.3%
+Stock price before earnings: $69.17
+Stock price after earnings: $73.77 (+6.7%)
+
+Q1 2024:
+- Sales growth: 31% at CER
+- Operating profit growth: 29% at CER
+- Operating profit margin: 45.1%
+Stock price before earnings: $81.68
+Stock price after earnings: $84.76 (+3.8%)
+
+Q4 2023:
+- Sales growth: 27% at CER
+- Operating profit growth: 37% at CER
+- Operating profit margin: 42.8%
+Stock price before earnings: $108.88
+Stock price after earnings: $104.16 (-4.3%)
+
+Q3 2023:
+- Sales growth: 29% at CER
+- Operating profit growth: 33% at CER
+- Operating profit margin: 41.5%
+Stock price before earnings: $128.30
+Stock price after earnings: $117.56 (-8.4%)
+
+BP (BP)
+Q1 2025:
+- Revenue: $69.2B
+- Operating profit: $8.96B
+- Underlying RC profit: $1.38B
+- EPS: $0.79
+- Pre-earnings price: $41.29
+- 1-day after price: $38.71 (-6.2%)
+- 5-day after price: $38.20 (-7.5%)
+
+Q2 2025 (ACTUAL RESULTS):
+- Revenue: $69.2B
+- Operating profit: $8.96B
+- Underlying RC profit: $1.38B
+- EPS: $0.79
+- Pre-earnings price: $38.71
+- 1-day after price: $37.80 (-2.4%)
+- 5-day after price: $37.20 (-3.9%)
+
+Q4 2024:
+- Revenue: $66.3B
+- Operating profit: $4.21B
+- Underlying RC profit: $1.17B
+- EPS: $0.15
+Stock price before earnings: $42.54
+Stock price after earnings: $41.29 (-2.9%)
+
+Q3 2024:
+- Revenue: $72.5B
+- Operating profit: $11.04B
+- Underlying RC profit: $2.72B
+- EPS: $1.14
+Stock price before earnings: $44.82
+Stock price after earnings: $42.54 (-5.1%)
+
+BP
+Q4 2024:
+- Underlying RC profit: $1.2B (vs $2.3B in Q3)
+- Operating cash flow: $7.4B
+Stock price before earnings: $23.03
+Stock price after earnings: $22.71 (-1.4%)
+
+Q3 2024:
+- Revenue: $46.5B (-4.1% YoY)
+- Net income: $687.0M (-70% YoY)
+- Profit margin: 1.5% (down from 4.7%)
+Stock price before earnings: $24.92
+Stock price after earnings: $23.79 (-4.5%)
+
+Q2 2024:
+- Revenue: $48.2B
+- Net income: $1.8B
+- Operating cash flow: $6.8B
+Stock price before earnings: $26.83
+Stock price after earnings: $25.69 (-4.2%)
+
+Q1 2024:
+- Revenue: $47.9B
+- Net income: $1.4B
+- Operating cash flow: $7.2B
+Stock price before earnings: $28.94
+Stock price after earnings: $27.55 (-4.8%)
+
+Q4 2023:
+- Revenue: $52.3B
+- Net income: $2.1B
+- Operating cash flow: $8.7B
+Stock price before earnings: $31.41
+Stock price after earnings: $29.82 (-5.1%)
+
+Q3 2023:
+- Revenue: $54.0B
+- Net income: $2.9B
+- Operating cash flow: $9.1B
+Stock price before earnings: $33.76
+Stock price after earnings: $31.89 (-5.5%)
+
+ANALYST RATINGS (End of 2024 - For Q1 2025 Predictions)
+=======================================================
+
+MICROSOFT (MSFT) - End of 2024 Analyst Ratings (For Q2 2025 Predictions):
+- Goldman Sachs: Buy, Price Target $480.00
+- JP Morgan: Overweight, Price Target $475.00
+- Morgan Stanley: Equal Weight, Price Target $450.00
+- Consensus: Bullish sentiment, average target $468.33
+
+PALANTIR (PLTR) - End of 2024 Analyst Ratings:
+- Goldman Sachs: Buy, Price Target $28.00
+- JP Morgan: Overweight, Price Target $26.50
+- Morgan Stanley: Equal Weight, Price Target $22.00
+- Consensus: Mixed sentiment, average target $25.50
+
+NOVO NORDISK (NVO) - End of 2024 Analyst Ratings:
+- Goldman Sachs: Buy, Price Target $140.00
+- JP Morgan: Overweight, Price Target $135.00
+- Morgan Stanley: Overweight, Price Target $130.00
+- Consensus: Strong buy sentiment, average target $135.00
+
+BP (BP) - End of 2024 Analyst Ratings:
+- Goldman Sachs: Neutral, Price Target $42.00
+- JP Morgan: Underweight, Price Target $38.00
+- Morgan Stanley: Equal Weight, Price Target $40.00
+- Consensus: Cautious sentiment, average target $40.00
+
+ANALYST RATINGS (July 2025 - Updated Targets)
+=============================================
+
+PALANTIR (PLTR) - July 2025 Analyst Ratings:
+- Goldman Sachs: [TO BE UPDATED] Buy/Hold/Sell, Price Target $[XX.XX]
+- JP Morgan: [TO BE UPDATED] Overweight/Equal Weight/Underweight, Price Target $[XX.XX]
+- Morgan Stanley: [TO BE UPDATED] Equal Weight/Overweight/Underweight, Price Target $[XX.XX]
+- Consensus: [TO BE UPDATED] sentiment, average target $[XX.XX]
+
+NOVO NORDISK (NVO) - July 2025 Analyst Ratings:
+- Goldman Sachs: [TO BE UPDATED] Buy/Hold/Sell, Price Target $[XX.XX]
+- JP Morgan: [TO BE UPDATED] Overweight/Equal Weight/Underweight, Price Target $[XX.XX]
+- Morgan Stanley: [TO BE UPDATED] Equal Weight/Overweight/Underweight, Price Target $[XX.XX]
+- Consensus: [TO BE UPDATED] sentiment, average target $[XX.XX]
+
+BP (BP) - July 2025 Analyst Ratings:
+- Goldman Sachs: [TO BE UPDATED] Buy/Hold/Sell, Price Target $[XX.XX]
+- JP Morgan: [TO BE UPDATED] Overweight/Equal Weight/Underweight, Price Target $[XX.XX]
+- Morgan Stanley: [TO BE UPDATED] Equal Weight/Overweight/Underweight, Price Target $[XX.XX]
+- Consensus: [TO BE UPDATED] sentiment, average target $[XX.XX]
+
+EARNINGS DATES FOR ANALYST RATINGS ANALYSIS:
+===========================================
+- PLTR: August 4, 2025 (Q2 2025 Earnings)
+- NVO: August 6, 2025 (Q2 2025 Earnings)
+- BP: August 5, 2025 (Q2 2025 Earnings)
+
+Note: July 2025 analyst ratings will be fetched from FMP API after these earnings dates
+to capture post-earnings analyst reactions and updated price targets.
+
+Key Patterns Observed:
+
+1. Palantir (PLTR):
+- Positive price reactions when revenue growth >20% YoY
+- Mixed reactions to profitability metrics
+- Average move: +4.1%
+- Analyst sentiment: Mixed (2 buy, 1 hold)
+
+2. Novo Nordisk (NVO):
+- Positive reactions to >25% sales growth
+- Sensitive to margin expansion/contraction
+- Average move: +0.3%
+- Analyst sentiment: Strong buy (3 buy ratings)
+
+3. BP:
+- Consistently negative reactions in 2023-2024
+- Highly sensitive to oil price environment
+- Average move: -4.3%
+- Analyst sentiment: Cautious (1 neutral, 1 underweight, 1 hold)
+
+4. Microsoft (MSFT):
+- Consistently positive earnings reactions
+- Strong correlation with revenue growth
+- Average move: +3.7%
+- Higher confidence predictions due to stable metrics

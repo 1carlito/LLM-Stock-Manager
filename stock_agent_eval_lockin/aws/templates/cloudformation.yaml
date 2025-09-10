@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Stock Agent Backtest Infrastructure'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: prod
+    Description: Environment name
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenAI API Key for the stock agent
+
+Resources:
+  # VPC and Networking
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-subnet
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # S3 Bucket for results
+  BacktestResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub stock-agent-backtest-${EnvironmentName}
+      VersioningConfiguration:
+        Status: Enabled
+
+  # SNS Topic for notifications
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub stock-agent-alerts-${EnvironmentName}
+
+  # EC2 Instance Role
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+
+  # EC2 Instance Profile
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # Security Group
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for stock agent EC2 instance
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  # EC2 Instance
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.medium
+      ImageId: ami-0261755bbcb8c4a84  # Amazon Linux 2 AMI ID
+      SubnetId: !Ref PublicSubnet
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y docker git
+          service docker start
+          usermod -a -G docker ec2-user
+          
+          # Create app directory
+          mkdir -p /app
+          cd /app
+          
+          # Copy application files
+          cat > backtest_orchestrator.py << 'EOL'
+          ${!Include ../backtest_orchestrator.py}
+          EOL
+          
+          cat > requirements.txt << 'EOL'
+          ${!Include ../requirements.txt}
+          EOL
+          
+          cat > Dockerfile << 'EOL'
+          ${!Include ../aws/Dockerfile}
+          EOL
+          
+          # Set environment variables
+          echo "OPENAI_API_KEY=${OpenAIApiKey}" >> .env
+          echo "AWS_DEFAULT_REGION=${AWS::Region}" >> .env
+          echo "SNS_TOPIC_ARN=${NotificationTopic}" >> .env
+          echo "RESULTS_BUCKET=${BacktestResultsBucket}" >> .env
+          
+          # Build and run Docker container
+          docker build -t stock-agent .
+          docker run -d \
+            --env-file .env \
+            --name stock-agent \
+            stock-agent
+
+      Tags:
+        - Key: Name
+          Value: !Sub stock-agent-${EnvironmentName}
+
+  # CloudWatch Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /stock-agent/${EnvironmentName}
+      RetentionInDays: 30
+
+Outputs:
+  EC2InstanceId:
+    Description: ID of the EC2 instance
+    Value: !Ref EC2Instance
+
+  EC2PublicIP:
+    Description: Public IP of the EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
+
+  S3BucketName:
+    Description: Name of the S3 bucket for results
+    Value: !Ref BacktestResultsBucket
+
+  SNSTopicARN:
+    Description: ARN of the SNS topic
+    Value: !Ref NotificationTopic 

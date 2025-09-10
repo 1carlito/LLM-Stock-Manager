@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stock Agent Backtest Infrastructure
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: prod
+    Description: Environment name
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenAI API Key for the stock agent
+Resources:
+  BacktestResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: stock-agent-backtest-${EnvironmentName}
+      VersioningConfiguration:
+        Status: Enabled
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName:
+        Fn::Sub: stock-agent-alerts-${EnvironmentName}
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/CloudWatchFullAccess
+      - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+      - Ref: EC2InstanceRole
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for stock agent EC2 instance
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.medium
+      ImageId: ami-0261755bbcb8c4a84
+      IamInstanceProfile:
+        Ref: EC2InstanceProfile
+      SecurityGroups:
+      - Ref: SecurityGroup
+      UserData:
+        Fn::Base64:
+          Fn::Sub: "#!/bin/bash\nyum update -y\nyum install -y docker git\nservice\
+            \ docker start\nusermod -a -G docker ec2-user\n\n# Clone repository\n\
+            git clone https://github.com/yourusername/stock_agent_eval.git\ncd stock_agent_eval\n\
+            \n# Set environment variables\necho \"OPENAI_API_KEY=${OpenAIApiKey}\"\
+            \ >> .env\necho \"AWS_DEFAULT_REGION=${AWS::Region}\" >> .env\necho \"\
+            SNS_TOPIC_ARN=${NotificationTopic}\" >> .env\necho \"RESULTS_BUCKET=${BacktestResultsBucket}\"\
+            \ >> .env\n\n# Build and run Docker container\ndocker build -t stock-agent\
+            \ .\ndocker run -d \\\n  --env-file .env \\\n  --name stock-agent \\\n\
+            \  stock-agent\n"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: stock-agent-${EnvironmentName}
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /stock-agent/${EnvironmentName}
+      RetentionInDays: 30
+Outputs:
+  EC2InstanceId:
+    Description: ID of the EC2 instance
+    Value:
+      Ref: EC2Instance
+  S3BucketName:
+    Description: Name of the S3 bucket for results
+    Value:
+      Ref: BacktestResultsBucket
+  SNSTopicARN:
+    Description: ARN of the SNS topic
+    Value:
+      Ref: NotificationTopic
