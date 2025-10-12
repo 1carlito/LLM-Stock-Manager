@@ -14,6 +14,10 @@ import pandas as pd
 import pandas_market_calendars as mcal
 from dotenv import load_dotenv
 import json
+import glob
+import logging
+from logging.handlers import RotatingFileHandler
+import numpy as np
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,7 +25,7 @@ load_dotenv()
 from ValuationAgent import ValuationAgent
 from FundamentalAgent import FundamentalAgent
 from SentimentAgent import SentimentAgent
-from ReasoningAgent import ReasoningAgent
+from single_stock_test.ReasoningAgent import ReasoningAgent
 
 class DateRangeIterator:
     """Iterator that yields trading days between start and end dates."""
@@ -35,9 +39,8 @@ class DateRangeIterator:
             end_date: End date in YYYY-MM-DD format
             trading_days_only: If True, only yield trading days
         """
-        # Use a 90-day period
-        self.start_date = pd.Timestamp("2025-06-01")
-        self.end_date = pd.Timestamp("2025-08-29")  # ~90 days from June 1st
+        self.start_date = pd.Timestamp(start_date)
+        self.end_date = pd.Timestamp(end_date)
         self.trading_days_only = trading_days_only
         
         if trading_days_only:
@@ -47,120 +50,43 @@ class DateRangeIterator:
                 start_date=self.start_date,
                 end_date=self.end_date
             )
-            # Use all trading days in the 90-day period
-            self.trading_days = self.trading_days[:]
-    
-    def __iter__(self) -> Iterator[pd.Timestamp]:
-        """Yield dates in range."""
-        if self.trading_days_only:
-            yield from self.trading_days
+            self.current_idx = 0
         else:
-            current = self.start_date
-            while current <= self.end_date:
-                yield current
-                current += timedelta(days=1)
-
-class CloudWatchLogger:
-    """Handles logging to AWS CloudWatch."""
+            self.current_date = self.start_date
     
-    def __init__(self, log_group: str = "/stock-agent/backtest"):
-        """
-        Initialize CloudWatch logger.
-        
-        Args:
-            log_group: CloudWatch log group name
-        """
-        self.client = boto3.client('cloudwatch')
-        self.logs_client = boto3.client('logs')
-        self.log_group = log_group
-        self.log_stream = datetime.now().strftime("%Y/%m/%d")
-        
-        # Ensure log group exists
-        try:
-            self.logs_client.create_log_group(logGroupName=log_group)
-        except self.logs_client.exceptions.ResourceAlreadyExistsException:
-            pass
-            
-        # Ensure log stream exists
-        try:
-            self.logs_client.create_log_stream(
-                logGroupName=self.log_group,
-                logStreamName=self.log_stream
-            )
-        except self.logs_client.exceptions.ResourceAlreadyExistsException:
-            pass
+    def __iter__(self):
+        return self
     
-    def info(self, message: str):
-        """Log info message."""
-        self._log("INFO", message)
-    
-    def error(self, message: str):
-        """Log error message."""
-        self._log("ERROR", message)
-    
-    def _log(self, level: str, message: str):
-        """Internal logging method."""
-        timestamp = int(datetime.now().timestamp() * 1000)
-        try:
-            # Get the sequence token for the stream
-            try:
-                response = self.logs_client.describe_log_streams(
-                    logGroupName=self.log_group,
-                    logStreamNamePrefix=self.log_stream
-                )
-                sequence_token = response['logStreams'][0].get('uploadSequenceToken')
-            except (IndexError, KeyError):
-                sequence_token = None
-            
-            # Put log events
-            kwargs = {
-                'logGroupName': self.log_group,
-                'logStreamName': self.log_stream,
-                'logEvents': [{
-                    'timestamp': timestamp,
-                    'message': f"[{level}] {message}"
-                }]
-            }
-            if sequence_token:
-                kwargs['sequenceToken'] = sequence_token
-                
-            self.logs_client.put_log_events(**kwargs)
-            
-        except Exception as e:
-            print(f"Failed to log to CloudWatch: {str(e)}")
-    
-    def log_metrics(self, metrics_data: Dict[str, Any]):
-        """Send metrics to CloudWatch."""
-        try:
-            metric_data = []
-            for name, value in metrics_data.items():
-                metric_data.append({
-                    'MetricName': name,
-                    'Value': value,
-                    'Unit': 'None',
-                    'Timestamp': datetime.now()
-                })
-            
-            self.client.put_metric_data(
-                Namespace='StockAgent/Backtest',
-                MetricData=metric_data
-            )
-        except Exception as e:
-            print(f"Failed to log metrics to CloudWatch: {str(e)}")
+    def __next__(self) -> pd.Timestamp:
+        """Get next trading day."""
+        if self.trading_days_only:
+            if self.current_idx >= len(self.trading_days):
+                raise StopIteration
+            next_day = self.trading_days[self.current_idx]
+            self.current_idx += 1
+            return next_day
+        else:
+            if self.current_date > self.end_date:
+                raise StopIteration
+            next_day = self.current_date
+            self.current_date += timedelta(days=1)
+            return next_day
 
 class ErrorHandler:
     """Handles errors during backtesting."""
     
-    def __init__(self, logger: Optional[CloudWatchLogger] = None):
+    def __init__(self, logger: logging.Logger, sns_client=None, sns_topic: str = None):
         """
         Initialize error handler.
         
         Args:
-            logger: CloudWatch logger instance
+            logger: Logger instance
+            sns_client: Optional boto3 SNS client
+            sns_topic: Optional SNS topic ARN for alerts
         """
-        self.logger = logger or CloudWatchLogger()
-        self.sns = boto3.client('sns')
-        self.topic_arn = os.getenv('SNS_TOPIC_ARN')
+        self.logger = logger
+        self.sns = sns_client
+        self.sns_topic = sns_topic
     
     def handle(self, error: Exception):
         """
@@ -169,561 +95,468 @@ class ErrorHandler:
         Args:
             error: The exception to handle
         """
-        error_msg = str(error)
-        self.logger.error(error_msg)
+        # Log the error
+        self.logger.error(f"Error during backtest: {str(error)}", exc_info=True)
         
-        if self.should_retry(error):
-            return True  # Indicate retry is possible
-        
-        if self.topic_arn:
+        # Send SNS notification if configured
+        if self.sns and self.sns_topic:
             try:
                 self.sns.publish(
-                    TopicArn=self.topic_arn,
-                    Message=f"Backtest Error: {error_msg}",
-                    Subject="Stock Agent Backtest Error"
+                    TopicArn=self.sns_topic,
+                    Subject="Backtest Error",
+                    Message=f"Error during backtest: {str(error)}"
                 )
             except Exception as e:
-                print(f"Failed to send SNS notification: {str(e)}")
-        
-        return False  # Indicate no retry
-    
-    def should_retry(self, error: Exception) -> bool:
-        """
-        Determine if error is retryable.
-        
-        Args:
-            error: The exception to check
-        
-        Returns:
-            True if error should be retried
-        """
-        # Add retry logic based on error types
-        retryable_errors = (
-            TimeoutError,
-            ConnectionError,
-            # Add other retryable errors
-        )
-        return isinstance(error, retryable_errors)
+                self.logger.error(f"Failed to send SNS notification: {str(e)}")
 
-class MetricsTracker:
-    """Tracks metrics during backtesting."""
+class CloudWatchLogger:
+    """Handles CloudWatch logging."""
     
-    def __init__(self, logger: Optional[CloudWatchLogger] = None):
+    def __init__(self, log_group: str = "trading-agents", log_stream: str = None):
         """
-        Initialize metrics tracker.
+        Initialize CloudWatch logger.
         
         Args:
-            logger: CloudWatch logger instance
+            log_group: CloudWatch log group name
+            log_stream: CloudWatch log stream name
         """
-        self.logger = logger or CloudWatchLogger()
-        self.metrics = {
-            'decisions_made': 0,
-            'successful_runs': 0,
-            'errors': 0,
-            'avg_confidence': 0.0,
-            'processing_time': 0.0
-        }
-    
-    def update(self, decision_data: Dict[str, Any]):
-        """
-        Update metrics with new decision data.
+        self.logs_client = boto3.client('logs')
+        self.log_group = log_group
+        self.log_stream = log_stream or f"backtest-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         
-        Args:
-            decision_data: Decision data from ReasoningAgent
-        """
-        self.metrics['decisions_made'] += 1
-        self.metrics['avg_confidence'] = (
-            (self.metrics['avg_confidence'] * (self.metrics['decisions_made'] - 1) +
-             decision_data.get('confidence', 0)) / self.metrics['decisions_made']
-        )
-        
-        # Log metrics to CloudWatch
-        self.logger.log_metrics(self.metrics)
-
-class HistoricalContext:
-    """Manages historical data and previous decisions."""
-    
-    def __init__(self, lookback_days: int = 90):  # Changed from 10 to 90 for full testing
-        """
-        Initialize historical context manager.
-        
-        Args:
-            lookback_days: Number of days of historical data to maintain
-        """
-        self.lookback_days = lookback_days
-        self.decisions_history: List[Dict] = []
-        self.max_decisions_to_keep = 30  # Changed from 10 to 30 for proper history tracking
-    
-    def _get_historical_valuation(self, symbol: str, start_date: pd.Timestamp, end_date: pd.Timestamp) -> Dict:
-        """Get historical price data (open prices only)."""
+        # Create log group if it doesn't exist
         try:
-            # Use ValuationAgent to get historical data
-            agent = ValuationAgent()
-            historical_data = []
-            
-            current_date = start_date
-            while current_date <= end_date:
-                if current_date.weekday() < 5:  # Only weekdays
-                    try:
-                        data = agent.analyze_valuation(symbol, date=current_date)
-                        if data:
-                            # Only keep relevant morning data
-                            morning_data = {
-                                'date': current_date.strftime('%Y-%m-%d'),
-                                'open_price': data.get('current_price', 0),
-                                'volume': data.get('volume_analysis', {}).get('current_volume', 0),
-                                'beta': data.get('volatility', {}).get('beta', 0)
-                            }
-                            historical_data.append(morning_data)
-                    except Exception as e:
-                        print(f"Error getting valuation data for {current_date}: {str(e)}")
-                current_date += pd.Timedelta(days=1)
-            
-            return {'price_history': historical_data}
-            
-        except Exception as e:
-            print(f"Error in historical valuation: {str(e)}")
-            return {'price_history': []}
-    
-    def _get_historical_fundamental(self, symbol: str, start_date: pd.Timestamp, end_date: pd.Timestamp) -> Dict:
-        """Get historical fundamental data."""
-        try:
-            # Use FundamentalAgent to get data
-            agent = FundamentalAgent()
-            # For fundamentals, we only need the most recent data before start_date
-            data = agent.analyze_fundamentals(symbol)
-            
-            if data:
-                return {
-                    'metrics': {
-                        'pe_ratio': data.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('pe_ratio', 0),
-                        'market_cap': data.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('market_cap', 0),
-                        'revenue': data.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('revenue', 0),
-                        'net_income': data.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('net_income', 0)
-                    }
-                }
-            return {'metrics': {}}
-            
-        except Exception as e:
-            print(f"Error in historical fundamental: {str(e)}")
-            return {'metrics': {}}
-    
-    def _get_historical_sentiment(self, symbol: str, start_date: pd.Timestamp, end_date: pd.Timestamp) -> Dict:
-        """Get historical sentiment data."""
-        try:
-            # Use SentimentAgent to get historical sentiment
-            agent = SentimentAgent()
-            sentiment_data = []
-            
-            current_date = start_date
-            while current_date <= end_date:
-                if current_date.weekday() < 5:  # Only weekdays
-                    try:
-                        data = agent.analyze_sentiment(symbol, date=current_date)
-                        if data:
-                            sentiment_data.append({
-                                'date': current_date.strftime('%Y-%m-%d'),
-                                'decision': data.get('current_analysis', {}).get('decision', 'HOLD'),
-                                'confidence': data.get('current_analysis', {}).get('confidence', 0),
-                                'news_count': len(data.get('news_data', {}).get('news', []))
-                            })
-                    except Exception as e:
-                        print(f"Error getting sentiment data for {current_date}: {str(e)}")
-                current_date += pd.Timedelta(days=1)
-            
-            return {'sentiment_history': sentiment_data}
-            
-        except Exception as e:
-            print(f"Error in historical sentiment: {str(e)}")
-            return {'sentiment_history': []}
-    
-    def _calculate_accuracy(self, decisions: List[Dict]) -> float:
-        """
-        Calculate decision accuracy based on next day's price movement.
+            self.logs_client.create_log_group(logGroupName=self.log_group)
+        except self.logs_client.exceptions.ResourceAlreadyExistsException:
+            pass
         
-        Args:
-            decisions: List of historical decisions
-            
-        Returns:
-            Accuracy as a percentage
-        """
-        if not decisions:
-            return 0.0
-            
-        correct = 0
-        total = 0
-        
-        for i, decision in enumerate(decisions[:-1]):  # Skip last decision as we don't have next day's data
-            try:
-                current_price = decision.get('price_context', {}).get('open_price', 0)
-                next_price = decisions[i+1].get('price_context', {}).get('open_price', 0)
-                
-                if current_price and next_price:
-                    price_change = (next_price - current_price) / current_price
-                    
-                    # Check if decision was correct
-                    if (decision['decision'] == 'BUY' and price_change > 0) or \
-                       (decision['decision'] == 'SELL' and price_change < 0) or \
-                       (decision['decision'] == 'HOLD' and abs(price_change) < 0.01):  # 1% threshold for HOLD
-                        correct += 1
-                    total += 1
-                    
-            except Exception as e:
-                print(f"Error calculating accuracy for decision: {str(e)}")
-                continue
-                
-        return (correct / total * 100) if total > 0 else 0.0
+        # Create log stream
+        try:
+            self.logs_client.create_log_stream(
+                logGroupName=self.log_group,
+                logStreamName=self.log_stream
+            )
+        except self.logs_client.exceptions.ResourceAlreadyExistsException:
+            pass
     
-    def _get_decision_distribution(self, decisions: List[Dict]) -> Dict:
-        """Get distribution of decisions (BUY/SELL/HOLD)."""
-        distribution = {'BUY': 0, 'SELL': 0, 'HOLD': 0}
-        for decision in decisions:
-            decision_type = decision.get('decision', 'HOLD')
-            distribution[decision_type] += 1
-        return distribution
+    def log(self, message: str, level: str = "INFO"):
+        """Log message to CloudWatch."""
+        try:
+            self.logs_client.put_log_events(
+                logGroupName=self.log_group,
+                logStreamName=self.log_stream,
+                logEvents=[{
+                    'timestamp': int(datetime.now().timestamp() * 1000),
+                    'message': f"[{level}] {message}"
+                }]
+            )
+        except Exception as e:
+            print(f"Failed to log to CloudWatch: {str(e)}")
 
 class BacktestOrchestrator:
-    """Main orchestrator for backtesting workflow."""
+    """Orchestrates the backtesting workflow across all agents."""
     
-    def __init__(self, data_dir: str = "."):
-        self.logger = CloudWatchLogger()
+    def __init__(self, data_dir: str = "/home/ubuntu"):
+        """Initialize the orchestrator."""
+        # Set data directory for AWS environment
+        self.data_dir = data_dir
+        
+        # Set up logging
+        self.logger = self._setup_logger()
+        
+        # Initialize agents with data directory
+        self.valuation_agent = ValuationAgent(data_dir=self.data_dir)
+        self.fundamental_agent = FundamentalAgent(data_dir=self.data_dir)
+        self.sentiment_agent = SentimentAgent(data_dir=self.data_dir)
+        self.reasoning_agent = ReasoningAgent(data_dir=self.data_dir)
+        
+        # Initialize AWS services
+        self.cloudwatch_logger = CloudWatchLogger()
         self.error_handler = ErrorHandler(self.logger)
-        self.metrics = MetricsTracker(self.logger)
-        self.historical_context = HistoricalContext()
         
-        # Initialize agents
-        self.valuation_agent = ValuationAgent(data_dir=data_dir)
-        self.fundamental_agent = FundamentalAgent(data_dir=data_dir)
-        self.sentiment_agent = SentimentAgent(data_dir=data_dir)
-        self.reasoning_agent = ReasoningAgent(data_dir=data_dir)
-        
-        # Track portfolio performance
+        # Initialize portfolio
         self.portfolio = {
             'cash': 1000000,  # Start with $1M
-            'positions': {},  # {symbol: {'shares': n, 'cost_basis': price}}
-            'history': []     # List of trades and daily values
+            'positions': {},  # {symbol: {'shares': int, 'cost_basis': float}}
+            'history': [],     # List of all transactions
+            'theoretical_trades': [],  # All decisions, including hypothetical
+            'metrics': {      # Performance metrics
+                'sharpe_ratio': 0,
+                'max_drawdown': 0,
+                'calmar_ratio': 0,
+                'daily_returns': [],
+                'cumulative_returns': []
+            }
         }
+        
+        # Track daily portfolio values for metrics calculation
+        self.daily_portfolio_values = []
     
-    def run_with_retry(self, agent: Any, date: pd.Timestamp, max_retries: int = 3, context: Optional[Dict] = None) -> Optional[Dict]:
-        """
-        Run agent analysis with retry logic.
+    def _setup_logger(self) -> logging.Logger:
+        """Set up logging configuration."""
+        logger = logging.getLogger('backtest_orchestrator')
+        logger.setLevel(logging.INFO)
         
-        Args:
-            agent: Agent instance to run
-            date: Date to analyze
-            max_retries: Maximum number of retry attempts
-            context: Context to pass to the agent (e.g., historical data)
+        # Create logs directory if it doesn't exist
+        log_dir = os.path.join(self.data_dir, 'logs')
+        os.makedirs(log_dir, exist_ok=True)
         
-        Returns:
-            Analysis results or None if all retries fail
+        # File handler
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, 'backtest_orchestrator.log'),
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5
+        )
+        file_handler.setLevel(logging.INFO)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # Formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+        return logger
+    
+    def _get_latest_analysis_before_date(self, symbol: str, analysis_type: str, directory: str, current_date: str) -> Optional[Dict]:
         """
-        retries = 0
-        while retries < max_retries:
-            try:
-                if isinstance(agent, ReasoningAgent):
-                    # For ReasoningAgent, make a decision using all analyses
-                    return agent.make_decision(
-                        symbol=context['valuation_analysis']['symbol'],
-                        analyses=context
-                    )
-                elif isinstance(agent, ValuationAgent):
-                    return agent.prepare_analysis_data(symbol)
-                elif isinstance(agent, FundamentalAgent):
-                    return agent.prepare_fundamental_analysis(symbol)
-                elif isinstance(agent, SentimentAgent):
-                    return agent.analyze_sentiment(symbol)
+        Load the latest analysis file for a symbol that was created before or on the current date.
+        This ensures we don't use future data (avoiding look-ahead bias).
+        """
+        # Construct directory path
+        dir_path = os.path.join(self.data_dir, directory)
+        if not os.path.exists(dir_path):
+            self.logger.warning(f"Directory {dir_path} does not exist")
+            return None
+        
+        # Get the current date as pd.Timestamp for comparison
+        current_timestamp = pd.Timestamp(current_date)
+        
+        # Find all analysis files for this symbol
+        pattern = f"{symbol}_{analysis_type}_analysis_*.json"
+        files = glob.glob(os.path.join(dir_path, pattern))
+        
+        if not files:
+            self.logger.warning(f"No {analysis_type} files found for {symbol} in {dir_path}")
+            return None
+        
+        valid_files = []
+        
+        for file_path in files:
+        try:
+                # Load the file to read the date field
+                with open(file_path, 'r') as f:
+                data = json.load(f)
+                
+                # Get the date from the data
+                file_date_str = data.get('date')
+                if not file_date_str:
+                    self.logger.warning(f"No date field found in {file_path}")
+                    continue
+                
+                file_date = pd.Timestamp(file_date_str)
+                
+                # Only consider files with dates on or before current date
+                if file_date <= current_timestamp:
+                    valid_files.append((file_date, file_path, data))
+                
             except Exception as e:
-                retries += 1
-                if not self.error_handler.should_retry(e) or retries >= max_retries:
-                    self.error_handler.handle(e)
-                    return None
-                self.logger.info(f"Retry {retries} of {max_retries}")
-        return None
-    
-    def store_results(self, date: pd.Timestamp, decision: Dict[str, Any]):
-        """
-        Store backtest results.
+                self.logger.error(f"Error reading {file_path}: {str(e)}")
+                continue
         
-        Args:
-            date: Date of decision
-            decision: Decision data from ReasoningAgent
-        """
-        # Store to S3
-        s3 = boto3.client('s3')
-        bucket = os.getenv('RESULTS_BUCKET')
-        if bucket:
-            try:
-                key = f"backtest_results/{date.strftime('%Y/%m/%d')}/decision.json"
-                s3.put_object(
-                    Bucket=bucket,
-                    Key=key,
-                    Body=json.dumps(decision)
-                )
-            except Exception as e:
-                self.logger.error(f"Failed to store results to S3: {str(e)}")
+        if not valid_files:
+            self.logger.warning(f"No valid {analysis_type} files found for {symbol} before {current_date}")
+            return None
+        
+        # Get the latest valid file
+        latest_file = max(valid_files, key=lambda x: x[0])
+        self.logger.info(f"Using {analysis_type} analysis from {latest_file[1]} (date: {latest_file[0]})")
+        
+        return latest_file[2]  # Return the loaded data
     
-    def _get_morning_data(self, symbol: str, date: pd.Timestamp) -> Dict:
-        """
-        Get morning data for given date (opening prices only).
+    def _load_stock_data(self) -> Dict:
+        """Load the main stock data file with historical prices."""
+        try:
+            stock_data_file = os.path.join(self.data_dir, 'stock_data_90days.json')
+            if not os.path.exists(stock_data_file):
+                self.logger.error(f"Stock data file not found: {stock_data_file}")
+                return {}
+            
+            with open(stock_data_file, 'r') as f:
+                stock_data = json.load(f)
+            
+            self.logger.info(f"Loaded stock data for {len(stock_data)} symbols")
+            return stock_data
+        except Exception as e:
+            self.logger.error(f"Error loading stock data: {str(e)}")
+            return {}
+
+    def _get_price_for_date(self, symbol: str, date: str, price_type: str = 'close') -> Optional[float]:
+        """Get the price for a symbol on a specific date from the main stock data.
         
         Args:
             symbol: Stock symbol
-            date: Date to get data for
-            
-        Returns:
-            Dictionary containing morning data
+            date: Date in YYYY-MM-DD format
+            price_type: 'open', 'close', 'high', 'low'
         """
         try:
-            # Load the latest analyses that were available before this date
-            valuation_file = self._get_latest_analysis_before_date(
-                symbol, 'valuation_reports', date
-            )
-            fundamental_file = self._get_latest_analysis_before_date(
-                symbol, 'fundamental_reports', date
-            )
-            sentiment_file = self._get_latest_analysis_before_date(
-                symbol, 'sentiment_data', date
-            )
+            if not hasattr(self, '_stock_data'):
+                self._stock_data = self._load_stock_data()
             
-            if not all([valuation_file, fundamental_file, sentiment_file]):
-                print("  Missing required analysis files")
-                return {}
-            
-            # Load the analysis files
-            with open(valuation_file, 'r') as f:
-                valuation_data = json.load(f)
-            with open(fundamental_file, 'r') as f:
-                fundamental_data = json.load(f)
-            with open(sentiment_file, 'r') as f:
-                sentiment_data = json.load(f)
-            
-            # Extract only morning/opening data
-            morning_data = {
-                'date': date.strftime('%Y-%m-%d'),
-                'price_data': {
-                    'open_price': valuation_data.get('current_price', 0),
-                    'volume': valuation_data.get('volume_analysis', {}).get('current_volume', 0),
-                    'beta': valuation_data.get('volatility', {}).get('beta', 0)
-                },
-                'fundamental_data': {
-                    'pe_ratio': fundamental_data.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('pe_ratio', 0),
-                    'market_cap': fundamental_data.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('market_cap', 0)
-                },
-                'sentiment_data': {
-                    'news_count': len(sentiment_data.get('news_data', {}).get('news', [])),
-                    'morning_sentiment': sentiment_data.get('current_analysis', {}).get('decision', 'HOLD')
-                }
-            }
-            
-            return morning_data
-            
-        except Exception as e:
-            print(f"  Error getting morning data: {str(e)}")
-            return {}
-    
-    def _get_latest_analysis_before_date(self, symbol: str, directory: str, date: pd.Timestamp) -> Optional[str]:
-        """Get the latest analysis file before the given date."""
-        try:
-            files = []
-            for file in os.listdir(directory):
-                if file.startswith(f"{symbol}_") and file.endswith('.json'):
-                    file_date = pd.Timestamp(file.split('_')[-1].replace('.json', ''))
-                    if file_date < date:
-                        files.append((file_date, os.path.join(directory, file)))
-            
-            if not files:
+            if symbol not in self._stock_data:
+                self.logger.warning(f"No stock data found for {symbol}")
                 return None
-                
-            # Get the latest file before the date
-            latest_file = max(files, key=lambda x: x[0])[1]
-            return latest_file
             
+            historical_data = self._stock_data[symbol].get('historical_data', [])
+            
+            # Convert date to match the format in stock data
+            target_date = pd.Timestamp(date).strftime('%Y-%m-%d')
+            
+            for point in historical_data:
+                point_date = point.get('date', '')
+                # Handle different date formats
+                if point_date == target_date or point_date == date:
+                    price = point.get(price_type)
+                    if price:
+                        return float(price)
+            
+            # If exact date not found, find the closest previous date
+            valid_points = []
+            for point in historical_data:
+                point_date = point.get('date', '')
+                try:
+                    point_timestamp = pd.Timestamp(point_date)
+                    target_timestamp = pd.Timestamp(date)
+                    if point_timestamp <= target_timestamp:
+                        valid_points.append((point_timestamp, point))
+                except:
+                    continue
+            
+            if valid_points:
+                # Get the most recent price before or on the target date
+                latest_point = max(valid_points, key=lambda x: x[0])[1]
+                price = latest_point.get(price_type)
+                if price:
+                    self.logger.debug(f"Using closest price for {symbol} on {date}: ${price}")
+                    return float(price)
+            
+            self.logger.warning(f"No price data found for {symbol} on {date}")
+            return None
+                
         except Exception as e:
-            print(f"Error finding analysis file: {str(e)}")
+            self.logger.error(f"Error getting price for {symbol} on {date}: {str(e)}")
             return None
     
-    def _update_portfolio(self, symbol: str, decision: Dict, valuation_data: Dict):
+    def _get_opening_price_for_date(self, symbol: str, date: str) -> Optional[float]:
+        """Get the opening price for a symbol on a specific date."""
+        return self._get_price_for_date(symbol, date, 'open')
+
+    def _get_closing_price_for_date(self, symbol: str, date: str) -> Optional[float]:
+        """Get the closing price for a symbol on a specific date."""
+        return self._get_price_for_date(symbol, date, 'close')
+
+    def _calculate_portfolio_value(self, current_date: str = None) -> float:
+        """Calculate total portfolio value including positions.
+        
+        Args:
+            current_date: If provided, use current market prices from this date for positions.
+                         If None, use cost basis (for final calculations).
+        """
+        total_value = self.portfolio['cash']
+        
+        for symbol, position in self.portfolio['positions'].items():
+            if current_date:
+                # Use current day's market price for realistic P&L
+                current_price = self._get_closing_price_for_date(symbol, current_date)
+                if current_price:
+                    position_value = position['shares'] * current_price
+                    self.logger.debug(f"{symbol}: {position['shares']} shares × ${current_price:.2f} (market) = ${position_value:,.2f}")
+                else:
+                    # Fallback to cost basis if no market price available
+                    position_value = position['shares'] * position['cost_basis']
+                    self.logger.warning(f"No market price for {symbol} on {current_date}, using cost basis")
+            else:
+                # Use cost basis for final calculations or when no date provided
+                position_value = position['shares'] * position['cost_basis']
+            
+            total_value += position_value
+        
+        return total_value
+
+    def _update_portfolio(self, symbol: str, decision: Dict, valuation: Dict):
         """Update portfolio based on trading decision."""
-        try:
-            # Get current price directly from valuation data
-            current_price = valuation_data.get('current_price', 0)
-            if not current_price:
-                print(f"  ⚠️  No price available for trade execution")
-                return
-                
-            action = decision['decision']
-            confidence = decision['confidence']
+        action = decision['decision'].upper()
+        current_date = decision.get('date', datetime.now().isoformat()[:10])  # Ensure YYYY-MM-DD format
+        
+        # Get current market price instead of using valuation current_price
+        current_price = self._get_closing_price_for_date(symbol, current_date)
+        if not current_price:
+            # Fallback to valuation price if no market data
+            current_price = valuation.get('current_price', 0)
+            self.logger.warning(f"Using valuation price for {symbol}: ${current_price}")
+        
+        # Log all decisions in theoretical trades
+        theoretical_trade = {
+            'date': current_date,
+            'symbol': symbol,
+            'action': action,
+            'price': current_price,
+            'confidence': decision.get('confidence', 0),
+            'executed': False,  # Whether the trade was actually executed
+            'reason': ''  # Why a trade wasn't executed
+        }
+        
+        if action == 'BUY':
+            # Calculate position size (10% of portfolio per position)
+            max_position = self.portfolio['cash'] * 0.10
+            shares_to_buy = int(max_position / current_price)
             
-            print(f"\n  Trade Analysis for {symbol}:")
-            print(f"  - Decision: {action}")
-            print(f"  - Confidence: {confidence}%")
-            print(f"  - Current Price: ${current_price:.2f}")
-            
-            # Only trade if confidence is high enough
-            if confidence < 60:
-                print("  ⚠️  Confidence too low for trade execution")
-                return
-            
-            shares = 0
-            if action == 'BUY':
-                # Calculate position size based on confidence
-                position_size = (confidence / 100) * (self.portfolio['cash'] * 0.1)  # Max 10% of cash per trade
-                shares = int(position_size / current_price)
-                
-                if shares > 0:
-                    cost = shares * current_price
-                    if cost <= self.portfolio['cash']:
-                        print(f"\n  🔵 EXECUTING BUY ORDER:")
-                        print(f"  - Shares: {shares:,}")
-                        print(f"  - Price: ${current_price:.2f}")
-                        print(f"  - Total Cost: ${cost:,.2f}")
-                        
-                        self.portfolio['cash'] -= cost
-                        if symbol not in self.portfolio['positions']:
-                            self.portfolio['positions'][symbol] = {'shares': 0, 'cost_basis': 0}
-                        
-                        # Update position
-                        total_cost = (self.portfolio['positions'][symbol]['shares'] * 
-                                    self.portfolio['positions'][symbol]['cost_basis'] + cost)
-                        total_shares = self.portfolio['positions'][symbol]['shares'] + shares
+            if shares_to_buy > 0:
+                cost = shares_to_buy * current_price
+                if cost <= self.portfolio['cash']:
+                    # Add new position
+                    if symbol not in self.portfolio['positions']:
                         self.portfolio['positions'][symbol] = {
-                            'shares': total_shares,
-                            'cost_basis': total_cost / total_shares
+                            'shares': shares_to_buy,
+                            'cost_basis': current_price
                         }
-                        
-                        print(f"\n  Position Update:")
-                        print(f"  - Total Shares: {total_shares:,}")
-                        print(f"  - Average Cost: ${self.portfolio['positions'][symbol]['cost_basis']:.2f}")
-                        
-            elif action == 'SELL':
-                if symbol in self.portfolio['positions'] and self.portfolio['positions'][symbol]['shares'] > 0:
-                    shares = self.portfolio['positions'][symbol]['shares']
-                    proceeds = shares * current_price
-                    cost_basis = self.portfolio['positions'][symbol]['cost_basis']
-                    profit_loss = proceeds - (shares * cost_basis)
+                    else:
+                        # Average down existing position
+                        current_shares = self.portfolio['positions'][symbol]['shares']
+                        current_cost = self.portfolio['positions'][symbol]['cost_basis']
+                        new_shares = current_shares + shares_to_buy
+                        new_cost = ((current_shares * current_cost) + (shares_to_buy * current_price)) / new_shares
+                        self.portfolio['positions'][symbol] = {
+                            'shares': new_shares,
+                            'cost_basis': new_cost
+                        }
                     
-                    print(f"\n  🔴 EXECUTING SELL ORDER:")
-                    print(f"  - Shares: {shares:,}")
-                    print(f"  - Price: ${current_price:.2f}")
-                    print(f"  - Total Proceeds: ${proceeds:,.2f}")
-                    print(f"  - Profit/Loss: ${profit_loss:,.2f} ({(profit_loss/proceeds)*100:.1f}%)")
+                    # Update cash
+                    self.portfolio['cash'] -= cost
                     
-                    self.portfolio['cash'] += proceeds
-                    del self.portfolio['positions'][symbol]
-            
-            # Record the trade
-            if shares != 0:  # Only log if we actually executed a trade
-                trade = {
-                    'date': datetime.now().strftime('%Y-%m-%d'),
-                    'symbol': symbol,
-                    'action': action,
-                    'shares': shares if action == 'BUY' else -shares,
-                    'execution_price': current_price,
-                    'confidence': confidence,
-                    'cost_or_proceeds': -shares * current_price if action == 'BUY' else shares * current_price,
-                    'cash_after_trade': self.portfolio['cash'],
-                    'positions_after_trade': self.portfolio['positions'].copy(),
-                    'reasoning': decision.get('reasoning', 'No reasoning provided')
-                }
+                    # Log actual transaction
+                    trade = {
+                        'date': current_date,
+                        'symbol': symbol,
+                        'action': 'BUY',
+                        'shares': shares_to_buy,
+                        'price': current_price,
+                        'total': cost
+                    }
+                    self.portfolio['history'].append(trade)
+                    
+                    # Update theoretical trade
+                    theoretical_trade.update({
+                        'executed': True,
+                        'shares': shares_to_buy,
+                        'total': cost
+                    })
+                    
+                    print(f"    ✅ Bought {shares_to_buy} shares of {symbol} @ ${current_price:.2f}")
+                else:
+                    theoretical_trade['reason'] = 'Insufficient cash'
+                    print(f"    ⚠️  Insufficient cash to buy {symbol}")
+            else:
+                theoretical_trade['reason'] = 'Position size too small'
+                print(f"    ⚠️  Position size too small for {symbol}")
                 
+        elif action == 'SELL':
+            # Calculate theoretical sell for tracking
+            theoretical_shares = 0
+            if symbol in self.portfolio['positions']:
+                position = self.portfolio['positions'][symbol]
+                theoretical_shares = position['shares']
+                proceeds = theoretical_shares * current_price
+                
+                # Remove position and update cash
+                del self.portfolio['positions'][symbol]
+                self.portfolio['cash'] += proceeds
+                
+                # Log actual transaction
+                trade = {
+                    'date': current_date,
+                    'symbol': symbol,
+                    'action': 'SELL',
+                    'shares': theoretical_shares,
+                    'price': current_price,
+                    'total': proceeds
+                }
                 self.portfolio['history'].append(trade)
                 
-                # Save trade to daily summary
-                self._update_daily_summary(trade)
+                # Update theoretical trade
+                theoretical_trade.update({
+                    'executed': True,
+                    'shares': theoretical_shares,
+                    'total': proceeds
+                })
                 
-                print(f"\n  💰 Portfolio Update:")
-                print(f"  - Cash Balance: ${self.portfolio['cash']:,.2f}")
-                print(f"  - Number of Positions: {len(self.portfolio['positions'])}")
-            
-        except Exception as e:
-            print(f"  ❌ Error updating portfolio: {str(e)}")
-            return
-
-    def _update_daily_summary(self, trade: Dict):
-        """Update the daily trading summary."""
-        try:
-            summary_file = f"trading_summary_{trade['date']}.json"
-            
-            # Load existing summary or create new one
-            if os.path.exists(summary_file):
-                with open(summary_file, 'r') as f:
-                    summary = json.load(f)
+                print(f"    ✅ Sold {theoretical_shares} shares of {symbol} @ ${current_price:.2f}")
             else:
-                summary = {
-                    'date': trade['date'],
-                    'trades': [],
-                    'portfolio_value': self.portfolio['cash'],
-                    'cash_balance': self.portfolio['cash'],
-                    'number_of_positions': len(self.portfolio['positions']),
-                    'positions': self.portfolio['positions'].copy()
-                }
-            
-            # Add new trade
-            summary['trades'].append({
-                'time': datetime.now().strftime('%H:%M:%S'),
-                'symbol': trade['symbol'],
-                'action': trade['action'],
-                'shares': trade['shares'],
-                'price': trade['execution_price'],
-                'value': abs(trade['cost_or_proceeds']),
-                'confidence': trade['confidence']
-            })
-            
-            # Update summary
-            total_value = self.portfolio['cash']
-            for symbol, position in self.portfolio['positions'].items():
-                # Use the last known price for the position
-                total_value += position['shares'] * position['cost_basis']
-            
-            summary['portfolio_value'] = total_value
-            summary['cash_balance'] = self.portfolio['cash']
-            summary['number_of_positions'] = len(self.portfolio['positions'])
-            summary['positions'] = self.portfolio['positions'].copy()
-            
-            # Save updated summary
-            with open(summary_file, 'w') as f:
-                json.dump(summary, f, indent=2)
-                
-        except Exception as e:
-            print(f"  ⚠️  Error updating daily summary: {str(e)}")
+                # Log theoretical sell for non-held position
+                theoretical_trade.update({
+                    'shares': 0,
+                    'total': 0,
+                    'reason': 'Position not held'
+                })
+                print(f"    ℹ️  Sell signal for {symbol} (not held) @ ${current_price:.2f}")
+        
+        elif action == 'HOLD':
+            theoretical_trade['reason'] = 'Hold decision'
+            print(f"    ✅ Holding {symbol}")
+        
+        # Always log the theoretical trade
+        self.portfolio['theoretical_trades'].append(theoretical_trade)
 
-    def run_workflow(self, symbols: List[str]):
-        """Run complete backtest workflow."""
+    def run_workflow(self, symbols: List[str], start_date: str = "2025-06-12", end_date: str = "2025-06-15"):
+        """Run complete backtest workflow using pre-computed analyses."""
         try:
-            print(f"\nStarting backtest from 2025-06-01 to 2025-08-29 (90-day period)")
+            print(f"\nStarting backtest from {start_date} to {end_date}")
+            print(f"Data directory: {self.data_dir}")
             print(f"Tracking {len(symbols)} symbols: {', '.join(symbols)}")
             print("\nInitial Portfolio:")
             print(f"💰 Cash: ${self.portfolio['cash']:,.2f}")
             print("📊 Positions: None")
             print("\n" + "="*50)
             
-            self.logger.info(f"Starting backtest for {len(symbols)} symbols")
+            self.logger.info(f"Starting backtest for {len(symbols)} symbols from {start_date} to {end_date}")
             
-            for date in DateRangeIterator("2025-06-01", "2025-08-29"):
-                print(f"\n📅 Trading Day: {date.strftime('%Y-%m-%d')}")
+            for date in DateRangeIterator(start_date, end_date):
+                current_date = date.strftime('%Y-%m-%d')
+                print(f"\n📅 Trading Day: {current_date}")
                 print("="*50)
                 daily_decisions = []
                 
                 for symbol in symbols:
                     print(f"\n📈 Analyzing {symbol}:")
                     
-                    # Run fresh analyses for this day
-                    print("  - Running valuation analysis...")
-                    valuation = self.valuation_agent.prepare_analysis_data(symbol)
+                    # Load pre-computed analyses that were available before this date
+                    print("  - Loading valuation analysis...")
+                    valuation = self._get_latest_analysis_before_date(
+                        symbol, 'technical', 'valuation_reports', current_date
+                    )
                     if valuation:
-                        self.valuation_agent.save_analysis(symbol, valuation)
-                        print("    ✓ Valuation complete")
+                        print("    ✓ Valuation loaded")
                     
-                    print("  - Running fundamental analysis...")
-                    fundamental = self.fundamental_agent.prepare_fundamental_analysis(symbol)
+                    print("  - Loading fundamental analysis...")
+                    fundamental = self._get_latest_analysis_before_date(
+                        symbol, 'fundamental', 'fundamental_reports', current_date
+                    )
                     if fundamental:
-                        self.fundamental_agent.save_analysis(symbol, fundamental)
-                        print("    ✓ Fundamental complete")
+                        print("    ✓ Fundamental loaded")
                     
-                    print("  - Running sentiment analysis...")
-                    sentiment = self.sentiment_agent.analyze_sentiment(symbol)
+                    print("  - Loading sentiment analysis...")
+                    sentiment = self._get_latest_analysis_before_date(
+                        symbol, 'sentiment', 'sentiment_data', current_date
+                    )
                     if sentiment:
-                        print("    ✓ Sentiment complete")
+                        print("    ✓ Sentiment loaded")
                     
                     # Only proceed if we have all analyses
                     if all([valuation, fundamental, sentiment]):
@@ -734,14 +567,13 @@ class BacktestOrchestrator:
                             'valuation_analysis': valuation,
                             'fundamental_analysis': fundamental,
                             'sentiment_analysis': sentiment,
-                            'date': date.strftime('%Y-%m-%d')
+                            'date': current_date
                         }
                         
                         # Get final decision from ReasoningAgent
-                        decision = self.run_with_retry(
-                            self.reasoning_agent,
-                            date,
-                            context=context
+                        decision = self.reasoning_agent.make_decision(
+                            symbol=symbol,
+                            analyses=context
                         )
                         
                         if decision:
@@ -750,11 +582,25 @@ class BacktestOrchestrator:
                         else:
                             print("    ⚠️  No decision made")
                     else:
-                        print("    ⚠️  Missing required analyses")
+                        missing = []
+                        if not valuation: missing.append("valuation")
+                        if not fundamental: missing.append("fundamental")
+                        if not sentiment: missing.append("sentiment")
+                        print(f"    ⚠️  Missing analyses: {', '.join(missing)}")
+                
+                # Calculate and track daily portfolio value using current day's opening prices
+                daily_value = self._calculate_portfolio_value(current_date)
+                self.daily_portfolio_values.append({
+                    'date': current_date,
+                    'portfolio_value': daily_value,
+                    'cash': self.portfolio['cash'],
+                    'positions': dict(self.portfolio['positions']),
+                    'trades': [h for h in self.portfolio['history'] if h.get('date', '').startswith(current_date)]
+                })
                 
                 # Print end of day summary
                 print("\n📊 End of Day Summary:")
-                print(f"  Portfolio Value: ${self._calculate_portfolio_value():,.2f}")
+                print(f"  Portfolio Value: ${daily_value:,.2f}")
                 print(f"  Cash Balance: ${self.portfolio['cash']:,.2f}")
                 if self.portfolio['positions']:
                     print("\n  Current Positions:")
@@ -764,53 +610,99 @@ class BacktestOrchestrator:
                     print("\n  No open positions")
                 print("\n" + "="*50)
             
-            # Calculate final statistics
-            initial_value = 1000000  # Starting cash
-            final_value = self._calculate_portfolio_value()
-            total_return = (final_value - initial_value) / initial_value * 100
-            
-            print("\n🏁 Backtest Complete!")
-            print("=" * 50)
-            print(f"Initial Value: ${initial_value:,.2f}")
-            print(f"Final Value: ${final_value:,.2f}")
-            print(f"Total Return: {total_return:.1f}%")
-            
-            if self.portfolio['positions']:
-                print("\nFinal Positions:")
-                for symbol, position in self.portfolio['positions'].items():
-                    print(f"  {symbol}: {position['shares']:,} shares @ ${position['cost_basis']:.2f}")
-            
-            # Save results
-            results = {
-                'initial_value': initial_value,
-                'final_value': final_value,
-                'total_return': total_return,
-                'history': self.portfolio['history'],
-                'final_positions': self.portfolio['positions'],
-                'cash_balance': self.portfolio['cash']
-            }
-            
-            with open('backtest_results.json', 'w') as f:
-                json.dump(results, f, indent=2)
-            
-            print("\nResults saved to backtest_results.json")
+            # Calculate comprehensive metrics
+            # self._calculate_metrics() # Removed as per edit hint
             
         except Exception as e:
             print(f"\n❌ Error during backtest: {str(e)}")
             self.error_handler.handle(e)
+
+    def _calculate_final_metrics(self):
+        """Calculate comprehensive portfolio performance metrics."""
+        initial_value = 1000000  # Starting cash
+        final_value = self._calculate_portfolio_value()  # Use cost basis for final calculation
+        
+        print("\n🏁 Backtest Complete!")
+        print("=" * 50)
+        print(f"Initial Value: ${initial_value:,.2f}")
+        print(f"Final Value: ${final_value:,.2f}")
+        
+        # S1.2.1. Cumulative Return (CR)
+        cumulative_return = ((final_value - initial_value) / initial_value) * 100
+        print(f"Cumulative Return: {cumulative_return:.2f}%")
+        
+        # S1.2.2. Annualized Return (AR)
+        days = len(self.daily_portfolio_values)
+        years = days / 365.25
+        annualized_return = (((final_value / initial_value) ** (1 / years)) - 1) * 100
+        print(f"Annualized Return: {annualized_return:.2f}%")
+        
+        # Calculate daily returns for risk metrics
+        portfolio_values = [pv['portfolio_value'] for pv in self.daily_portfolio_values]
+        daily_returns = []
+        for i in range(1, len(portfolio_values)):
+            daily_return = (portfolio_values[i] - portfolio_values[i-1]) / portfolio_values[i-1]
+            daily_returns.append(daily_return)
+        
+        if daily_returns:
+            # S1.2.3. Sharpe Ratio (SR)
+            risk_free_rate = 0.05  # 5% annual risk-free rate
+            daily_risk_free = risk_free_rate / 365.25
+            excess_returns = [r - daily_risk_free for r in daily_returns]
             
-    def _calculate_portfolio_value(self) -> float:
-        """Calculate total portfolio value including positions."""
-        total_value = self.portfolio['cash']
-        for symbol, position in self.portfolio['positions'].items():
-            total_value += position['shares'] * position['cost_basis']
-        return total_value
+            if np.std(daily_returns) > 0:
+                sharpe_ratio = np.mean(excess_returns) / np.std(daily_returns) * np.sqrt(365.25)
+                print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
+            else:
+                print("Sharpe Ratio: N/A (no volatility)")
+            
+            # S1.2.4. Maximum Drawdown (MDD)
+            running_max = np.maximum.accumulate(portfolio_values)
+            drawdowns = (np.array(portfolio_values) - running_max) / running_max
+            max_drawdown = np.min(drawdowns) * 100
+            print(f"Maximum Drawdown: {max_drawdown:.2f}%")
+            
+            # Additional metrics
+            volatility = np.std(daily_returns) * np.sqrt(365.25) * 100
+            print(f"Volatility: {volatility:.2f}%")
+        
+        # Trading metrics
+        total_trades = len(self.portfolio['history'])
+        print(f"Total Trades: {total_trades}")
+        
+        if self.portfolio['positions']:
+            print("\nFinal Positions:")
+            for symbol, position in self.portfolio['positions'].items():
+                print(f"  {symbol}: {position['shares']:,} shares @ ${position['cost_basis']:.2f}")
+        
+        # Save comprehensive results
+        results = {
+            'initial_value': initial_value,
+            'final_value': final_value,
+            'cumulative_return': cumulative_return,
+            'annualized_return': annualized_return,
+            'sharpe_ratio': sharpe_ratio if daily_returns and np.std(daily_returns) > 0 else None,
+            'max_drawdown': max_drawdown if daily_returns else None,
+            'volatility': volatility if daily_returns else None,
+            'total_trades': total_trades,
+            'daily_portfolio_values': self.daily_portfolio_values,
+            'transaction_history': self.portfolio['history'],
+            'final_positions': self.portfolio['positions'],
+            'cash_balance': self.portfolio['cash']
+        }
+        
+        results_file = os.path.join(self.data_dir, 'backtest_results.json')
+        with open(results_file, 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print(f"\nResults saved to {results_file}")
+        print("=" * 50)
 
 def main():
-    """Run backtest for all tracked stocks."""
+    """Run backtest with all stocks"""
     import argparse
     
-    # List of stocks to track
+    # List of all stocks to process
     STOCKS = [
         # Technology
         "GOOGL", "NVDA", "PLTR",
@@ -823,11 +715,14 @@ def main():
     ]
     
     parser = argparse.ArgumentParser(description="Run stock analysis backtest")
-    parser.add_argument("--data-dir", default=".", help="Base directory for data")
+    parser.add_argument("--data-dir", default="/home/ubuntu", help="Base directory for data")
+    parser.add_argument("--start-date", default="2025-06-12", help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--end-date", default="2025-06-15", help="End date (YYYY-MM-DD)")
     args = parser.parse_args()
     
-    orchestrator = BacktestOrchestrator(data_dir="backtest_data_90days")
-    orchestrator.run_workflow(STOCKS)
+    # Initialize and run orchestrator
+    orchestrator = BacktestOrchestrator(data_dir=args.data_dir)
+    orchestrator.run_workflow(STOCKS, start_date=args.start_date, end_date=args.end_date)
 
 if __name__ == "__main__":
-    main() 
+    main()

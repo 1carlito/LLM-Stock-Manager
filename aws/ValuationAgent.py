@@ -32,47 +32,117 @@ class ValuationAgent:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
             
+        self.data_dir = data_dir
         self.data_manager = DataManager(base_dir=data_dir)
-        self.output_dir = "valuation_reports"
+        self.output_dir = os.path.join(data_dir, "valuation_reports")
         os.makedirs(self.output_dir, exist_ok=True)
-        
-        # Set cutoff date
-        self.cutoff_date = datetime.strptime("2025-08-10", "%Y-%m-%d")
 
-    def _load_stock_data(self, symbol: str) -> Optional[Dict]:
-        """Load and filter technical data for a stock"""
+    def _load_stock_data(self, symbol: str, target_date: Optional[str] = None) -> Optional[Dict]:
+        """Load and filter technical data for a stock for a specific date"""
         try:
             raw_data = self.data_manager.load_stock_data(symbol)
             if not raw_data:
                 return None
             
-            # Filter historical prices before cutoff
-            filtered_prices = []
-            for price_data in raw_data['historical_prices']:
-                date = datetime.strptime(price_data['date'], "%Y-%m-%d")
-                if date <= self.cutoff_date:
-                    filtered_prices.append(price_data)
+            # If no target_date provided, use default behavior (first available data)
+            if target_date is None:
+                # Use the first available price data
+                filtered_prices = raw_data['historical_prices']
+                if not filtered_prices:
+                    return None
+                # Sort by date ascending to get the earliest data
+                filtered_prices.sort(key=lambda x: x['date'])
+                current_price = filtered_prices[0]['close']
+                target_data = filtered_prices[0]
+            else:
+                # Find data for the specific target date
+                target_data = None
+                for price_data in raw_data['historical_prices']:
+                    if price_data['date'] == target_date:
+                        target_data = price_data
+                        break
+                
+                if not target_data:
+                    # If exact date not found, find the closest date before target_date
+                    available_dates = [p for p in raw_data['historical_prices'] if p['date'] <= target_date]
+                    if not available_dates:
+                        return None
+                    available_dates.sort(key=lambda x: x['date'], reverse=True)
+                    target_data = available_dates[0]
+                
+                current_price = target_data['close']
             
-            # Sort by date descending
-            filtered_prices.sort(key=lambda x: x['date'], reverse=True)
+            # Get historical context (30 days before target date)
+            all_prices = raw_data['historical_prices']
+            all_prices.sort(key=lambda x: x['date'])
+            
+            # Find the index of our target data
+            target_index = None
+            for i, price_data in enumerate(all_prices):
+                if price_data['date'] == target_data['date']:
+                    target_index = i
+                    break
+            
+            if target_index is None:
+                return None
+            
+            # Get up to 30 days of historical data before target date
+            historical_start = max(0, target_index - 29)
+            historical_prices = all_prices[historical_start:target_index + 1]
+            
+            # Calculate price changes
+            price_change_1d = target_data['changePercent'] / 100 if 'changePercent' in target_data else 0
+            
+            price_change_5d = None
+            if len(historical_prices) > 5:
+                five_days_ago = historical_prices[-6]
+                price_change_5d = (current_price - five_days_ago['close']) / five_days_ago['close']
+            
+            price_change_1m = None
+            if len(historical_prices) > 20:
+                month_ago = historical_prices[-21]
+                price_change_1m = (current_price - month_ago['close']) / month_ago['close']
             
             technical_data = {
                 'symbol': raw_data['symbol'],
-                'current_price': filtered_prices[0]['close'],
-                'historical_prices': filtered_prices[:30],  # Last 30 days
-                'price_change_1d': filtered_prices[0]['changePercent'] / 100,
-                'price_change_5d': (filtered_prices[0]['close'] - filtered_prices[5]['close']) / filtered_prices[5]['close'] if len(filtered_prices) > 5 else None,
-                'price_change_1m': (filtered_prices[0]['close'] - filtered_prices[20]['close']) / filtered_prices[20]['close'] if len(filtered_prices) > 20 else None,
-                'volume': filtered_prices[0]['volume'],
-                'avg_volume': sum(p['volume'] for p in filtered_prices[:20]) / min(20, len(filtered_prices)),
-                'beta': raw_data['beta'],
-                'sector': raw_data['sector']
+                'current_price': current_price,
+                'date': target_data['date'],
+                'historical_prices': historical_prices,
+                'price_change_1d': price_change_1d,
+                'price_change_5d': price_change_5d,
+                'price_change_1m': price_change_1m,
+                'volume': target_data['volume'],
+                'avg_volume': sum(p['volume'] for p in historical_prices[-20:]) / min(20, len(historical_prices)),
+                'beta': raw_data.get('beta', 1.0),
+                'sector': raw_data.get('sector', 'Unknown')
             }
             return technical_data
                 
         except Exception as e:
             print(f"Error loading data for {symbol}: {str(e)}")
             return None
+
+    def analyze_valuation(self, symbol: str, date=None) -> Optional[Dict]:
+        """
+        Analyze valuation for a specific stock and date.
+        This method is called by the backtest orchestrator.
+        
+        Args:
+            symbol: Stock symbol to analyze
+            date: Target date for analysis (pandas Timestamp or string)
+            
+        Returns:
+            Dict with valuation analysis or None if no data available
+        """
+        # Convert date to string format if it's a pandas Timestamp
+        target_date = None
+        if date is not None:
+            if hasattr(date, 'strftime'):
+                target_date = date.strftime('%Y-%m-%d')
+            else:
+                target_date = str(date)
+        
+        return self.prepare_analysis_data(symbol, target_date)
 
     def _analyze_with_gpt(self, analysis_data: Dict) -> Dict:
         """Use GPT-3.5 to analyze the valuation data"""
@@ -81,10 +151,11 @@ class ValuationAgent:
             Symbol: {analysis_data['symbol']}
             Sector: {analysis_data['sector']}
             Current Price: ${analysis_data['current_price']}
+            Date: {analysis_data.get('date', 'N/A')}
             Price Changes:
             - Daily: {analysis_data['price_trends']['daily_change']:.2%}
-            - 5 Day: {analysis_data['price_trends']['five_day_change']:.2%}
-            - Monthly: {analysis_data['price_trends']['monthly_change']:.2%}
+            - 5 Day: {analysis_data['price_trends']['five_day_change']:.2%} if available
+            - Monthly: {analysis_data['price_trends']['monthly_change']:.2%} if available
             Volume Ratio: {analysis_data['volume_analysis']['volume_ratio']:.2f}x average
             Beta: {analysis_data['volatility']['beta']}
 
@@ -113,9 +184,9 @@ class ValuationAgent:
             analysis_data['gpt_analysis'] = f"Error during analysis: {str(e)}"
             return analysis_data
 
-    def prepare_analysis_data(self, symbol: str) -> Optional[Dict]:
+    def prepare_analysis_data(self, symbol: str, target_date: Optional[str] = None) -> Optional[Dict]:
         """Prepare technical analysis data for LLM"""
-        data = self._load_stock_data(symbol)
+        data = self._load_stock_data(symbol, target_date)
         if not data:
             return None
 
@@ -127,10 +198,11 @@ class ValuationAgent:
             'symbol': data['symbol'],
             'sector': data['sector'],
             'current_price': data['current_price'],
+            'date': data.get('date'),
             'price_trends': {
-                'daily_change': data['price_change_1d'],
-                'five_day_change': data['price_change_5d'],
-                'monthly_change': data['price_change_1m']
+                'daily_change': data['price_change_1d'] or 0,
+                'five_day_change': data['price_change_5d'] or 0,
+                'monthly_change': data['price_change_1m'] or 0
             },
             'volume_analysis': {
                 'current_volume': current_volume,
@@ -140,7 +212,7 @@ class ValuationAgent:
             'volatility': {
                 'beta': data['beta']
             },
-            'historical_data': data['historical_prices'][:30]  # Last 30 days
+            'historical_data': data['historical_prices'][-30:]  # Last 30 days
         }
         
         # Get GPT analysis
@@ -166,14 +238,16 @@ def main():
     parser = argparse.ArgumentParser(description="Technical analysis for stock valuation")
     parser.add_argument("symbol", help="Stock symbol to analyze")
     parser.add_argument("--data-dir", default=".", help="Directory containing stock data")
+    parser.add_argument("--date", help="Target date for analysis (YYYY-MM-DD)")
     
     args = parser.parse_args()
     
     agent = ValuationAgent(data_dir=args.data_dir)
-    analysis = agent.prepare_analysis_data(args.symbol)
+    analysis = agent.prepare_analysis_data(args.symbol, args.date)
     
     if analysis:
         print(f"\nAnalysis completed for {args.symbol}")
+        print(f"Date: {analysis.get('date', 'N/A')}")
         print(f"Current Price: ${analysis['current_price']:.2f}")
         print(f"Daily Change: {analysis['price_trends']['daily_change']:.2%}")
         print(f"Volume Ratio: {analysis['volume_analysis']['volume_ratio']:.2f}x average")

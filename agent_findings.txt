@@ -1,0 +1,183 @@
+=== Backtest Performance Analysis ===
+
+
+This analysis compares the performance of three different LLM agents (GPT, Claude, and Gemini) on the same stock trading backtest from June 12 to August 29, 2025.
+
+Methodology:
+- Initial Portfolio Value: $1,000,000
+- Risk-Free Rate: 5.5% (annual)
+- Trading Universe: GOOGL, NVDA, PLTR, ABBV, TMO, UNH, JPM
+- Data Source: FMP API (historical prices, financials, news)
+
+Metrics Explanation:
+1. Cumulative Return (CR): Total percentage return over the entire period
+2. Annualized Return (AR): Return normalized to annual basis
+3. Sharpe Ratio (SR): Risk-adjusted return relative to risk-free rate
+4. Maximum Drawdown (MDD): Largest peak-to-trough decline
+5. Volatility: Annualized standard deviation of returns
+6. Win Rate: Percentage of days with positive returns
+
+
+=== GPT Backtest Analysis ===
+Period: 2025-06-12 to 2025-08-29
+Trading Days: 149
+
+Key Metrics:
+1. Cumulative Return: 17.75%
+2. Annualized Return: 49.23%
+3. Sharpe Ratio: 1.38
+4. Maximum Drawdown: 14.70%
+
+Additional Metrics:
+- Volatility (Annualized): 28.36%
+- Win Rate: 45.64%
+- Number of Trades: 24
+
+Trade Summary:
+- Buy Trades: 23
+- Sell Trades: 1
+
+
+=== Claude Backtest Analysis ===
+Period: 2025-06-12 to 2025-08-29
+Trading Days: 55
+
+Key Metrics:
+1. Cumulative Return: 18.91%
+2. Annualized Return: 215.64%
+3. Sharpe Ratio: 4.88
+4. Maximum Drawdown: 4.27%
+
+Additional Metrics:
+- Volatility (Annualized): 23.48%
+- Win Rate: 63.64%
+- Number of Trades: 10
+
+Trade Summary:
+- Buy Trades: 10
+- Sell Trades: 0
+
+
+=== Gemini Backtest Analysis ===
+Period: 2025-06-12 to 2025-08-29
+Trading Days: 78
+
+Key Metrics:
+1. Cumulative Return: 16.98%
+2. Annualized Return: 108.35%
+3. Sharpe Ratio: 3.59
+4. Maximum Drawdown: 5.46%
+
+Additional Metrics:
+- Volatility (Annualized): 19.40%
+- Win Rate: 61.11%
+- Number of Trades: 19
+
+Trade Summary:
+- Buy Trades: 17
+- Sell Trades: 2
+
+Formula Details:
+CR = (Vend - Vstart) / Vstart × 100%
+AR = ((Vend/Vstart)^(1/N) - 1) × 100%
+SR = (R̄ - Rf) / σ
+MDD = max(Peak - Trough) / Peak × 100%
+
+
+Notes:
+- All returns are calculated using daily portfolio values
+- Sharpe ratio uses daily returns scaled to annual basis
+- Maximum drawdown considers daily portfolio values
+- Transaction costs and slippage are not included
+
+Comparative Analysis:
+1. Returns
+   - All three agents achieved positive returns (GPT: 17.75%, Claude: 18.91%, Gemini: 16.98%)
+   - Claude showed the highest cumulative return at 18.91%
+   - Annualized returns vary significantly due to different trading day counts
+
+2. Risk Metrics
+   - Claude had the best Sharpe ratio (4.88) and second-lowest drawdown (4.27%)
+   - GPT showed highest volatility (28.36%) and largest drawdown (14.70%)
+   - Gemini had the lowest volatility (19.40%) but moderate drawdown (5.46%)
+
+3. Trading Activity
+   - GPT was most active with 24 trades (23 buys, 1 sell)
+   - Gemini showed balanced trading with 19 trades (17 buys, 2 sells)
+   - Claude was most conservative with 10 trades (all buys)
+
+4. Data Considerations
+   - GPT completed full period (149 days)
+   - Gemini covered 78 days
+   - Claude covered 55 days
+   - Trading frequency varies (GPT: 0.16 trades/day, Claude: 0.18 trades/day, Gemini: 0.24 trades/day)
+
+5. Key Observations
+   - All strategies outperformed risk-free rate (5.5% annual)
+   - Limited sell activity across all agents suggests strong bull market bias
+   - Different trading periods affect metric comparability
+   - Risk-adjusted returns (Sharpe) favor Claude and Gemini over GPT
+
+
+
+
+   Single stock Performance Dec 27th 24 - Sep 18th 2025 PLTR
+
+      Portfolio Performance Summary
+
+      Starting Value: $1,000,000.00
+      Final Value: $2,092,950.03
+      Total Return: $1,092,950.03 (+109.30%)
+
+      💰 Final Portfolio Breakdown
+      Cash: $132,653.34
+      Shares Held: 11,077 shares @ $176.97
+      Position Value: $1,960,296.69
+
+      📈 Trading Statistics
+      Total Decisions: 55 (29 BUY, 26 SELL, 0 HOLD)
+      Executed Trades: 16
+      BUY trades: 13
+      SELL trades: 3
+
+      Win Rate: 33.3% (1 out of 3 closed positions profitable)
+      Total Profit from Closed Trades: $116,944.90
+      Average Profit per Trade: $38,981.63
+
+      🎯 Key Insights
+      Strong Buy-and-Hold Strategy: The strategy executed only 3 sell trades, with most of the return coming from holding a large position that appreciated from ~$77-98 to $176.97
+      Best Trade: Sold 8,978 shares on Feb 24, 2025 at $90.68, capturing a profit of $117,915.74
+      Cash Constraint: After April, the strategy wanted to keep buying but ran out of cash (multiple "insufficient cash" warnings). This is actually good discipline - it prevented over-leveraging.
+      Current Unrealized Gain: The final position of 11,077 shares represents a massive unrealized gain as PLTR went from average buy price of ~$88 to $176.97
+      Trading Periods:
+      Jan: Sold early at $100 (missed initial move)
+      Jan 22 - Feb 24: Built position at $71-82, sold at $90 (+18% gain)
+      Apr 7-30: Re-entered at $77-114 and held through to $176.97 (+53-130% unrealized gain)
+      The strategy captured PLTR's 2025 rally very effectively, doubling the portfolio value in ~9 months! 🚀
+
+
+
+      Final NVO Backtest Results:
+      📅 Test Period: January 2, 2025 to September 18, 2025
+
+      💰 Performance:
+      Starting Value: $1,000,000.00
+      Final Value: $744,384.57
+      Total Return: -$255,615.43 (-25.56%)
+      
+      📊 Final Position:
+      Shares Held: 10,482 shares
+      Average Cost: $59.44 per share
+      Current Price (Sep 18): $70.00
+      Unrealized Profit: +$110,699.00 (+17.77%)
+      Cash: $10,644.57
+      
+      🔄 Trading Summary:
+      BUY trades: 24
+      SELL trades: 3 (all at losses totaling -$366,314)
+      Total trades: 27
+      
+      Key Takeaway:
+      The agent currently holds 10,482 shares with an average cost of $59.44 and the price on September 18 was $70.00,
+      giving an unrealized gain of +17.77% on the current position.
+      However, the overall portfolio is down -25.56% due to the three SELL trades that locked in large losses ($126K, $125K, and $114K).

@@ -1,175 +1,137 @@
 """
 Reasoning Agent
-==============
+=============
 
-Aggregates and analyzes outputs from Valuation, Fundamental, and Sentiment agents
-to make final trading decisions using LLM reasoning.
+Makes final trading decisions by analyzing outputs from all other agents.
 """
 
 import os
 import json
-from typing import Dict, Optional, List
+import logging
 from datetime import datetime
-from data_utils import DataManager
-import openai
-import openai
+from typing import Dict, Optional, List, Any
 from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
+import openai
 
 class ReasoningAgent:
     """
-    Meta-agent that combines analyses from other agents and makes final trading decisions
-    using LLM-based reasoning that considers all available information.
+    Makes final trading decisions by analyzing all available data.
+    Uses LLM to reason about valuation, fundamental, and sentiment analyses.
     """
     
-    def __init__(self, data_dir: str = ".", api_key: Optional[str] = None):
+    def __init__(self, data_dir: str = ".", api_key: str = None):
         """
-        Initialize the Reasoning Agent
+        Initialize reasoning agent.
         
         Args:
-            data_dir: Base directory containing analysis data
-            api_key: OpenAI API key. If None, will try to get from OPENAI_API_KEY environment variable
+            data_dir: Base directory for data files
+            api_key: OpenAI API key (optional, will use env var if not provided)
         """
-        self.data_manager = DataManager(base_dir=data_dir)
-        self.output_dir = "reasoning_decisions"
-        os.makedirs(self.output_dir, exist_ok=True)
+        load_dotenv()
+        self.data_dir = data_dir
         
-        # Directories for other agents' analysis files
-        self.valuation_dir = "valuation_reports"
-        self.fundamental_dir = "fundamental_reports"
-        self.sentiment_dir = "sentiment_data"
+        # Set up logging
+        self.logger = logging.getLogger('reasoning_agent')
+        self.logger.setLevel(logging.INFO)
         
-        # Initialize OpenAI client
+        # Create logs directory if it doesn't exist
+        log_dir = os.path.join(data_dir, 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # File handler
+        file_handler = logging.FileHandler(os.path.join(log_dir, 'reasoning_agent.log'))
+        file_handler.setLevel(logging.INFO)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # Formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
+        
+        # Set up OpenAI client
         openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
-    
-    def _load_latest_analysis(self, symbol: str, analysis_type: str, directory: str) -> Optional[Dict]:
-        """Load the latest analysis file of a specific type"""
-        try:
-            # Look for analysis files matching the pattern
-            pattern = f"{symbol}_{analysis_type}_analysis_*.json"
-            files = []
+        if not openai.api_key:
+            raise ValueError("OpenAI API key is required")
             
-            # List all matching files in the directory
-            for file in os.listdir(directory):
-                if file.startswith(f"{symbol}_{analysis_type}_analysis_") and file.endswith(".json"):
-                    files.append(os.path.join(directory, file))
-            
-            if not files:
-                print(f"No {analysis_type} analysis found for {symbol}")
-                return None
-            
-            # Sort by modification time to get the latest
-            latest_file = max(files, key=os.path.getmtime)
-            
-            with open(latest_file, 'r') as f:
-                return json.load(f)
-                
-        except Exception as e:
-            print(f"Error loading {analysis_type} analysis: {str(e)}")
-            return None
-    
-    def _load_all_analyses(self, symbol: str) -> Dict:
-        """Load latest analyses from all agents"""
-        analyses = {
-            'valuation': self._load_latest_analysis(symbol, 'technical', self.valuation_dir),
-            'fundamental': self._load_latest_analysis(symbol, 'fundamental', self.fundamental_dir),
-            'sentiment': self._load_latest_analysis(symbol, 'sentiment', self.sentiment_dir)
-        }
-        
-        # Add metadata
-        analyses['meta'] = {
-            'symbol': symbol,
-            'timestamp': datetime.now().isoformat(),
-            'available_analyses': [k for k, v in analyses.items() if v is not None and k != 'meta']
-        }
-        
-        return analyses
+        self.output_dir = os.path.join(data_dir, "reasoning_decisions")
+        os.makedirs(self.output_dir, exist_ok=True)
     
     def _prepare_llm_prompt(self, analyses: Dict) -> str:
-        """Prepare prompt for LLM reasoning"""
-        symbol = analyses['valuation_analysis']['symbol']
+        """
+        Prepare prompt for LLM reasoning.
+        
+        Args:
+            analyses: Dictionary containing all agent analyses
+            
+        Returns:
+            Formatted prompt string
+        """
+        # Extract components
+        valuation = analyses['valuation_analysis']
+        fundamental = analyses['fundamental_analysis']
+        sentiment = analyses['sentiment_analysis']
         date = analyses['date']
         
+        # Build prompt
         prompt = f"""
-You are a master trading strategist tasked with making a final trading decision for {symbol} stock on {date}.
-You have access to the following analyses:
+You are a professional stock market analyst and trading strategist.
+Today is {date}. Please analyze the following data and make a trading decision:
 
-"""
-        # Add valuation analysis
-        valuation = analyses['valuation_analysis']
-        prompt += f"""
-TECHNICAL ANALYSIS:
+VALUATION ANALYSIS:
 - Current Price: ${valuation.get('current_price', 0):.2f}
 - Price Trends:
   * Daily Change: {valuation.get('price_trends', {}).get('daily_change', 0):.1%}
   * 5-Day Change: {valuation.get('price_trends', {}).get('five_day_change', 0):.1%}
   * Monthly Change: {valuation.get('price_trends', {}).get('monthly_change', 0):.1%}
-- Volume: {valuation.get('volume_analysis', {}).get('volume_ratio', 0):.1f}x average
+- Volume: {valuation.get('volume_analysis', {}).get('current_volume', 0):,.0f} ({valuation.get('volume_analysis', {}).get('volume_ratio', 0):.1f}x average)
+- Market Cap: ${fundamental.get('company_info', {}).get('market_cap', 0):,.0f}
+- P/E Ratio: {fundamental.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('pe_ratio', 0):.1f}
 - Beta: {valuation.get('volatility', {}).get('beta', 0):.2f}
-- Technical Analysis: {valuation.get('gpt_analysis', 'No analysis available')}
-"""
 
-        # Add fundamental analysis
-        fundamental = analyses['fundamental_analysis']
-        company_info = fundamental.get('company_info', {})
-        fund_analysis = fundamental.get('fundamental_analysis', {})
-        profitability = fund_analysis.get('profitability', {}).get('metrics', {})
-        financial_health = fund_analysis.get('financial_health', {}).get('metrics', {})
-        valuation_metrics = fund_analysis.get('valuation_metrics', {}).get('metrics', {})
-        recommendation = fundamental.get('trading_recommendation', {})
-        
-        prompt += f"""
 FUNDAMENTAL ANALYSIS:
-- Company Info:
-  * Name: {company_info.get('company_name', 'Unknown')}
-  * Sector: {company_info.get('sector', 'Unknown')}
-  * Market Cap: ${company_info.get('market_cap', 0):,.0f}
-- Profitability:
-  * Revenue: ${profitability.get('revenue', 0):,.0f}
-  * Net Income: ${profitability.get('net_income', 0):,.0f}
-  * Net Profit Margin: {profitability.get('net_profit_margin', 0):.1%}
 - Financial Health:
-  * Current Ratio: {financial_health.get('current_ratio', 0):.2f}
-  * Debt/Equity: {financial_health.get('debt_to_equity', 0):.2f}
+  * Revenue: ${fundamental.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('revenue', 0):,.0f}
+  * Net Income: ${fundamental.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('net_income', 0):,.0f}
+  * Profit Margin: {fundamental.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('net_profit_margin', 0):.1%}
+  * Debt/Equity: {fundamental.get('fundamental_analysis', {}).get('financial_health', {}).get('metrics', {}).get('debt_to_equity', 0):.2f}
+- Growth:
+  * Revenue Growth: {fundamental.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('revenue_growth', 0):.1%}
+  * Net Income Growth: {fundamental.get('fundamental_analysis', {}).get('profitability', {}).get('metrics', {}).get('net_income_growth', 0):.1%}
 - Valuation:
-  * P/E Ratio: {valuation_metrics.get('pe_ratio', 0):.2f}
-  * EPS: ${valuation_metrics.get('eps', 0):.2f}
-- Recommendation: {recommendation.get('recommendation', 'No recommendation available')}
-"""
+  * EPS: ${fundamental.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('eps', 0):.2f}
+  * Dividend Yield: {fundamental.get('fundamental_analysis', {}).get('valuation_metrics', {}).get('metrics', {}).get('dividend_yield', 0):.1%}
 
-        # Add sentiment analysis
-        sentiment = analyses['sentiment_analysis']
-        price_context = sentiment.get('price_context', {})
-        news_data = sentiment.get('news_data', {})
-        current_analysis = sentiment.get('current_analysis', {})
-        
-        prompt += f"""
-        
 SENTIMENT ANALYSIS:
-- Price Context:
-  * Current Price: ${price_context.get('current_price', 0):.2f}
-  * Volume: {price_context.get('volume', 0):,.0f}
-- News Analysis: {len(news_data.get('news_data', {}).get('news', []))} articles analyzed
-- Sentiment Decision:
-  * Decision: {current_analysis.get('decision', 'No decision')}
-  * Confidence: {current_analysis.get('confidence', 0)}%
-  * Reasoning: {current_analysis.get('reasoning', 'No reasoning available')}
+- Current Price: ${sentiment.get('price_context', {}).get('current_price', 0):.2f}
+- Volume: {sentiment.get('price_context', {}).get('volume', 0):,.0f}
+- Recent News:
 """
-
+        # Add recent news headlines
+        news = sentiment.get('news_data', {}).get('parsed_results', {}).get(valuation['symbol'], {}).get('news', [])
+        for article in news[:3]:  # Show top 3 headlines
+            prompt += f"  * {article.get('title', 'No title')} ({article.get('date', 'No date')})\n"
+        
+        # Add fundamental recommendation
+        prompt += f"\nFUNDAMENTAL RECOMMENDATION:\n{fundamental.get('trading_recommendation', {}).get('recommendation', 'No recommendation available')}\n"
+        
         prompt += """
-Based on all available analyses, please provide:
-1. A final risk neutral trading decision (BUY, SELL, or HOLD)
+Based on this comprehensive analysis, please provide:
+1. A clear BUY/SELL/HOLD decision
 2. Confidence level (0-100%)
-3. Comprehensive reasoning that considers all available data
+3. Detailed reasoning that considers all available data
 4. Key risks to your recommendation
 
-Your response should follow this exact format:
+Format your response exactly as:
 DECISION: [BUY/SELL/HOLD]
 CONFIDENCE: [0-100]
 REASONING:
-[Your detailed reasoning here, considering all available analyses]
+[Your detailed reasoning here]
 KEY RISKS:
 - [Risk 1]
 - [Risk 2]
@@ -179,7 +141,7 @@ KEY RISKS:
     
     def _call_llm(self, prompt: str) -> Optional[str]:
         """
-        Call LLM API for reasoning
+        Call LLM API for reasoning.
         
         Args:
             prompt: The prepared prompt for analysis
@@ -188,30 +150,49 @@ KEY RISKS:
             The LLM's response as a string, or None if the call fails
         """
         try:
+            self.logger.info("\n🤖 Calling o3 API for reasoning...")
+            self.logger.info("=" * 50)
+            self.logger.info("\nPrompt:")
+            self.logger.info("-" * 30)
+            self.logger.info(prompt)
+            self.logger.info("-" * 30)
+            
+            # Log API configuration
+            self.logger.info(f"Using API key ending in: ...{openai.api_key[-4:]}")
+            self.logger.info("Making API call with model: o3")
+            
             response = openai.ChatCompletion.create(
-                model="o3",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a professional stock market analyst and trading strategist. Your task is to analyze market data and make trading decisions based on technical, fundamental, and sentiment analysis."},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=2000
+                max_tokens=2000
             )
             
+            self.logger.info("\n✅ API call successful!")
+            self.logger.info("Response:")
+            self.logger.info("-" * 30)
+            self.logger.info(response.choices[0].message.content)
+            self.logger.info("-" * 30)
             return response.choices[0].message.content
             
         except Exception as e:
-            print(f"Error calling API: {str(e)}")
-            return None
+            error_msg = f"❌ Error calling API: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.error("API call details:")
+            self.logger.error(f"  - Model: o3")
+            self.logger.error(f"  - API key present: {'Yes' if openai.api_key else 'No'}")
+            self.logger.error(f"  - Error type: {type(e).__name__}")
+            self.logger.error(f"  - Full error: {str(e)}")
+            raise RuntimeError(error_msg) from e
     
     def _parse_llm_response(self, response: str) -> Dict:
         """Parse LLM response into structured format"""
         if not response:
-            return {
-                'decision': 'HOLD',
-                'confidence': 0,
-                'reasoning': 'Failed to get LLM response',
-                'risks': []
-            }
+            error_msg = "No response from LLM to parse"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
             
         try:
             # Split response into sections
@@ -242,17 +223,14 @@ KEY RISKS:
             }
             
         except Exception as e:
-            print(f"Error parsing LLM response: {str(e)}")
-            return {
-                'decision': 'HOLD',
-                'confidence': 0,
-                'reasoning': 'Failed to parse LLM response',
-                'risks': []
-            }
+            error_msg = f"Error parsing LLM response: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.error(f"Response to parse: {response}")
+            raise ValueError(error_msg) from e
     
     def make_decision(self, symbol: str, analyses: Dict) -> Optional[Dict]:
         """
-        Make final trading decision based on all available analyses
+        Make final trading decision based on all available analyses.
         
         Args:
             symbol: Stock symbol to analyze
@@ -262,6 +240,9 @@ KEY RISKS:
             Dictionary containing final decision and reasoning
         """
         try:
+            self.logger.info(f"\n📊 Making decision for {symbol}...")
+            self.logger.info("=" * 50)
+            
             # Prepare prompt for LLM
             prompt = self._prepare_llm_prompt(analyses)
             
@@ -285,18 +266,21 @@ KEY RISKS:
             }
             
             # Save decision
-            self.data_manager.save_analysis_result(
-                symbol=symbol,
-                analysis_data=final_decision,
-                analysis_type='reasoning',
-                output_dir=self.output_dir
-            )
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{symbol}_reasoning_analysis_{timestamp}.json"
+            filepath = os.path.join(self.output_dir, filename)
             
+            os.makedirs(self.output_dir, exist_ok=True)
+            with open(filepath, 'w') as f:
+                json.dump(final_decision, f, indent=2)
+            
+            self.logger.info(f"Analysis saved to {filepath}")
             return final_decision
             
         except Exception as e:
-            print(f"Error making decision for {symbol}: {str(e)}")
-            return None
+            error_msg = f"Error making decision for {symbol}: {str(e)}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
 
 def main():
     """Example usage of ReasoningAgent"""
@@ -310,12 +294,6 @@ def main():
     args = parser.parse_args()
     
     agent = ReasoningAgent(data_dir=args.data_dir, api_key=args.api_key)
-    # The original main function called agent.make_decision(args.symbol)
-    # This will now require passing analyses to the make_decision method.
-    # For a simple example, we'll just call it without analyses for now,
-    # but in a real scenario, you'd load analyses first.
-    # For now, we'll simulate loading analyses or pass a dummy structure.
-    # A more robust example would involve loading all analysis files for the symbol.
     
     # Simulate loading analyses for the example
     analyses = {
@@ -345,16 +323,10 @@ def main():
     decision = agent.make_decision(args.symbol, analyses)
     
     if decision:
-        print(f"\nFinal Decision for {args.symbol}:")
-        print(f"Action: {decision['decision']}")
-        print(f"Confidence: {decision['confidence']}%")
-        print("\nReasoning:")
-        print(decision['reasoning'])
-        print("\nKey Risks:")
-        for risk in decision['risks']:
-            print(f"- {risk}")
+        print("\nFinal Decision:")
+        print(json.dumps(decision, indent=2))
     else:
-        print(f"Could not make decision for {args.symbol}")
+        print("\nNo decision made")
 
 if __name__ == "__main__":
-    main() 
+    main()

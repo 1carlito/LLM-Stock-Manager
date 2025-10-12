@@ -13,7 +13,7 @@ if ! aws sts get-caller-identity &> /dev/null; then
 fi
 
 # Set variables
-STACK_NAME="stock-agent-backtest"
+STACK_NAME="stock-agent-backtest-fresh"
 REGION="eu-west-2"
 ENVIRONMENT="prod"
 

@@ -7,6 +7,7 @@ Process collected stock data through all agents to create initial analyses.
 
 import os
 import json
+import argparse
 from datetime import datetime
 from typing import List
 
@@ -14,16 +15,15 @@ from ValuationAgent import ValuationAgent
 from FundamentalAgent import FundamentalAgent
 from SentimentAgent import SentimentAgent
 
-# List of all stocks to process
+# List of all stocks to process - Core 7 stocks for focused analysis
 STOCKS = [
-    # Technology
-    "GOOGL", "NVDA", "PLTR",
-    # Health and Pharma
-    "ABBV", "TMO", "UNH",
-    # Financial Services
-    "JPM", "BAC", "WFC",
-    # Energy
-    "XOM", "CVX", "COP"
+    "GOOGL",  # Alphabet Inc.
+    "NVDA",   # NVIDIA Corporation  
+    "PLTR",   # Palantir Technologies Inc.
+    "ABBV",   # AbbVie Inc.
+    "UNH",    # UnitedHealth Group Incorporated
+    "JPM",    # JPMorgan Chase & Co.
+    "RKLB"    # Rocket Lab USA, Inc.
 ]
 
 def process_stock(symbol: str):
@@ -31,10 +31,11 @@ def process_stock(symbol: str):
     print(f"\nProcessing {symbol}:")
     
     try:
-        # Initialize agents
-        valuation_agent = ValuationAgent()
-        fundamental_agent = FundamentalAgent()
-        sentiment_agent = SentimentAgent()
+        # Initialize agents with live_trades directory
+        data_dir = "live_trades"
+        valuation_agent = ValuationAgent(data_dir=data_dir)
+        fundamental_agent = FundamentalAgent(data_dir=data_dir)
+        sentiment_agent = SentimentAgent(data_dir=data_dir)
         
         # Run analyses
         print("- Running valuation analysis...")
@@ -43,18 +44,21 @@ def process_stock(symbol: str):
             valuation_agent.save_analysis(symbol, valuation)
             print("  ✓ Valuation analysis complete")
         
+        # Run fundamental analysis
         print("- Running fundamental analysis...")
-        fundamental = fundamental_agent.prepare_fundamental_analysis(symbol)
-        if fundamental:
-            fundamental_agent.save_analysis(symbol, fundamental)
+        fundamental_result = fundamental_agent.analyze_fundamentals(symbol)
+        if fundamental_result:
             print("  ✓ Fundamental analysis complete")
+        else:
+            print("  ✗ Fundamental analysis failed")
+            failed = True
         
         print("- Running sentiment analysis...")
-        sentiment = sentiment_agent.analyze_sentiment(symbol)
+        sentiment = sentiment_agent.analyze_sentiment(symbol, "2025-09-19")  # Updated to present date
         if sentiment:
             print("  ✓ Sentiment analysis complete")
         
-        if all([valuation, fundamental, sentiment]):
+        if all([valuation, fundamental_result, sentiment]):
             print(f"✅ Successfully processed {symbol}")
             return True
         else:
@@ -66,26 +70,37 @@ def process_stock(symbol: str):
         return False
 
 def main():
-    """Process all stocks through the agents."""
-    print(f"Starting processing of {len(STOCKS)} stocks")
-    print("=" * 40)
+    """Process stocks through the agents."""
+    parser = argparse.ArgumentParser(description="Process stock data through analysis agents")
+    parser.add_argument("--symbol", help="Process a single stock symbol")
+    args = parser.parse_args()
     
-    successful = []
-    failed = []
-    
-    for symbol in STOCKS:
-        if process_stock(symbol):
-            successful.append(symbol)
-        else:
-            failed.append(symbol)
-    
-    print("\nProcessing Complete")
-    print("=" * 40)
-    print(f"Successful: {len(successful)}/{len(STOCKS)}")
-    if successful:
-        print("Successful stocks:", ", ".join(successful))
-    if failed:
-        print("Failed stocks:", ", ".join(failed))
+    if args.symbol:
+        # Process single stock
+        print(f"Processing single stock: {args.symbol}")
+        print("=" * 40)
+        process_stock(args.symbol)
+    else:
+        # Process all stocks
+        print(f"Starting processing of {len(STOCKS)} stocks")
+        print("=" * 40)
+        
+        successful = []
+        failed = []
+        
+        for symbol in STOCKS:
+            if process_stock(symbol):
+                successful.append(symbol)
+            else:
+                failed.append(symbol)
+        
+        print("\nProcessing Complete")
+        print("=" * 40)
+        print(f"Successful: {len(successful)}/{len(STOCKS)}")
+        if successful:
+            print("Successful stocks:", ", ".join(successful))
+        if failed:
+            print("Failed stocks:", ", ".join(failed))
 
 if __name__ == "__main__":
-    main() 
+    main()

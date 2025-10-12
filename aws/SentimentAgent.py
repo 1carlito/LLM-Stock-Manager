@@ -9,11 +9,10 @@ Maintains history of decisions and reasoning for continuous learning.
 
 import os
 import json
+import glob
 from datetime import datetime
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-from llm_news_search import LLMNewsSearcher
-from data_utils import DataManager
 import openai
 
 class SentimentAgent:
@@ -30,35 +29,105 @@ class SentimentAgent:
             data_dir: Directory to store sentiment data
         """
         load_dotenv()
-        self.data_manager = DataManager(base_dir=data_dir)
-        self.output_dir = "sentiment_data"
+        self.data_dir = data_dir
+        self.output_dir = os.path.join(data_dir, "sentiment_data")
+        self.news_data_dir = os.path.join(data_dir, "news_data")
         os.makedirs(self.output_dir, exist_ok=True)
         
-        # Initialize OpenAI client for both news search and sentiment analysis
+        # Initialize OpenAI client for sentiment analysis
         openai_api_key = os.getenv("OPENAI_API_KEY")
         if not openai_api_key:
             raise ValueError("OpenAI API key is required")
         
-        # Use same client for both news search and sentiment analysis
         openai.api_key = openai_api_key
-        self.news_searcher = LLMNewsSearcher(api_key=openai_api_key)
         self.model = "gpt-3.5-turbo"  # Using GPT-3.5 for sentiment analysis
+
+    def _parse_news_date(self, date_str: str) -> Optional[datetime]:
+        """Parse news date string into datetime object."""
+        try:
+            # Try DD/MM/YYYY format
+            return datetime.strptime(date_str, "%d/%m/%Y")
+        except ValueError:
+            try:
+                # Try YYYY-MM-DD format
+                return datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                print(f"Warning: Could not parse date string: {date_str}")
+                return None
+
+    def _filter_news_by_date(self, news_data: Dict, current_date: str) -> Dict:
+        """Filter news to only include articles up to the current trading date."""
+        try:
+            current_dt = datetime.strptime(current_date, "%Y-%m-%d")
+            filtered_data = news_data.copy()
+            
+            # Filter news for each symbol
+            for symbol in filtered_data.get('parsed_results', {}).keys():
+                if 'news' in filtered_data['parsed_results'][symbol]:
+                    filtered_news = []
+                    for article in filtered_data['parsed_results'][symbol]['news']:
+                        article_date = self._parse_news_date(article['date'])
+                        if article_date and article_date <= current_dt:
+                            filtered_news.append(article)
+                    
+                    filtered_data['parsed_results'][symbol]['news'] = filtered_news
+                    print(f"Filtered news for {symbol}: {len(filtered_news)} articles on or before {current_date}")
+            
+            return filtered_data
+            
+        except Exception as e:
+            print(f"Error filtering news by date: {str(e)}")
+            return news_data
+
+    def _load_manual_news_data(self, symbol: str, current_date: str) -> Optional[Dict]:
+        """Load manually scraped news data for a stock up to current_date"""
+        try:
+            # Look for the latest manual news file for this symbol
+            pattern = os.path.join(self.news_data_dir, f"{symbol}_manual_news_*.json")
+            news_files = glob.glob(pattern)
+            
+            if not news_files:
+                print(f"No manual news data found for {symbol}")
+                return None
+            
+            # Get the latest file (by timestamp in filename)
+            latest_file = max(news_files, key=os.path.getctime)
+            
+            with open(latest_file, 'r') as f:
+                news_data = json.load(f)
+            
+            # Filter news by date
+            filtered_news = self._filter_news_by_date(news_data, current_date)
+            
+            print(f"Loaded and filtered news data from {latest_file}")
+            return filtered_news
+            
+        except Exception as e:
+            print(f"Error loading manual news data for {symbol}: {str(e)}")
+            return None
 
     def _prepare_sentiment_prompt(self, price_data: Dict, news_data: Dict, previous_decisions: List[Dict]) -> str:
         """Prepare prompt for sentiment analysis"""
+        
+        # Extract news summary from the manual data
+        news_summary = ""
+        symbol = price_data['symbol']
+        if 'parsed_results' in news_data and symbol in news_data['parsed_results']:
+            stock_news = news_data['parsed_results'][symbol]
+            if 'news' in stock_news:
+                news_summary = "Recent News Headlines:\n"
+                for article in stock_news['news'][:5]:  # Show top 5 articles
+                    news_summary += f"- {article['title']} ({article['date']})\n"
+        
         prompt = f"""
 You are a financial analyst specializing in news sentiment analysis. Analyze the following data for {price_data['symbol']} stock:
 
 1. Current Price Data:
 - Current Price: ${price_data['current_price']}
-- Open: ${price_data['open_price']}
-- High: ${price_data['high_price']}
-- Low: ${price_data['low_price']}
-- Close: ${price_data['close_price']}
-- Volume: {price_data['volume']:,}
+- Volume: {price_data.get('volume_analysis', {}).get('current_volume', 0):,}
 
 2. Recent News:
-{news_data['summary'] if 'summary' in news_data else 'No news summary available'}
+{news_summary if news_summary else 'No news summary available'}
 
 3. Previous Decisions:
 """
@@ -121,176 +190,132 @@ REASONING: [Your detailed analysis here]
                         confidence = 0
                 elif line.startswith('REASONING:'):
                     reasoning = line.replace('REASONING:', '').strip()
-                    # Include any following lines in reasoning
+                    # Capture multi-line reasoning
                     reasoning_lines = []
                     for next_line in response_text.split('\n')[response_text.split('\n').index(line)+1:]:
                         if next_line.strip() and not next_line.startswith(('DECISION:', 'CONFIDENCE:')):
                             reasoning_lines.append(next_line.strip())
+                        else:
+                            break
                     if reasoning_lines:
                         reasoning = ' '.join(reasoning_lines)
             
             return {
-                'decision': decision or 'HOLD',
+                'decision': decision,
                 'confidence': confidence,
-                'reasoning': reasoning or 'No clear reasoning provided'
+                'reasoning': reasoning
             }
             
         except Exception as e:
             print(f"Error getting LLM analysis: {str(e)}")
             return None
 
-    def analyze_sentiment(self, symbol: str) -> Optional[Dict]:
-        """Analyze news sentiment and make trading decision"""
+    def analyze_sentiment(self, symbol: str, current_date: str = None, valuation_data: Dict = None) -> Optional[Dict]:
+        """
+        Analyze sentiment for a stock using news and price data.
+        
+        Args:
+            symbol: Stock symbol to analyze
+            current_date: Current trading date (YYYY-MM-DD)
+            valuation_data: Optional pre-loaded valuation data
+            
+        Returns:
+            Dictionary containing sentiment analysis and decision
+        """
         try:
-            # Get current price data
-            price_data = self._load_stock_data(symbol)
-            if not price_data:
+            # Get current price data from valuation data
+            if not valuation_data:
+                print(f"No valuation data provided for {symbol}")
                 return None
             
-            # Get news data
-            print(f"Fetching news for {symbol}...")
-            news_data = self.news_searcher.search_individual_stock(symbol)
-            if not news_data:
-                print(f"No news found for {symbol}")
-                return None
-            
-            # Load previous decisions for context
-            previous_decisions = self._load_previous_decisions(symbol)
-            
-            # Prepare prompt and get LLM analysis
-            prompt = self._prepare_sentiment_prompt(price_data, news_data, previous_decisions)
-            llm_analysis = self._analyze_with_llm(prompt)
-            
-            if not llm_analysis:
-                return None
-            
-            # Prepare analysis data
-            analysis_data = {
-                'price_context': price_data,
-                'news_data': news_data,
-                'previous_decisions': previous_decisions[-5:] if previous_decisions else [],
-                'current_analysis': llm_analysis
+            price_data = {
+                'symbol': symbol,
+                'current_price': valuation_data.get('current_price', 0),
+                'volume_analysis': valuation_data.get('volume_analysis', {})
             }
             
-            # Save current analysis
-            self.save_analysis(symbol, analysis_data)
+            # Load news data
+            news_data = self._load_manual_news_data(symbol, current_date)
+            if not news_data:
+                print(f"No news data available for {symbol}")
+                return None
             
-            # Save the decision
-            self.save_llm_decision(symbol, llm_analysis)
+            # Load previous decisions
+            previous_decisions = []
+            pattern = os.path.join(self.output_dir, f"{symbol}_sentiment_analysis_*.json")
+            decision_files = glob.glob(pattern)
             
+            if decision_files:
+                latest_decision = max(decision_files, key=os.path.getctime)
+                try:
+                    with open(latest_decision, 'r') as f:
+                        prev_data = json.load(f)
+                        if 'previous_decisions' in prev_data:
+                            previous_decisions = prev_data['previous_decisions']
+                except Exception as e:
+                    print(f"Error loading previous decisions: {str(e)}")
+            
+            # Prepare analysis prompt
+            prompt = self._prepare_sentiment_prompt(price_data, news_data, previous_decisions)
+            
+            # Get sentiment analysis
+            analysis = self._analyze_with_llm(prompt)
+            if not analysis:
+                print(f"Failed to get sentiment analysis for {symbol}")
+                return None
+            
+            # Prepare final analysis data
+            analysis_data = {
+                'symbol': symbol,
+                'timestamp': datetime.now().isoformat(),
+                'price_context': price_data,
+                'news_data': news_data,
+                'previous_decisions': previous_decisions,
+                'current_analysis': {
+                    'decision': analysis['decision'],
+                    'confidence': analysis['confidence'],
+                    'reasoning': analysis['reasoning'],
+                    'price_at_decision': price_data['current_price']
+                }
+            }
+            
+            # Save analysis
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{symbol}_sentiment_analysis_{timestamp}.json"
+            filepath = os.path.join(self.output_dir, filename)
+            
+            os.makedirs(self.output_dir, exist_ok=True)
+            with open(filepath, 'w') as f:
+                json.dump(analysis_data, f, indent=2)
+            
+            print(f"Analysis saved to {filepath}")
             return analysis_data
             
         except Exception as e:
             print(f"Error analyzing sentiment for {symbol}: {str(e)}")
             return None
 
-    def _load_stock_data(self, symbol: str) -> Optional[Dict]:
-        """Load latest price data for a stock"""
-        try:
-            raw_data = self.data_manager.load_stock_data(symbol)
-            if not raw_data:
-                return None
-            
-            # Extract price data
-            price_data = {
-                'symbol': raw_data['symbol'],
-                'company_name': raw_data['company_name'],
-                'current_price': raw_data['current_price'],
-                'open_price': raw_data['historical_prices'][0]['open'],
-                'high_price': raw_data['historical_prices'][0]['high'],
-                'low_price': raw_data['historical_prices'][0]['low'],
-                'close_price': raw_data['historical_prices'][0]['close'],
-                'volume': raw_data['volume']
-            }
-            
-            return price_data
-            
-        except Exception as e:
-            print(f"Error loading data for {symbol}: {str(e)}")
-            return None
-
-    def _load_previous_decisions(self, symbol: str) -> List[Dict]:
-        """Load previous trading decisions for context"""
-        decisions_file = os.path.join(self.output_dir, f"{symbol}_decisions.json")
-        if not os.path.exists(decisions_file):
-            return []
-            
-        try:
-            with open(decisions_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading previous decisions: {str(e)}")
-            return []
-
-    def save_llm_decision(self, symbol: str, llm_response: Dict):
-        """Save LLM's trading decision and reasoning"""
-        decision_data = {
-            'timestamp': datetime.now().isoformat(),
-            'symbol': symbol,
-            'decision': llm_response['decision'],
-            'confidence': llm_response['confidence'],
-            'reasoning': llm_response['reasoning'],
-            'price_at_decision': self._load_stock_data(symbol)['current_price']
-        }
-        
-        self._save_decision(symbol, decision_data)
-        print(f"Decision saved for {symbol}")
-
-    def _save_decision(self, symbol: str, decision_data: Dict):
-        """Save trading decision and reasoning"""
-        decisions_file = os.path.join(self.output_dir, f"{symbol}_decisions.json")
-        
-        # Load existing decisions
-        decisions = self._load_previous_decisions(symbol)
-        
-        # Add new decision
-        decisions.append(decision_data)
-        
-        # Save updated decisions
-        try:
-            with open(decisions_file, 'w') as f:
-                json.dump(decisions, f, indent=2)
-        except Exception as e:
-            print(f"Error saving decision: {str(e)}")
-
-    def save_analysis(self, symbol: str, analysis_data: Dict):
-        """Save sentiment analysis to file"""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{symbol}_sentiment_analysis_{timestamp}.json"
-            filepath = os.path.join(self.output_dir, filename)
-            
-            with open(filepath, 'w') as f:
-                json.dump(analysis_data, f, indent=2)
-            
-            print(f"Analysis saved to {filepath}")
-        except Exception as e:
-            print(f"Error saving analysis: {str(e)}")
-
 def main():
     """Example usage of SentimentAgent"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Analyze news sentiment for trading decisions")
+    parser = argparse.ArgumentParser(description="Analyze stock sentiment")
     parser.add_argument("symbol", help="Stock symbol to analyze")
-    parser.add_argument("--data-dir", default=".", help="Directory containing stock data")
+    parser.add_argument("--data-dir", default=".", help="Base directory for data")
     
     args = parser.parse_args()
     
-    # Initialize agent and analyze sentiment
     agent = SentimentAgent(data_dir=args.data_dir)
     analysis = agent.analyze_sentiment(args.symbol)
     
     if analysis:
-        print(f"\nAnalysis completed for {args.symbol}")
+        print(f"\nSentiment Analysis for {args.symbol}:")
         print(f"Decision: {analysis['current_analysis']['decision']}")
         print(f"Confidence: {analysis['current_analysis']['confidence']}%")
         print("\nReasoning:")
         print(analysis['current_analysis']['reasoning'])
-        print(f"\nNews articles analyzed: {len(analysis['news_data'])}")
-        print(f"Previous decisions considered: {len(analysis['previous_decisions'])}")
     else:
-        print(f"Could not analyze {args.symbol}")
+        print(f"Could not analyze sentiment for {args.symbol}")
 
 if __name__ == "__main__":
     main()

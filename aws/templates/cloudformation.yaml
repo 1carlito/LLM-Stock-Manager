@@ -123,7 +123,8 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.medium
-      ImageId: ami-0261755bbcb8c4a84  # Amazon Linux 2 AMI ID
+      ImageId: ami-0eb260c4d5475b901  # Ubuntu 22.04 LTS AMI for eu-west-2
+      KeyName: stock-agent-key-new     # Added key pair name here
       SubnetId: !Ref PublicSubnet
       IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
@@ -131,34 +132,181 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum update -y
-          yum install -y docker git
-          service docker start
-          usermod -a -G docker ec2-user
-          
+          apt-get update
+          apt-get install -y docker.io git
+          systemctl start docker
+          systemctl enable docker
+          usermod -a -G docker ubuntu
+
           # Create app directory
-          mkdir -p /app
+          mkdir -p /app/{valuation_reports,fundamental_reports,sentiment_data,news_data}
           cd /app
-          
+
           # Copy application files
           cat > backtest_orchestrator.py << 'EOL'
-          ${!Include ../backtest_orchestrator.py}
+          ${!Include ../../backtest_orchestrator.py}
           EOL
-          
+
           cat > requirements.txt << 'EOL'
-          ${!Include ../requirements.txt}
+          ${!Include ../../requirements.txt}
           EOL
-          
+
           cat > Dockerfile << 'EOL'
-          ${!Include ../aws/Dockerfile}
+          ${!Include ../../aws/Dockerfile}
           EOL
-          
+
+          # Copy valuation reports
+          cat > valuation_reports/GOOGL_technical_analysis_20250911_204015.json << 'EOL'
+          ${!Include ../../valuation_reports/GOOGL_technical_analysis_20250911_204015.json}
+          EOL
+          cat > valuation_reports/NVDA_technical_analysis_20250911_204028.json << 'EOL'
+          ${!Include ../../valuation_reports/NVDA_technical_analysis_20250911_204028.json}
+          EOL
+          cat > valuation_reports/PLTR_technical_analysis_20250911_204043.json << 'EOL'
+          ${!Include ../../valuation_reports/PLTR_technical_analysis_20250911_204043.json}
+          EOL
+          cat > valuation_reports/ABBV_technical_analysis_20250911_204101.json << 'EOL'
+          ${!Include ../../valuation_reports/ABBV_technical_analysis_20250911_204101.json}
+          EOL
+          cat > valuation_reports/TMO_technical_analysis_20250911_204111.json << 'EOL'
+          ${!Include ../../valuation_reports/TMO_technical_analysis_20250911_204111.json}
+          EOL
+          cat > valuation_reports/UNH_technical_analysis_20250911_204123.json << 'EOL'
+          ${!Include ../../valuation_reports/UNH_technical_analysis_20250911_204123.json}
+          EOL
+          cat > valuation_reports/JPM_technical_analysis_20250911_204134.json << 'EOL'
+          ${!Include ../../valuation_reports/JPM_technical_analysis_20250911_204134.json}
+          EOL
+          cat > valuation_reports/BAC_technical_analysis_20250911_204145.json << 'EOL'
+          ${!Include ../../valuation_reports/BAC_technical_analysis_20250911_204145.json}
+          EOL
+          cat > valuation_reports/WFC_technical_analysis_20250911_204157.json << 'EOL'
+          ${!Include ../../valuation_reports/WFC_technical_analysis_20250911_204157.json}
+          EOL
+          cat > valuation_reports/XOM_technical_analysis_20250911_204206.json << 'EOL'
+          ${!Include ../../valuation_reports/XOM_technical_analysis_20250911_204206.json}
+          EOL
+          cat > valuation_reports/CVX_technical_analysis_20250911_204217.json << 'EOL'
+          ${!Include ../../valuation_reports/CVX_technical_analysis_20250911_204217.json}
+          EOL
+          cat > valuation_reports/COP_technical_analysis_20250911_204227.json << 'EOL'
+          ${!Include ../../valuation_reports/COP_technical_analysis_20250911_204227.json}
+          EOL
+
+          # Copy fundamental reports
+          cat > fundamental_reports/GOOGL_fundamental_analysis_20250911_204020.json << 'EOL'
+          ${!Include ../../fundamental_reports/GOOGL_fundamental_analysis_20250911_204020.json}
+          EOL
+          cat > fundamental_reports/NVDA_fundamental_analysis_20250911_204033.json << 'EOL'
+          ${!Include ../../fundamental_reports/NVDA_fundamental_analysis_20250911_204033.json}
+          EOL
+          cat > fundamental_reports/PLTR_fundamental_analysis_20250911_204054.json << 'EOL'
+          ${!Include ../../fundamental_reports/PLTR_fundamental_analysis_20250911_204054.json}
+          EOL
+          cat > fundamental_reports/ABBV_fundamental_analysis_20250911_204104.json << 'EOL'
+          ${!Include ../../fundamental_reports/ABBV_fundamental_analysis_20250911_204104.json}
+          EOL
+          cat > fundamental_reports/TMO_fundamental_analysis_20250911_204116.json << 'EOL'
+          ${!Include ../../fundamental_reports/TMO_fundamental_analysis_20250911_204116.json}
+          EOL
+          cat > fundamental_reports/UNH_fundamental_analysis_20250911_204128.json << 'EOL'
+          ${!Include ../../fundamental_reports/UNH_fundamental_analysis_20250911_204128.json}
+          EOL
+          cat > fundamental_reports/JPM_fundamental_analysis_20250911_204137.json << 'EOL'
+          ${!Include ../../fundamental_reports/JPM_fundamental_analysis_20250911_204137.json}
+          EOL
+          cat > fundamental_reports/BAC_fundamental_analysis_20250911_204150.json << 'EOL'
+          ${!Include ../../fundamental_reports/BAC_fundamental_analysis_20250911_204150.json}
+          EOL
+          cat > fundamental_reports/WFC_fundamental_analysis_20250911_204200.json << 'EOL'
+          ${!Include ../../fundamental_reports/WFC_fundamental_analysis_20250911_204200.json}
+          EOL
+          cat > fundamental_reports/XOM_fundamental_analysis_20250911_204210.json << 'EOL'
+          ${!Include ../../fundamental_reports/XOM_fundamental_analysis_20250911_204210.json}
+          EOL
+          cat > fundamental_reports/CVX_fundamental_analysis_20250911_204221.json << 'EOL'
+          ${!Include ../../fundamental_reports/CVX_fundamental_analysis_20250911_204221.json}
+          EOL
+          cat > fundamental_reports/COP_fundamental_analysis_20250911_204231.json << 'EOL'
+          ${!Include ../../fundamental_reports/COP_fundamental_analysis_20250911_204231.json}
+          EOL
+
+          # Copy sentiment data
+          cat > sentiment_data/GOOGL_sentiment_analysis_20250912_124707.json << 'EOL'
+          ${!Include ../../sentiment_data/GOOGL_sentiment_analysis_20250912_124707.json}
+          EOL
+          cat > sentiment_data/NVDA_sentiment_analysis_20250912_124726.json << 'EOL'
+          ${!Include ../../sentiment_data/NVDA_sentiment_analysis_20250912_124726.json}
+          EOL
+          cat > sentiment_data/PLTR_sentiment_analysis_20250912_124747.json << 'EOL'
+          ${!Include ../../sentiment_data/PLTR_sentiment_analysis_20250912_124747.json}
+          EOL
+          cat > sentiment_data/ABBV_sentiment_analysis_20250912_124820.json << 'EOL'
+          ${!Include ../../sentiment_data/ABBV_sentiment_analysis_20250912_124820.json}
+          EOL
+          cat > sentiment_data/TMO_sentiment_analysis_20250912_124840.json << 'EOL'
+          ${!Include ../../sentiment_data/TMO_sentiment_analysis_20250912_124840.json}
+          EOL
+          cat > sentiment_data/UNH_sentiment_analysis_20250912_124857.json << 'EOL'
+          ${!Include ../../sentiment_data/UNH_sentiment_analysis_20250912_124857.json}
+          EOL
+          cat > sentiment_data/JPM_sentiment_analysis_20250912_124914.json << 'EOL'
+          ${!Include ../../sentiment_data/JPM_sentiment_analysis_20250912_124914.json}
+          EOL
+          cat > sentiment_data/BAC_sentiment_analysis_20250912_124937.json << 'EOL'
+          ${!Include ../../sentiment_data/BAC_sentiment_analysis_20250912_124937.json}
+          EOL
+          cat > sentiment_data/WFC_sentiment_analysis_20250912_124959.json << 'EOL'
+          ${!Include ../../sentiment_data/WFC_sentiment_analysis_20250912_124959.json}
+          EOL
+          cat > sentiment_data/XOM_sentiment_analysis_20250912_125026.json << 'EOL'
+          ${!Include ../../sentiment_data/XOM_sentiment_analysis_20250912_125026.json}
+          EOL
+
+          # Copy news data
+          cat > news_data/GOOGL_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/GOOGL_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/NVDA_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/NVDA_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/PLTR_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/PLTR_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/ABBV_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/ABBV_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/TMO_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/TMO_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/UNH_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/UNH_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/JPM_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/JPM_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/BAC_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/BAC_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/WFC_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/WFC_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/XOM_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/XOM_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/CVX_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/CVX_manual_news_20250911_194259.json}
+          EOL
+          cat > news_data/COP_manual_news_20250911_194259.json << 'EOL'
+          ${!Include ../../news_data/COP_manual_news_20250911_194259.json}
+          EOL
+
           # Set environment variables
-          echo "OPENAI_API_KEY=${OpenAIApiKey}" >> .env
+          echo "OPENAI_API_KEY=${OpenAIApiKey}" > .env
           echo "AWS_DEFAULT_REGION=${AWS::Region}" >> .env
           echo "SNS_TOPIC_ARN=${NotificationTopic}" >> .env
           echo "RESULTS_BUCKET=${BacktestResultsBucket}" >> .env
-          
+
           # Build and run Docker container
           docker build -t stock-agent .
           docker run -d \
@@ -192,4 +340,4 @@ Outputs:
 
   SNSTopicARN:
     Description: ARN of the SNS topic
-    Value: !Ref NotificationTopic 
+    Value: !Ref NotificationTopic

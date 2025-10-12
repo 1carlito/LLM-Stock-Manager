@@ -35,7 +35,17 @@ STOCKS_BY_SECTOR = {
 }
 
 # Flatten the list for convenience
-ALL_STOCKS = [stock for sector_stocks in STOCKS_BY_SECTOR.values() for stock in sector_stocks]
+ALL_STOCKS = [
+    # Core 8 stocks for focused analysis
+    "GOOGL",  # Alphabet Inc.
+    "NVDA",   # NVIDIA Corporation  
+    "PLTR",   # Palantir Technologies Inc.
+    "ABBV",   # AbbVie Inc.
+    "TMO",    # Thermo Fisher Scientific Inc.
+    "UNH",    # UnitedHealth Group Incorporated
+    "JPM",    # JPMorgan Chase & Co.
+    "RKLB"    # Rocket Lab USA, Inc.
+]
 
 class BatchStockScraper:
     """Batch processor for collecting stock data for multiple stocks"""

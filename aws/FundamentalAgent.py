@@ -20,8 +20,9 @@ class FundamentalAgent:
     """
 
     def __init__(self, data_dir: str = ".", cutoff_date: Optional[str] = None):
+        self.data_dir = data_dir
         self.data_manager = DataManager(base_dir=data_dir)
-        self.output_dir = "fundamental_reports"
+        self.output_dir = os.path.join(data_dir, "fundamental_reports")
         self.cutoff_date = datetime.strptime(cutoff_date, "%Y-%m-%d") if cutoff_date else None
         os.makedirs(self.output_dir, exist_ok=True)
 

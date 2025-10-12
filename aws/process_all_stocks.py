@@ -31,10 +31,10 @@ def process_stock(symbol: str):
     print(f"\nProcessing {symbol}:")
     
     try:
-        # Initialize agents
-        valuation_agent = ValuationAgent()
-        fundamental_agent = FundamentalAgent()
-        sentiment_agent = SentimentAgent()
+        # Initialize agents with correct data directory
+        valuation_agent = ValuationAgent(data_dir="../backtest_data_90days")
+        fundamental_agent = FundamentalAgent(data_dir="../backtest_data_90days")
+        sentiment_agent = SentimentAgent(data_dir="../backtest_data_90days")
         
         # Run analyses
         print("- Running valuation analysis...")
@@ -88,4 +88,4 @@ def main():
         print("Failed stocks:", ", ".join(failed))
 
 if __name__ == "__main__":
-    main() 
+    main()

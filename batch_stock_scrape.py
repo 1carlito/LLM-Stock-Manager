@@ -21,16 +21,13 @@ from StockData_FmpApi import StockDataFmpApi, save_stock_data
 # Pre-defined list of stocks by sector (matched with llm_news_search.py)
 STOCKS_BY_SECTOR = {
     "Technology": [
-    "GOOGL","NVDA", "PLTR",
+    "GOOGL","NVDA", "PLTR", "RKLB"
     ],
     "Health_and_Pharma": [
-    "ABBV", "TMO", "UNH"
+    "ABBV", "UNH"
     ],
     "Financial_Services": [
-    "JPM", "BAC", "WFC"
-    ],
-    "Energy": [
-    "XOM", "CVX", "COP"
+    "JPM"
     ]
 }
 
