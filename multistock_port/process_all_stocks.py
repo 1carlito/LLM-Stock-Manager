@@ -10,10 +10,11 @@ import json
 import argparse
 from datetime import datetime
 from typing import List
+import pandas_market_calendars as mcal
 
 from ValuationAgent import ValuationAgent
 from FundamentalAgent import FundamentalAgent
-from SentimentAgent import SentimentAgent
+# from SentimentAgent import SentimentAgent  # ABLATION: Not needed for valuation+fundamental only test
 
 # List of all stocks to process - Core 7 stocks for focused analysis
 STOCKS = [
@@ -26,42 +27,56 @@ STOCKS = [
     "RKLB"    # Rocket Lab USA, Inc.
 ]
 
-def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-01", end_date: str = "2025-10-01"):
+def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-01", end_date: str = "2025-10-01", fundamental_interval: int = 5):
     """Process a single stock through all agents."""
     print(f"\nProcessing {symbol}:")
+    print(f"  Fundamental analysis interval: Every {fundamental_interval} trading days")
     
     try:
         # Initialize agents with current directory
         valuation_agent = ValuationAgent(data_dir=data_dir)
         fundamental_agent = FundamentalAgent(data_dir=data_dir, start_date=start_date, end_date=end_date)
-        sentiment_agent = SentimentAgent(data_dir=data_dir)
+        # sentiment_agent = SentimentAgent(data_dir=data_dir)  # ABLATION: Commented out for valuation+fundamental only
         
-        # Run analyses
-        print("- Running valuation analysis...")
-        valuation = valuation_agent.prepare_analysis_data(symbol)
-        if valuation:
-            valuation_agent.save_analysis(symbol, valuation)
-            print("  ✓ Valuation analysis complete")
+        # Get trading calendar to determine analysis dates
+        nyse = mcal.get_calendar('NYSE')
+        trading_days = nyse.schedule(start_date=start_date, end_date=end_date)
         
-        # Run fundamental analysis
-        print("- Running fundamental analysis...")
-        fundamental_result = fundamental_agent.analyze_fundamentals(symbol)
-        if fundamental_result:
-            print("  ✓ Fundamental analysis complete")
-        else:
-            print("  ✗ Fundamental analysis failed")
-            failed = True
+        # Select every Nth trading day for fundamental analysis
+        fundamental_dates = []
+        for i, trading_date in enumerate(trading_days.index):
+            if i % fundamental_interval == 0:
+                fundamental_dates.append(trading_date.strftime('%Y-%m-%d'))
         
-        print("- Running sentiment analysis...")
-        sentiment = sentiment_agent.analyze_sentiment(symbol, end_date)  # Use end_date for analysis
-        if sentiment:
-            print("  ✓ Sentiment analysis complete")
+        print(f"  Fundamental analysis dates ({len(fundamental_dates)}): {', '.join(fundamental_dates[:5])}...")
         
-        if all([valuation, fundamental_result, sentiment]):
+        # Generate DAILY valuation analyses
+        all_trading_dates = [d.strftime('%Y-%m-%d') for d in trading_days.index]
+        print(f"\n- Generating {len(all_trading_dates)} valuation analyses (daily)...")
+        successful_valuations = 0
+        for i, target_date in enumerate(all_trading_dates, 1):
+            result = valuation_agent.analyze_valuation(symbol, target_date)
+            if result:
+                successful_valuations += 1
+                if i % 10 == 0:
+                    print(f"  Progress: {i}/{len(all_trading_dates)}")
+        print(f"  ✓ {successful_valuations}/{len(all_trading_dates)} valuation analyses complete")
+        
+        # Run fundamental analyses on multiple dates (every 5 days)
+        print(f"\n- Generating {len(fundamental_dates)} fundamental analyses (every {fundamental_interval} days)...")
+        fundamental_results = fundamental_agent.analyze_fundamentals_multi_date(symbol, fundamental_dates)
+        successful_fundamentals = sum(1 for r in fundamental_results if r is not None)
+        print(f"  ✓ {successful_fundamentals}/{len(fundamental_dates)} fundamental analyses complete")
+        
+        # ABLATION: Sentiment analysis commented out for valuation+fundamental only test
+        
+        if successful_valuations > 0 and successful_fundamentals > 0:
             print(f"✅ Successfully processed {symbol}")
+            print(f"   Valuation: {successful_valuations} analyses")
+            print(f"   Fundamental: {successful_fundamentals} analyses")
             return True
         else:
-            print(f"⚠️  Some analyses failed for {symbol}")
+            print(f"⚠️  Analysis generation incomplete for {symbol}")
             return False
             
     except Exception as e:
@@ -75,16 +90,18 @@ def main():
     parser.add_argument("--data-dir", default=".", help="Data directory (defaults to current directory)")
     parser.add_argument("--start-date", default="2025-07-01", help="Start date for analysis (YYYY-MM-DD)")
     parser.add_argument("--end-date", default="2025-10-01", help="End date for analysis (YYYY-MM-DD)")
+    parser.add_argument("--fundamental-interval", type=int, default=5, help="Generate fundamental analysis every N trading days")
     args = parser.parse_args()
     
     print(f"Analysis Date Range: {args.start_date} to {args.end_date}")
     print(f"Data Directory: {args.data_dir}")
+    print(f"Fundamental Analysis Interval: Every {args.fundamental_interval} trading days")
     
     if args.symbol:
         # Process single stock
         print(f"Processing single stock: {args.symbol}")
         print("=" * 40)
-        process_stock(args.symbol, data_dir=args.data_dir, start_date=args.start_date, end_date=args.end_date)
+        process_stock(args.symbol, data_dir=args.data_dir, start_date=args.start_date, end_date=args.end_date, fundamental_interval=args.fundamental_interval)
     else:
         # Process all stocks
         print(f"Starting processing of {len(STOCKS)} stocks")
@@ -94,7 +111,7 @@ def main():
         failed = []
         
         for symbol in STOCKS:
-            if process_stock(symbol, data_dir=args.data_dir, start_date=args.start_date, end_date=args.end_date):
+            if process_stock(symbol, data_dir=args.data_dir, start_date=args.start_date, end_date=args.end_date, fundamental_interval=args.fundamental_interval):
                 successful.append(symbol)
             else:
                 failed.append(symbol)
