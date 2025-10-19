@@ -17,6 +17,7 @@ from collections import defaultdict
 # Add current directory to path to ensure imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from ReasoningAgent import ReasoningAgent
+from SentimentAgent import SentimentAgent
 
 class DateFilteredBacktest:
     """Run a backtest with date filtering using pre-generated analysis files."""
@@ -51,8 +52,9 @@ class DateFilteredBacktest:
         # Track previous decisions for each symbol
         self.previous_decisions = defaultdict(list)
         
-        # Initialize ReasoningAgent
+        # Initialize agents
         self.reasoning_agent = ReasoningAgent(data_dir=data_dir)
+        self.sentiment_agent = SentimentAgent(data_dir=data_dir)
         
         self.logger.info(f"Date Filtered Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
@@ -130,19 +132,22 @@ class DateFilteredBacktest:
         self.logger.info(f"Using {analysis_type} file: {os.path.basename(latest_valid[0])} with analysis_date: {latest_valid[1].strftime('%Y-%m-%d')}")
         return latest_valid[2]
     
-    def _execute_trade(self, symbol, decision_result, current_date):
+    def _execute_trade(self, symbol, decision_result, current_date, sentiment_data=None):
         """Execute a theoretical trade and update portfolio."""
         decision = decision_result.get('decision', 'HOLD')
         confidence = decision_result.get('confidence', 0.5)
         reasoning = decision_result.get('reasoning', '')
         
-        # Extract price from valuation data (assuming it's in the reasoning)
-        try:
-            price_str = reasoning.split("current price of $")[1].split(")")[0].split(" ")[0]
-            current_price = float(price_str)
-        except:
-            self.logger.warning(f"Could not extract price from reasoning, using last known price")
+        # Get current price from sentiment data if available
+        current_price = None
+        if sentiment_data and 'current_price' in sentiment_data:
+            current_price = sentiment_data['current_price']
+            self.logger.info(f"Using current price from sentiment data: ${current_price:.2f}")
+        
+        if not current_price:
+            # Fallback to last known price
             current_price = self.portfolio.get('last_prices', {}).get(symbol, 100.0)
+            self.logger.warning(f"No current price in sentiment data, using last known price: ${current_price:.2f}")
         
         # Update last known price
         if 'last_prices' not in self.portfolio:
@@ -226,6 +231,63 @@ class DateFilteredBacktest:
         self.logger.info(f"Portfolio value: ${current_value:,.2f}")
         return executed
     
+    def _save_decision(self, symbol, decision_record):
+        """Save a decision record to file for future context"""
+        try:
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions')
+            os.makedirs(decisions_dir, exist_ok=True)
+            
+            # Create filename with date
+            date_str = decision_record['date']
+            filename = f"{symbol}_decision_{date_str}.json"
+            filepath = os.path.join(decisions_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                json.dump(decision_record, f, indent=2, default=str)
+                
+        except Exception as e:
+            self.logger.error(f"Error saving decision for {symbol}: {e}")
+    
+    def _load_previous_decisions(self, symbol, current_date):
+        """Load previous decisions for a symbol up to the current date"""
+        try:
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions')
+            if not os.path.exists(decisions_dir):
+                return []
+            
+            # Find all decision files for this symbol
+            pattern = os.path.join(decisions_dir, f"{symbol}_decision_*.json")
+            files = glob.glob(pattern)
+            
+            if not files:
+                return []
+            
+            current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+            previous_decisions = []
+            
+            # Load decisions from files
+            for file in files:
+                try:
+                    with open(file, 'r') as f:
+                        decision = json.load(f)
+                    
+                    # Check if decision is before current date
+                    decision_date = datetime.strptime(decision['date'], '%Y-%m-%d')
+                    if decision_date < current_date_obj:
+                        previous_decisions.append(decision)
+                        
+                except Exception as e:
+                    self.logger.warning(f"Error loading decision file {file}: {e}")
+                    continue
+            
+            # Sort by date and return the most recent ones (up to lookback_window)
+            previous_decisions.sort(key=lambda x: x['date'])
+            return previous_decisions[-self.lookback_window:]
+            
+        except Exception as e:
+            self.logger.error(f"Error loading previous decisions for {symbol}: {e}")
+            return []
+    
     def run_backtest(self, symbols=['PLTR']):
         """Run the backtest for the specified date range."""
         self.logger.info(f"\nStarting date-filtered backtest from {self.start_date} to {self.end_date}")
@@ -248,23 +310,33 @@ class DateFilteredBacktest:
             for symbol in symbols:
                 self.logger.info(f"\nProcessing {symbol}...")
                 
-                # Load all three analysis types
-                valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date)
-                fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date)
+                # Load sentiment analysis
                 sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date)
                 
-                # Check if we have all required data
-                if valuation_data and fundamental_data and sentiment_data:
+                # If sentiment data is missing, try to generate it using SentimentAgent
+                if not sentiment_data:
+                    self.logger.info(f"No sentiment analysis found for {symbol}, generating new analysis...")
+                    try:
+                        sentiment_data = self.sentiment_agent.analyze_sentiment(symbol, current_date)
+                        if sentiment_data:
+                            self.logger.info(f"Generated sentiment analysis for {symbol}")
+                        else:
+                            self.logger.warning(f"Failed to generate sentiment analysis for {symbol}")
+                    except Exception as e:
+                        self.logger.error(f"Error generating sentiment analysis for {symbol}: {e}")
+                
+                # Check if we have sentiment data (only requirement)
+                if sentiment_data:
                     self.logger.info(f"All analyses found for {symbol} - calling reasoning agent")
                     
                     try:
-                        # Get previous decisions for context
-                        previous_decisions = self.previous_decisions.get(symbol, [])
+                        # Get previous decisions for context (load from files)
+                        previous_decisions = self._load_previous_decisions(symbol, current_date)
                         self.logger.info(f"Including {len(previous_decisions)} previous decisions as context")
                         
                         # Call reasoning agent with previous decisions as context
                         decision_result = self.reasoning_agent.make_decision(
-                            symbol, current_date, valuation_data, fundamental_data, sentiment_data, 
+                            symbol, current_date, None, None, sentiment_data, 
                             previous_decisions=previous_decisions
                         )
                         
@@ -274,20 +346,28 @@ class DateFilteredBacktest:
                         self.logger.info(f"DECISION: {symbol} = {decision} (confidence: {confidence})")
                         decisions_made += 1
                         
+                        # Save decision for future context (regardless of action)
+                        decision_record = {
+                            'symbol': symbol,
+                            'date': current_date,
+                            'decision': decision,
+                            'confidence': confidence,
+                            'reasoning': decision_result.get('reasoning', ''),
+                            'sentiment_data': sentiment_data.get('sentiment', 'Unknown') if sentiment_data else 'Unknown',
+                            'current_price': sentiment_data.get('current_price', None) if sentiment_data else None
+                        }
+                        self._save_decision(symbol, decision_record)
+                        
                         # Execute the trade
                         if decision in ['BUY', 'SELL']:
-                            if self._execute_trade(symbol, decision_result, current_date):
+                            if self._execute_trade(symbol, decision_result, current_date, sentiment_data):
                                 trades_executed += 1
                                 
                     except Exception as e:
                         self.logger.error(f"Error making decision for {symbol}: {e}")
                         
                 else:
-                    missing = []
-                    if not valuation_data: missing.append("valuation")
-                    if not fundamental_data: missing.append("fundamental") 
-                    if not sentiment_data: missing.append("sentiment")
-                    self.logger.warning(f"Missing analyses for {symbol}: {missing}")
+                    self.logger.warning(f"Missing sentiment analysis for {symbol}")
         
         # Calculate final portfolio value and performance
         final_value = self.portfolio['cash']

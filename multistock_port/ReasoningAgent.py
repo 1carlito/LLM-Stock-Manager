@@ -83,25 +83,32 @@ class ReasoningAgent:
             raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
-        """Build a prompt that integrates all agent analyses and previous decisions for final decision making"""
+        """Build a prompt that focuses on sentiment analysis and previous decisions for final decision making"""
         
         # Format date if it's a datetime object
         date_str = current_date
         if hasattr(current_date, 'strftime'):
             date_str = current_date.strftime('%Y-%m-%d')
         
-        # Build the base prompt with analysis data
+        # Build the base prompt focusing on sentiment analysis
         prompt = f"""
 You are a professional trading agent analyzing {symbol} on {date_str}.
 
-VALUATION ANALYSIS:
-{json.dumps(valuation_data, indent=2)}
-
-FUNDAMENTAL ANALYSIS:
-{json.dumps(fundamental_data, indent=2)}
-
 SENTIMENT ANALYSIS:
-{json.dumps(sentiment_data, indent=2)}
+{json.dumps(sentiment_data, indent=2) if sentiment_data else "No sentiment data available"}
+"""
+        
+        # Add additional analysis data if available (but don't require it)
+        if valuation_data:
+            prompt += f"""
+VALUATION ANALYSIS (if available):
+{json.dumps(valuation_data, indent=2)}
+"""
+        
+        if fundamental_data:
+            prompt += f"""
+FUNDAMENTAL ANALYSIS (if available):
+{json.dumps(fundamental_data, indent=2)}
 """
         
         # Add previous decisions if available
@@ -114,15 +121,18 @@ PREVIOUS TRADING DECISIONS:
 Consider these previous decisions in your analysis. Look for trends, consistency, and any changes in market conditions since these decisions were made.
 """
         
-        # Add final instructions
+        # Add final instructions focused on sentiment-driven decisions
         prompt += f"""
 
-Based on this comprehensive analysis from all three specialized agents, make a final trading decision:
-1. Analyze the valuation metrics, fundamental data, and sentiment signals
-2. Consider the overall market conditions and sector performance
-3. Evaluate risk factors and potential catalysts
-4. Determine if the three analyses are in agreement or conflict
+Based on the sentiment analysis and any available additional data, make a trading decision:
+1. Analyze the sentiment signals, confidence levels, and market sentiment trends
+2. Consider the current stock price and any price momentum indicated in the sentiment data
+3. Evaluate the strength and reliability of the sentiment signals
+4. Look for significant sentiment shifts or strong directional signals
 5. Consider how this decision fits with the previous trading history (if provided)
+6. Be more decisive when sentiment is strong and well-supported by data
+
+IMPORTANT: You should be willing to make BUY/SELL decisions based on strong sentiment signals, even if other analysis data is limited. The sentiment analysis includes current stock prices and market sentiment that can drive trading decisions.
 
 Provide your decision in this format:
 DECISION: [BUY/SELL/HOLD]

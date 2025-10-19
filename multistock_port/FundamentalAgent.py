@@ -216,7 +216,7 @@ class FundamentalAgent:
             
         try:
             # Get quarterly and annual statements
-            quarterly = [s for s in income_data if s.get('period') == 'Q']
+            quarterly = [s for s in income_data if s.get('period', '').startswith('Q')]
             annual = [s for s in income_data if s.get('period') == 'FY']
             
             # Analyze latest quarter
@@ -270,9 +270,9 @@ class FundamentalAgent:
             }
             
         try:
-            # Get quarterly and annual statements
-            q_bs = [s for s in balance_sheet if s.get('period') == 'Q']
-            q_cf = [s for s in cash_flow if s.get('period') == 'Q']
+            # Get quarterly and annual statements (handle both 'Q' and 'Q1', 'Q2', etc.)
+            q_bs = [s for s in balance_sheet if s.get('period', '').startswith('Q')]
+            q_cf = [s for s in cash_flow if s.get('period', '').startswith('Q')]
             y_bs = [s for s in balance_sheet if s.get('period') == 'FY']
             y_cf = [s for s in cash_flow if s.get('period') == 'FY']
             
@@ -587,7 +587,7 @@ class FundamentalAgent:
             return f"{val:.2f}" if val is not None else "N/A"
         
         # Get quarterly statements for trend analysis
-        quarterly_income = [s for s in data.get('income_statements', []) if s.get('period') == 'Q']
+        quarterly_income = [s for s in data.get('income_statements', []) if s.get('period', '').startswith('Q')]
         quarterly_income = quarterly_income[:4]  # Use up to 4 most recent quarters
         
         # Format quarterly trend data

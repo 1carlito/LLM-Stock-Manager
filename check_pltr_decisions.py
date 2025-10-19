@@ -42,3 +42,5 @@ print('\n--- Decision Timeline (Last 20 days) ---')
 for t in trades[-20:]:
     print(f"{t['date']}: {t['decision']} (conf: {t['confidence']:.2f})")
 
+
+

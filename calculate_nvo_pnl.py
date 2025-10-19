@@ -112,3 +112,4 @@ if trades_executed:
             action_details += f" (Profit: ${t['profit']:,.2f})"
         print(f"{t['date']}: {t['action']} {action_details} -> Portfolio: ${t['portfolio_value']:,.2f}")
 
+

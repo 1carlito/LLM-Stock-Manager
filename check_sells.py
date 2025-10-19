@@ -27,3 +27,4 @@ for t in sell_trades:
     print(t['date'], end=' ')
 print()
 
+

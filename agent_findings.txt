@@ -181,3 +181,105 @@ Comparative Analysis:
       The agent currently holds 10,482 shares with an average cost of $59.44 and the price on September 18 was $70.00,
       giving an unrealized gain of +17.77% on the current position.
       However, the overall portfolio is down -25.56% due to the three SELL trades that locked in large losses ($126K, $125K, and $114K).
+
+
+
+
+
+
+
+🎉 VALUATION-ONLY BACKTEST COMPLETE!
+      📊 Valuation-Only Results
+
+      Portfolio Performance:
+      Starting Value: $1,000,000.00
+      Final Value: $1,490,075.97
+      Total Return: +$490,075.97
+      Return %: +49.01% 🚀
+
+      Trading Activity:
+      Date Range: July 1 - October 1, 2025 (65 trading days)
+      Total Decisions: 455 (65 days × 7 stocks)
+      Trades Executed: 19
+      Trade Frequency: 4.2% of decisions
+
+      Final Portfolio:
+      NVDA: 1,311 shares @ $181.85 = $238,405.35
+      Cash: $1,251,670.62
+
+      📈 Comparison of Ablation Studies:
+      Strategy	Return	Trades	Final Holdings
+      Valuation Only	+49.01%	19	NVDA + Cash
+      Valuation + Fundamental	+7.46%	17	ABBV + NVDA + Cash
+
+      Key Insights:
+      🚀 Valuation-only significantly outperformed (49% vs 7.5%)
+      📊 More aggressive trading (19 vs 17 trades)
+      🎯 Focused on NVDA (growth stock)
+      💰 Much higher cash position maintained
+      Conclusion: The valuation-only strategy was much more aggressive and profitable, suggesting that fundamental analysis may have been too conservative or diluted the decision-making process!
+      GOOGL: +$171,990 profit (BUY → SELL)
+      UNH: Multiple profitable trades (2 BUY + 2 SELL cycles)
+      
+
+
+
+
+ 📊 FUNDAMENTAL-ONLY BACKTEST RESULTS (FIXED PRICES)
+   
+Performance Summary:
+
+Initial Value: $1,000,000
+Final Value: $1,168,141.03
+Total Return: $168,141.03
+Percent Return: +16.81%
+
+Key Improvements from the Fix:
+✅ Real market prices: Now using actual prices like $187.24 (NVDA), $174.03 (PLTR), $348.30 (UNH)
+✅ Accurate P&L: 16.81% return instead of the misleading 47.97% from the $100 fallback
+✅ Realistic trading: Proper price progression throughout the 3-month period
+
+
+Final Portfolio State:
+Cash: $1,168,141.03
+Positions: 0 shares (all positions were sold)
+Last Prices: NVDA $187.24, PLTR $174.03, RKLB $47.97, ABBV $244.38, UNH $348.30
+
+
+
+📊 FINAL TRADING DAY DECISIONS - October 1st, 2025
+         Stock	Decision	Confidence	Context
+         ABBV	SELL	95%	High confidence sell
+         GOOGL	HOLD	85%	Strong hold decision
+         JPM	SELL	80%	Sell decision
+         NVDA	BUY	85%	Final BUY trade
+         PLTR	SELL	95%	High confidence sell
+         RKLB	HOLD	70%	Hold decision
+         UNH	SELL	95%	High confidence sell
+
+
+Sentiment Backtest Analysis 📊
+Sentiment Backtest Results (July 1 - October 1, 2025)
+Performance:
+
+Initial Value: $1,000,000
+Final Value: $1,025,460.28
+Total Return: $25,460.28
+Percent Return: +2.55%
+
+Trading Activity:
+Decisions Made: 65
+Trades Executed: 2 (both with PLTR)
+Final Cash: $1,025,460.28
+Final Position: 0 shares of PLTR
+
+Key Trades:
+August 1st: SELL PLTR (not executed - no position to sell)
+August 4th: BUY 1,182 shares of PLTR at $160.66 (cost: $189,900.12)
+August 7th: SELL 1,182 shares of PLTR at $182.20 (proceeds: $215,360.40)
+
+Trade Analysis:
+Entry: $160.66 on August 4th (based on strong Q2 earnings)
+Exit: $182.20 on August 7th (13.4% gain in 3 days)
+Profit: $25,460.28 (2.55% portfolio return)
+The sentiment backtest successfully used pre-generated sentiment analysis files with proper date filtering and current stock prices, resulting in a profitable trading strategy that captured a significant move in PLTR following their Q2 earnings report.

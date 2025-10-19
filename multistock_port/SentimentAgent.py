@@ -34,17 +34,67 @@ class SentimentAgent:
         # Initialize Gemini client
         self.model = MODEL_NAME
         self.gemini_client = genai.GenerativeModel(self.model)
+        
+        # Load stock data for current prices
+        self.stock_data = self._load_stock_data()
+
+    def _load_stock_data(self) -> Dict:
+        """Load stock data from the raw_multidata directory"""
+        try:
+            stock_data_file = os.path.join(self.data_dir, "raw_multidata", "stock_data_20251009_163317.json")
+            if os.path.exists(stock_data_file):
+                with open(stock_data_file, 'r') as f:
+                    return json.load(f)
+            else:
+                print("❌ Stock data file not found")
+                return {}
+        except Exception as e:
+            print(f"❌ Error loading stock data: {e}")
+            return {}
+
+    def _get_current_price(self, symbol: str, target_date: str) -> Optional[float]:
+        """Get the current price for a symbol on a specific date"""
+        try:
+            if symbol not in self.stock_data:
+                return None
+                
+            historical_prices = self.stock_data[symbol].get('historical_prices', [])
+            
+            # Find the price for the target date or the closest previous date
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d')
+            
+            # Sort prices by date (most recent first)
+            sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
+            
+            for price_data in sorted_prices:
+                price_date_str = price_data.get('date', '')
+                if price_date_str:
+                    try:
+                        price_date = datetime.strptime(price_date_str, '%Y-%m-%d')
+                        if price_date <= target_date_obj:
+                            return price_data.get('close', None)
+                    except ValueError:
+                        continue
+            
+            # If no exact date found, return the most recent price
+            if sorted_prices:
+                return sorted_prices[0].get('close', None)
+                
+            return None
+        except Exception as e:
+            print(f"❌ Error getting current price for {symbol} on {target_date}: {e}")
+            return None
 
     def _load_news_data(self, symbol: str) -> Optional[Dict]:
         """Load news data for a symbol"""
         try:
-            # Find the most recent news data file
-            pattern = os.path.join(self.data_dir, "sentiment_data", f"{symbol}_combined_news_*.json")
+            # Find the most recent news data file in news_data directory
+            pattern = os.path.join(self.data_dir, "news_data", f"{symbol}_combined_news_*.json")
             files = glob.glob(pattern)
             
             if not files:
                 # Try alternative pattern
-                pattern = os.path.join(self.data_dir, "sentiment_data", "*combined_news*.json")
+                pattern = os.path.join(self.data_dir, "news_data", "*combined_news*.json")
                 files = glob.glob(pattern)
                 
             if not files:
@@ -272,6 +322,18 @@ class SentimentAgent:
             # Process news data
             print(f"Filtered news for {symbol}: {len(filtered_news)} articles between {start_date} and {end_date}")
             
+            # Get current stock price for the analysis date
+            current_price = None
+            try:
+                current_price = self._get_current_price(symbol, current_date)
+                if current_price:
+                    print(f"Current price for {symbol} on {current_date}: ${current_price:.2f}")
+                else:
+                    print(f"❌ Could not find current price for {symbol} on {current_date}")
+            except Exception as e:
+                print(f"❌ Error getting current price for {symbol}: {e}")
+                current_price = None
+            
             # Group news by week for better trend analysis
             news_by_week = {}
             weekly_sentiment_counts = {}
@@ -310,8 +372,10 @@ class SentimentAgent:
                 sentiment_summary += f"{week_key} | {total:8d} | {counts['positive']:8d} | {counts['neutral']:7d} | {counts['negative']:8d} | {score:+.2f}\n"
             
             # Build the prompt
+            price_info = f"Current stock price: ${current_price:.2f}" if current_price else "Current stock price: Not available"
             prompt = f"""
             Analyze the sentiment and market impact of news for {symbol} from {start_date} to {end_date}.
+            {price_info}
             
             {sentiment_summary}
             
@@ -361,6 +425,7 @@ class SentimentAgent:
                 sentiment_result['symbol'] = symbol
                 sentiment_result['date'] = analysis_date.strftime('%Y-%m-%d')
                 sentiment_result['articles_analyzed'] = len(filtered_news)
+                sentiment_result['current_price'] = current_price
                 sentiment_result['date_range'] = {
                     'start': start_date,
                     'end': end_date

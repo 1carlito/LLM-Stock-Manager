@@ -176,10 +176,24 @@ class FundamentalAgent:
             # Get company data
             data = stock_data[symbol]
             
-            # Get financial statements
-            data['income_statements'] = self._filter_data_by_date(data.get('income_statements', []), analysis_date)
-            data['balance_sheets'] = self._filter_data_by_date(data.get('balance_sheets', []), analysis_date)
-            data['cash_flow_statements'] = self._filter_data_by_date(data.get('cash_flow_statements', []), analysis_date)
+            # Extract current price from historical data up to current_date (like ValuationAgent does)                                                      
+            historical_prices = data.get('historical_prices', [])
+            current_price = data.get('current_price', 0)  # Fallback to static price                                                                        
+            
+            if historical_prices and current_date:
+                # Filter prices up to current date
+                current_date_str = current_date if isinstance(current_date, str) else current_date.strftime('%Y-%m-%d')                                     
+                for price_data in reversed(historical_prices):
+                    if price_data['date'] == current_date_str:
+                        current_price = price_data['close']
+                        break
+            
+            data['current_price_as_of_date'] = current_price
+            
+            # Get financial statements (use correct field names from stock_data)                                                                            
+            data['income_statements'] = data.get('income_statement', [])
+            data['balance_sheets'] = data.get('balance_sheet', [])
+            data['cash_flow_statements'] = data.get('cash_flow', [])
             
             # Sort statements by date (most recent first)
             for key in ['income_statements', 'balance_sheets', 'cash_flow_statements']:
@@ -308,6 +322,67 @@ class FundamentalAgent:
                 'metrics': {}
             }
 
+    def _calculate_valuation_ratios(self, current_price: float, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:                                
+        """Calculate valuation ratios using current price and fundamental data"""                                                                           
+        try:
+            if not current_price or not income_data or not balance_sheet:
+                return {
+                    'status': 'Insufficient data for valuation ratios',
+                    'ratios': {}
+                }
+            
+            # Get latest data
+            latest_income = income_data[0] if income_data else {}
+            latest_balance = balance_sheet[0] if balance_sheet else {}
+            
+            if not latest_income or not latest_balance:
+                return {
+                    'status': 'Missing latest financial data',
+                    'ratios': {}
+                }
+            
+            # Calculate P/E Ratio
+            eps = latest_income.get('eps', 0)
+            pe_ratio = current_price / eps if eps else None
+            
+            # Calculate P/B Ratio (Price to Book Value per Share)
+            total_assets = latest_balance.get('totalAssets', 0)
+            total_liabilities = latest_balance.get('totalLiabilities', 0)
+            equity = total_assets - total_liabilities
+            shares_outstanding = latest_income.get('weightedAverageShsOut', 0)                                                                              
+            
+            book_value_per_share = equity / shares_outstanding if shares_outstanding else None                                                              
+            pb_ratio = current_price / book_value_per_share if book_value_per_share else None                                                               
+            
+            # Calculate Price to Sales
+            revenue = latest_income.get('revenue', 0)
+            revenue_per_share = revenue / shares_outstanding if shares_outstanding else None                                                                
+            ps_ratio = current_price / revenue_per_share if revenue_per_share else None                                                                     
+            
+            # Calculate Price to Cash Flow
+            # We'll use this in the next function if cash_flow is available
+            
+            ratios = {
+                'pe_ratio': pe_ratio,
+                'pb_ratio': pb_ratio,
+                'ps_ratio': ps_ratio,
+                'book_value_per_share': book_value_per_share,
+                'revenue_per_share': revenue_per_share,
+                'eps': eps,
+                'current_price': current_price
+            }
+            
+            return {
+                'status': 'success',
+                'ratios': ratios
+            }
+            
+        except Exception as e:
+            return {
+                'status': f'Error calculating valuation ratios: {str(e)}',
+                'ratios': {}
+            }
+
     def _analyze_growth(self, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:
         """Analyze growth metrics"""
         if not income_data or not balance_sheet:
@@ -397,6 +472,13 @@ class FundamentalAgent:
                 data.get('balance_sheets', [])
             )
             
+            # Calculate valuation ratios with current price
+            valuation_ratios = self._calculate_valuation_ratios(
+                data.get('current_price_as_of_date', 0),
+                data.get('income_statements', []),
+                data.get('balance_sheets', [])
+            )
+            
             # Get previous analyses
             previous_analyses = self._get_previous_analyses(symbol, current_date)
             previous_analyses_text = ""
@@ -415,7 +497,7 @@ class FundamentalAgent:
                     previous_analyses_text += f"{date} | {recommendation:14s} | {confidence:10d} | {reasoning}\n"
             
             # Prepare analysis prompt
-            prompt = self._build_analysis_prompt(data, profitability, financial_health, growth, previous_analyses_text)
+            prompt = self._build_analysis_prompt(data, profitability, financial_health, growth, valuation_ratios, previous_analyses_text)
             
             # Get analysis from Gemini
             response = self.gemini_client.generate_content(prompt)
@@ -436,7 +518,8 @@ class FundamentalAgent:
                 'metrics': {
                     'profitability': profitability['metrics'],
                     'financial_health': financial_health['metrics'],
-                    'growth': growth['metrics']
+                    'growth': growth['metrics'],
+                    'valuation_ratios': valuation_ratios['ratios']
                 },
                 'analysis': self._parse_analysis_response(response.text),
                 'model_used': self.model
@@ -451,11 +534,12 @@ class FundamentalAgent:
             print(f"❌ Error analyzing fundamentals for {symbol}: {e}")
             return None
 
-    def _build_analysis_prompt(self, data: Dict, profitability: Dict, financial_health: Dict, growth: Dict, previous_analyses_text: str = "") -> str:
+    def _build_analysis_prompt(self, data: Dict, profitability: Dict, financial_health: Dict, growth: Dict, valuation_ratios: Dict, previous_analyses_text: str = "") -> str:
         """Build the prompt for fundamental analysis"""
         symbol = data.get('symbol', '')
         company = data.get('company_name', symbol)
         sector = data.get('sector', 'Unknown')
+        current_price = data.get('current_price_as_of_date', data.get('current_price', 0))
         
         # Format metrics with proper handling of None values
         def fmt_price(val):
@@ -491,6 +575,7 @@ class FundamentalAgent:
         prompt = f"""
 Analyze the fundamental health and outlook for {company} ({symbol}) in the {sector} sector.
 
+Current Price: ${current_price:.2f}
 Analysis Period: {self.start_date.strftime('%Y-%m-%d')} to {self.cutoff_date.strftime('%Y-%m-%d')}
 
 {quarterly_trend}
@@ -543,6 +628,14 @@ Annual Metrics:
 - Asset Growth: {fmt_pct(growth['metrics'].get('asset_growth'))}
 - Equity Growth: {fmt_pct(growth['metrics'].get('equity_growth'))}
 
+4. VALUATION RATIOS:
+- P/E Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pe_ratio'))}
+- P/B Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pb_ratio'))}
+- P/S Ratio: {fmt_ratio(valuation_ratios['ratios'].get('ps_ratio'))}
+- Book Value per Share: {fmt_price(valuation_ratios['ratios'].get('book_value_per_share'))}
+- Revenue per Share: {fmt_price(valuation_ratios['ratios'].get('revenue_per_share'))}
+- EPS: {fmt_price(valuation_ratios['ratios'].get('eps'))}
+
 Please provide a comprehensive fundamental analysis including:
 
 1. PROFITABILITY ANALYSIS:
@@ -565,13 +658,13 @@ Please provide a comprehensive fundamental analysis including:
    - Future growth potential
    - Growth quality assessment
 
-4. RISK ASSESSMENT:
+5. RISK ASSESSMENT:
    - Financial risks
    - Business risks
    - Market position risks
    - Growth execution risks
 
-5. INVESTMENT RECOMMENDATION:
+6. INVESTMENT RECOMMENDATION:
    - Fundamental outlook
    - Investment thesis
    - Risk/reward assessment

@@ -168,3 +168,5 @@ print(f'\n--- All SELL Trades ---')
 for t in sell_trades:
     print(f"{t['date']}: SELL {t['shares']} shares @ ${t['price']:.2f} -> Profit: ${t['profit']:,.2f}")
 
+
+

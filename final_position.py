@@ -73,3 +73,4 @@ if position > 0:
     print(f'Unrealized P/L: ${unrealized_pnl:,.2f} ({(unrealized_pnl/total_invested)*100:.2f}%)')
 print(f'\nFinal Cash: ${cash:,.2f}')
 
+
