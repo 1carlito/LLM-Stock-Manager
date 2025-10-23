@@ -73,3 +73,4 @@ for symbol, articles in stock_news.items():
     print(f"{symbol}: {len(articles)} articles")
     for article in articles:
         print(f"  - {article['title']}")
+
