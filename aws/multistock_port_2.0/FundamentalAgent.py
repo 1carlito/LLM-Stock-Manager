@@ -15,13 +15,12 @@ import google.generativeai as genai
 import numpy as np
 import glob
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file in the same directory as this script
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(dotenv_path=env_path)
 
-# Configure Gemini
-gemini_api_key = os.getenv('GEMINI_API_KEY')
-if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
+# Load default API key - use dedicated fundamental key first, fallback to general key
+default_gemini_api_key = os.getenv('FUNDAMENTAL_GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY')
 MODEL_NAME = 'gemini-2.5-flash-lite'
 
 class FundamentalAgent:
@@ -30,9 +29,16 @@ class FundamentalAgent:
     ratios, and company information for stock valuation.
     """
 
-    def __init__(self, data_dir: str = ".", start_date: str = None, end_date: str = None):
-        """Initialize the Fundamental Agent"""
-        load_dotenv()
+    def __init__(self, data_dir: str = ".", start_date: str = None, end_date: str = None, api_key_override: str = None):
+        """Initialize the Fundamental Agent
+        
+        Args:
+            data_dir: Directory for data storage
+            start_date: Start date for analysis (optional)
+            end_date: End date for analysis (optional)
+            api_key_override: Optional API key to use instead of default from .env
+        """
+        # .env already loaded at module level
         self.data_dir = data_dir
         self.output_dir = os.path.join(data_dir, "fundamental_reports")
         os.makedirs(self.output_dir, exist_ok=True)
@@ -41,6 +47,22 @@ class FundamentalAgent:
         self.start_date = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.strptime("2025-09-16", "%Y-%m-%d")
         self.cutoff_date = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.strptime("2025-09-18", "%Y-%m-%d")
 
+        # Use override API key if provided, otherwise use dedicated fundamental key
+        api_key = api_key_override or default_gemini_api_key
+        if not api_key:
+            # Try numbered keys as fallback
+            for i in range(1, 11):
+                key = os.getenv(f"GEMINI_API_KEY_{i}")
+                if key:
+                    api_key = key
+                    break
+        
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set and no override provided")
+        
+        # Configure with the specific API key
+        genai.configure(api_key=api_key)
+        
         self.model = MODEL_NAME
         self.gemini_client = genai.GenerativeModel(self.model)
 
@@ -160,8 +182,8 @@ class FundamentalAgent:
                 else:
                     analysis_date = current_date
                     
-            # Load stock data from new location
-            stock_data_file = os.path.join(self.data_dir, "valuation_data/stock_data_valuation.json")
+            # Load stock data from raw_multidata
+            stock_data_file = os.path.join(self.data_dir, "raw_multidata/stock_data_20251009_163317.json")
             if not os.path.exists(stock_data_file):
                 print(f"❌ Stock data file not found: {stock_data_file}")
                 return None
@@ -176,28 +198,29 @@ class FundamentalAgent:
             # Get company data
             data = stock_data[symbol]
             
-            # Extract current price from historical data up to current_date (like ValuationAgent does)                                                      
+            # Extract current price from historical data up to current_date (like ValuationAgent does)
             historical_prices = data.get('historical_prices', [])
-            current_price = data.get('current_price', 0)  # Fallback to static price                                                                        
+            current_price = data.get('current_price', 0)  # Fallback to static price
             
             if historical_prices and current_date:
                 # Filter prices up to current date
-                current_date_str = current_date if isinstance(current_date, str) else current_date.strftime('%Y-%m-%d')                                     
+                current_date_str = current_date if isinstance(current_date, str) else current_date.strftime('%Y-%m-%d')
                 for price_data in reversed(historical_prices):
-                    if price_data['date'] == current_date_str:
+                    if price_data['date'] <= current_date_str:
                         current_price = price_data['close']
                         break
             
             data['current_price_as_of_date'] = current_price
             
-            # Get financial statements (use correct field names from stock_data)                                                                            
+            # Get financial statements (use correct field names from stock_data)
             data['income_statements'] = data.get('income_statement', [])
             data['balance_sheets'] = data.get('balance_sheet', [])
             data['cash_flow_statements'] = data.get('cash_flow', [])
             
             # Sort statements by date (most recent first)
             for key in ['income_statements', 'balance_sheets', 'cash_flow_statements']:
-                data[key].sort(key=lambda x: x['date'], reverse=True)
+                if data.get(key):
+                    data[key].sort(key=lambda x: x['date'], reverse=True)
             
             return data
                 
@@ -215,7 +238,7 @@ class FundamentalAgent:
             
         try:
             # Get quarterly and annual statements
-            quarterly = [s for s in income_data if s.get('period') == 'Q']
+            quarterly = [s for s in income_data if s.get('period', '').startswith('Q')]
             annual = [s for s in income_data if s.get('period') == 'FY']
             
             # Analyze latest quarter
@@ -269,9 +292,9 @@ class FundamentalAgent:
             }
             
         try:
-            # Get quarterly and annual statements
-            q_bs = [s for s in balance_sheet if s.get('period') == 'Q']
-            q_cf = [s for s in cash_flow if s.get('period') == 'Q']
+            # Get quarterly and annual statements (handle both 'Q' and 'Q1', 'Q2', etc.)
+            q_bs = [s for s in balance_sheet if s.get('period', '').startswith('Q')]
+            q_cf = [s for s in cash_flow if s.get('period', '').startswith('Q')]
             y_bs = [s for s in balance_sheet if s.get('period') == 'FY']
             y_cf = [s for s in cash_flow if s.get('period') == 'FY']
             
@@ -322,8 +345,8 @@ class FundamentalAgent:
                 'metrics': {}
             }
 
-    def _calculate_valuation_ratios(self, current_price: float, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:                                
-        """Calculate valuation ratios using current price and fundamental data"""                                                                           
+    def _calculate_valuation_ratios(self, current_price: float, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:
+        """Calculate valuation ratios using current price and fundamental data"""
         try:
             if not current_price or not income_data or not balance_sheet:
                 return {
@@ -331,13 +354,13 @@ class FundamentalAgent:
                     'ratios': {}
                 }
             
-            # Get latest data
-            latest_income = income_data[0] if income_data else {}
-            latest_balance = balance_sheet[0] if balance_sheet else {}
+            # Get latest quarterly data
+            latest_income = income_data[0] if income_data else None
+            latest_balance = balance_sheet[0] if balance_sheet else None
             
             if not latest_income or not latest_balance:
                 return {
-                    'status': 'Missing latest financial data',
+                    'status': 'Missing latest financial statements',
                     'ratios': {}
                 }
             
@@ -349,15 +372,15 @@ class FundamentalAgent:
             total_assets = latest_balance.get('totalAssets', 0)
             total_liabilities = latest_balance.get('totalLiabilities', 0)
             equity = total_assets - total_liabilities
-            shares_outstanding = latest_income.get('weightedAverageShsOut', 0)                                                                              
+            shares_outstanding = latest_income.get('weightedAverageShsOut', 0)
             
-            book_value_per_share = equity / shares_outstanding if shares_outstanding else None                                                              
-            pb_ratio = current_price / book_value_per_share if book_value_per_share else None                                                               
+            book_value_per_share = equity / shares_outstanding if shares_outstanding else None
+            pb_ratio = current_price / book_value_per_share if book_value_per_share else None
             
             # Calculate Price to Sales
             revenue = latest_income.get('revenue', 0)
-            revenue_per_share = revenue / shares_outstanding if shares_outstanding else None                                                                
-            ps_ratio = current_price / revenue_per_share if revenue_per_share else None                                                                     
+            revenue_per_share = revenue / shares_outstanding if shares_outstanding else None
+            ps_ratio = current_price / revenue_per_share if revenue_per_share else None
             
             # Calculate Price to Cash Flow
             # We'll use this in the next function if cash_flow is available
@@ -382,7 +405,7 @@ class FundamentalAgent:
                 'status': f'Error calculating valuation ratios: {str(e)}',
                 'ratios': {}
             }
-
+    
     def _analyze_growth(self, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:
         """Analyze growth metrics"""
         if not income_data or not balance_sheet:
@@ -436,6 +459,40 @@ class FundamentalAgent:
                 'metrics': {}
             }
 
+    def analyze_fundamentals_multi_date(self, symbol: str, analysis_dates: List[str]) -> List[Optional[Dict]]:
+        """
+        Analyze fundamentals for a stock on multiple dates (e.g., every 5 trading days)
+        
+        Args:
+            symbol: Stock ticker symbol
+            analysis_dates: List of dates to analyze (YYYY-MM-DD format)
+            
+        Returns:
+            List of analysis results for each date
+        """
+        results = []
+        
+        for date in analysis_dates:
+            print(f"\n📊 Analyzing {symbol} fundamentals as of {date}...")
+            result = self.analyze_fundamentals(symbol, current_date=date)
+            
+            if result:
+                # Show key metrics
+                if 'metrics' in result and 'valuation_ratios' in result['metrics']:
+                    ratios = result['metrics']['valuation_ratios']
+                    pe = ratios.get('pe_ratio')
+                    pb = ratios.get('pb_ratio')
+                    price = ratios.get('current_price')
+                    pe_str = f"{pe:.2f}" if pe else "N/A"
+                    pb_str = f"{pb:.2f}" if pb else "N/A"
+                    print(f"   ✅ Price: ${price:.2f}, P/E: {pe_str}, P/B: {pb_str}")
+            else:
+                print(f"   ❌ Analysis failed for {date}")
+                
+            results.append(result)
+        
+        return results
+    
     def analyze_fundamentals(self, symbol: str, current_date: str = None) -> Optional[Dict]:
         """Analyze fundamentals for a stock symbol"""
         try:
@@ -552,7 +609,7 @@ class FundamentalAgent:
             return f"{val:.2f}" if val is not None else "N/A"
         
         # Get quarterly statements for trend analysis
-        quarterly_income = [s for s in data.get('income_statements', []) if s.get('period') == 'Q']
+        quarterly_income = [s for s in data.get('income_statements', []) if s.get('period', '').startswith('Q')]
         quarterly_income = quarterly_income[:4]  # Use up to 4 most recent quarters
         
         # Format quarterly trend data
@@ -581,6 +638,13 @@ Analysis Period: {self.start_date.strftime('%Y-%m-%d')} to {self.cutoff_date.str
 {quarterly_trend}
 
 {previous_analyses_text}
+
+VALUATION RATIOS (calculated with current price):
+- P/E Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pe_ratio'))}
+- P/B Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pb_ratio'))}
+- P/S Ratio: {fmt_ratio(valuation_ratios['ratios'].get('ps_ratio'))}
+- Book Value per Share: {fmt_price(valuation_ratios['ratios'].get('book_value_per_share'))}
+- EPS: {fmt_price(valuation_ratios['ratios'].get('eps'))}
 
 1. PROFITABILITY METRICS:
 
@@ -628,14 +692,6 @@ Annual Metrics:
 - Asset Growth: {fmt_pct(growth['metrics'].get('asset_growth'))}
 - Equity Growth: {fmt_pct(growth['metrics'].get('equity_growth'))}
 
-4. VALUATION RATIOS:
-- P/E Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pe_ratio'))}
-- P/B Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pb_ratio'))}
-- P/S Ratio: {fmt_ratio(valuation_ratios['ratios'].get('ps_ratio'))}
-- Book Value per Share: {fmt_price(valuation_ratios['ratios'].get('book_value_per_share'))}
-- Revenue per Share: {fmt_price(valuation_ratios['ratios'].get('revenue_per_share'))}
-- EPS: {fmt_price(valuation_ratios['ratios'].get('eps'))}
-
 Please provide a comprehensive fundamental analysis including:
 
 1. PROFITABILITY ANALYSIS:
@@ -658,13 +714,13 @@ Please provide a comprehensive fundamental analysis including:
    - Future growth potential
    - Growth quality assessment
 
-5. RISK ASSESSMENT:
+4. RISK ASSESSMENT:
    - Financial risks
    - Business risks
    - Market position risks
    - Growth execution risks
 
-6. INVESTMENT RECOMMENDATION:
+5. INVESTMENT RECOMMENDATION:
    - Fundamental outlook
    - Investment thesis
    - Risk/reward assessment

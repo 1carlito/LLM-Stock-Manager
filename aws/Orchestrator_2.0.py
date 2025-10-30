@@ -18,6 +18,7 @@ from collections import defaultdict
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from ReasoningAgent import ReasoningAgent
 from SentimentAgent import SentimentAgent
+from ValuationAgent import ValuationAgent
 
 class DateFilteredBacktest:
     """Run a backtest with date filtering using pre-generated analysis files."""
@@ -55,6 +56,7 @@ class DateFilteredBacktest:
         # Initialize agents
         self.reasoning_agent = ReasoningAgent(data_dir=data_dir)
         self.sentiment_agent = SentimentAgent(data_dir=data_dir)
+        self.valuation_agent = ValuationAgent(data_dir=data_dir)
         
         self.logger.info(f"Date Filtered Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
@@ -325,8 +327,23 @@ class DateFilteredBacktest:
                     except Exception as e:
                         self.logger.error(f"Error generating sentiment analysis for {symbol}: {e}")
                 
-                # Check if we have sentiment data (only requirement)
-                if sentiment_data:
+                # Load valuation analysis
+                valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date)
+                
+                # If valuation data is missing, try to generate it using ValuationAgent
+                if not valuation_data:
+                    self.logger.info(f"No valuation analysis found for {symbol}, generating new analysis...")
+                    try:
+                        valuation_data = self.valuation_agent.analyze_valuation(symbol, current_date)
+                        if valuation_data:
+                            self.logger.info(f"Generated valuation analysis for {symbol}")
+                        else:
+                            self.logger.warning(f"Failed to generate valuation analysis for {symbol}")
+                    except Exception as e:
+                        self.logger.error(f"Error generating valuation analysis for {symbol}: {e}")
+                
+                # Check if we have both sentiment and valuation data
+                if sentiment_data and valuation_data:
                     self.logger.info(f"All analyses found for {symbol} - calling reasoning agent")
                     
                     try:
@@ -336,7 +353,7 @@ class DateFilteredBacktest:
                         
                         # Call reasoning agent with previous decisions as context
                         decision_result = self.reasoning_agent.make_decision(
-                            symbol, current_date, None, None, sentiment_data, 
+                            symbol, current_date, valuation_data, None, sentiment_data, 
                             previous_decisions=previous_decisions
                         )
                         
@@ -354,6 +371,7 @@ class DateFilteredBacktest:
                             'confidence': confidence,
                             'reasoning': decision_result.get('reasoning', ''),
                             'sentiment_data': sentiment_data.get('sentiment', 'Unknown') if sentiment_data else 'Unknown',
+                            'valuation_data': valuation_data.get('recommendation', 'Unknown') if valuation_data else 'Unknown',
                             'current_price': sentiment_data.get('current_price', None) if sentiment_data else None
                         }
                         self._save_decision(symbol, decision_record)
@@ -366,8 +384,10 @@ class DateFilteredBacktest:
                     except Exception as e:
                         self.logger.error(f"Error making decision for {symbol}: {e}")
                         
-                else:
+                elif not sentiment_data:
                     self.logger.warning(f"Missing sentiment analysis for {symbol}")
+                elif not valuation_data:
+                    self.logger.warning(f"Missing valuation analysis for {symbol}")
         
         # Calculate final portfolio value and performance
         final_value = self.portfolio['cash']
@@ -426,10 +446,9 @@ def main():
     # Verify that we have at least some analysis files for each symbol
     for symbol in symbols:
         valuation_pattern = os.path.join(data_dir, 'valuation_reports', f"{symbol}_*analysis*.json")
-        fundamental_pattern = os.path.join(data_dir, 'fundamental_reports', f"{symbol}_*analysis*.json")
         sentiment_pattern = os.path.join(data_dir, 'sentiment_data', f"{symbol}_*analysis*.json")
         
-        if not (glob.glob(valuation_pattern) and glob.glob(fundamental_pattern) and glob.glob(sentiment_pattern)):
+        if not (glob.glob(valuation_pattern) and glob.glob(sentiment_pattern)):
             print(f"Warning: Missing some analysis files for {symbol}.")
     
     # Initialize and run backtest

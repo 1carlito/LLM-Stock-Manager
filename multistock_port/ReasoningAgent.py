@@ -24,11 +24,17 @@ genai.configure(api_key=api_key)
 MODEL_NAME = "gemini-2.5-pro"  # Using Gemini Pro for advanced reasoning
 
 class ReasoningAgent:
-    def __init__(self, data_dir="."):
+    def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
         self.model = MODEL_NAME
-        if not api_key:
+        
+        # Use override API key if provided, otherwise use global
+        self.api_key = api_key_override or api_key
+        if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set")
+        
+        # Configure with the specific API key
+        genai.configure(api_key=self.api_key)
         print("✅ ReasoningAgent initialized with Gemini Pro API")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
@@ -83,26 +89,22 @@ class ReasoningAgent:
             raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
-        """Build a prompt that focuses on sentiment analysis and previous decisions for final decision making"""
+        """Build a prompt that integrates sentiment and valuation analyses for decision making"""
         
         # Format date if it's a datetime object
         date_str = current_date
         if hasattr(current_date, 'strftime'):
             date_str = current_date.strftime('%Y-%m-%d')
         
-        # Build the base prompt focusing on sentiment analysis
+        # Build the base prompt with both sentiment and valuation analyses
         prompt = f"""
 You are a professional trading agent analyzing {symbol} on {date_str}.
 
 SENTIMENT ANALYSIS:
 {json.dumps(sentiment_data, indent=2) if sentiment_data else "No sentiment data available"}
-"""
-        
-        # Add additional analysis data if available (but don't require it)
-        if valuation_data:
-            prompt += f"""
-VALUATION ANALYSIS (if available):
-{json.dumps(valuation_data, indent=2)}
+
+VALUATION ANALYSIS:
+{json.dumps(valuation_data, indent=2) if valuation_data else "No valuation data available"}
 """
         
         if fundamental_data:
@@ -121,18 +123,18 @@ PREVIOUS TRADING DECISIONS:
 Consider these previous decisions in your analysis. Look for trends, consistency, and any changes in market conditions since these decisions were made.
 """
         
-        # Add final instructions focused on sentiment-driven decisions
+        # Add final instructions for integrating sentiment and valuation analyses
         prompt += f"""
 
-Based on the sentiment analysis and any available additional data, make a trading decision:
+Based on BOTH the sentiment analysis AND valuation analysis, make a trading decision:
 1. Analyze the sentiment signals, confidence levels, and market sentiment trends
-2. Consider the current stock price and any price momentum indicated in the sentiment data
-3. Evaluate the strength and reliability of the sentiment signals
-4. Look for significant sentiment shifts or strong directional signals
+2. Consider the valuation metrics, price targets, and technical indicators
+3. Look for agreement or disagreement between sentiment and valuation analyses
+4. Evaluate the strength and reliability of both types of signals
 5. Consider how this decision fits with the previous trading history (if provided)
-6. Be more decisive when sentiment is strong and well-supported by data
+6. Be more decisive when both sentiment and valuation signals align
 
-IMPORTANT: You should be willing to make BUY/SELL decisions based on strong sentiment signals, even if other analysis data is limited. The sentiment analysis includes current stock prices and market sentiment that can drive trading decisions.
+IMPORTANT: You should integrate insights from BOTH sentiment and valuation analyses. When they agree, this strengthens the signal. When they disagree, carefully weigh the evidence from each source.
 
 Provide your decision in this format:
 DECISION: [BUY/SELL/HOLD]

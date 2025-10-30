@@ -9,26 +9,54 @@ from datetime import datetime
 from dotenv import load_dotenv
 import openai
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env in the same directory as this script
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(dotenv_path=env_path)
 
 # Configure Gemini
 import google.generativeai as genai
 
-# Load Gemini API key
-api_key = os.getenv("GEMINI_API_KEY")
+# Load Gemini API key - use dedicated REASONING_GEMINI_API_KEY first, then fallback to numbered keys
+api_key = os.getenv("REASONING_GEMINI_API_KEY")
 if not api_key:
-    raise ValueError("GEMINI_API_KEY environment variable not set")
+    # Try general key as fallback
+    api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    # Try numbered keys as last resort
+    for i in range(1, 21):
+        key = os.getenv(f"GEMINI_API_KEY_{i}")
+        if key:
+            api_key = key
+            break
 
-genai.configure(api_key=api_key)
+if not api_key:
+    raise ValueError("REASONING_GEMINI_API_KEY, GEMINI_API_KEY, or GEMINI_API_KEY_1-20 environment variable not set")
+
 MODEL_NAME = "gemini-2.5-pro"  # Using Gemini Pro for advanced reasoning
 
 class ReasoningAgent:
-    def __init__(self, data_dir="."):
+    def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
         self.model = MODEL_NAME
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set")
+        
+        # Use override API key if provided, otherwise use dedicated reasoning key
+        self.api_key = api_key_override
+        if not self.api_key:
+            self.api_key = os.getenv("REASONING_GEMINI_API_KEY")
+        if not self.api_key:
+            self.api_key = os.getenv("GEMINI_API_KEY")
+        if not self.api_key:
+            # Try numbered keys as last resort
+            for i in range(1, 21):
+                key = os.getenv(f"GEMINI_API_KEY_{i}")
+                if key:
+                    self.api_key = key
+                    break
+        if not self.api_key:
+            raise ValueError("REASONING_GEMINI_API_KEY, GEMINI_API_KEY, or GEMINI_API_KEY_1-20 environment variable not set")
+        
+        # Configure with the specific API key
+        genai.configure(api_key=self.api_key)
         print("✅ ReasoningAgent initialized with Gemini Pro API")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):

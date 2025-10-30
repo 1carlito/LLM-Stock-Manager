@@ -15,13 +15,19 @@ from dotenv import load_dotenv
 import numpy as np
 import glob
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env in the same directory as this script
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(dotenv_path=env_path)
 
 class ValuationAgent:
-    def __init__(self, data_dir: str = "."):
-        """Initialize the Valuation Agent"""
-        load_dotenv()
+    def __init__(self, data_dir: str = ".", api_key_override: str = None):
+        """Initialize the Valuation Agent
+        
+        Args:
+            data_dir: Directory for data storage
+            api_key_override: Optional API key to use instead of default from .env
+        """
+        # .env already loaded at module level
         self.data_dir = data_dir
         self.output_dir = os.path.join(data_dir, "valuation_reports")
         os.makedirs(self.output_dir, exist_ok=True)
@@ -30,20 +36,28 @@ class ValuationAgent:
         self.start_date = datetime.strptime("2024-09-20", "%Y-%m-%d")  # Full year
         self.cutoff_date = datetime.strptime("2025-09-18", "%Y-%m-%d")
         
-        # Initialize Gemini API
-        api_key = os.getenv("GEMINI_API_KEY")
+        # Initialize Gemini API - use dedicated valuation key first
+        api_key = api_key_override or os.getenv("VALUATION_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set")
+            # Try numbered keys as fallback
+            for i in range(1, 11):
+                key = os.getenv(f"GEMINI_API_KEY_{i}")
+                if key:
+                    api_key = key
+                    break
+        
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set and no override provided")
         
         genai.configure(api_key=api_key)
         self.gemini_client = genai.GenerativeModel("gemini-2.5-flash-lite")
         print("✅ Gemini ValuationAgent initialized")
 
-    def prepare_analysis_data(self, symbol: str) -> Optional[Dict]:
-        """Prepare valuation analysis data for a stock symbol"""
+    def prepare_analysis_data(self, symbol: str, target_date: Optional[str] = None) -> Optional[Dict]:
+        """Prepare valuation analysis data for a stock symbol on a specific date"""
         try:
-            # Load stock data from new location
-            stock_data_file = os.path.join(self.data_dir, "valuation_data/stock_data_valuation.json")
+            # Load stock data from raw_multidata
+            stock_data_file = os.path.join(self.data_dir, "raw_multidata/stock_data_20251009_163317.json")
             if not os.path.exists(stock_data_file):
                 print(f"❌ Stock data file not found: {stock_data_file}")
                 return None
@@ -55,24 +69,41 @@ class ValuationAgent:
                 print(f"❌ No data found for {symbol}")
                 return None
             
-            # Get historical data and filter by date range
-            historical_data = stock_data[symbol].get('historical_prices', [])
-            filtered_data = []
+            # Get all historical data
+            all_historical_data = stock_data[symbol].get('historical_prices', [])
+            all_historical_data.sort(key=lambda x: x['date'])
             
-            for day_data in historical_data:
-                try:
-                    date_str = day_data.get('date', '')
-                    if date_str:
-                        data_date = datetime.strptime(date_str, '%Y-%m-%d')
-                        if self.start_date <= data_date <= self.cutoff_date:
-                            filtered_data.append(day_data)
-                except ValueError:
-                    continue
+            # Filter data up to target_date (like AWS version does)
+            if target_date:
+                # Find data for the specific target date or closest before it
+                target_data = None
+                filtered_data = []
+                
+                for price_data in all_historical_data:
+                    if price_data['date'] <= target_date:
+                        filtered_data.append(price_data)
+                        if price_data['date'] == target_date:
+                            target_data = price_data
+                
+                if not filtered_data:
+                    print(f"❌ No price data available for {symbol} on or before {target_date}")
+                    return None
+                
+                # Use closest date if exact match not found
+                if not target_data:
+                    target_data = filtered_data[-1]
+                
+                current_price = target_data['close']
+                actual_date = target_data['date']
+            else:
+                # No target date - use all data
+                filtered_data = all_historical_data
+                if not filtered_data:
+                    return None
+                current_price = filtered_data[-1]['close']
+                actual_date = filtered_data[-1]['date']
             
-            # Sort data by date
-            filtered_data.sort(key=lambda x: x['date'])
-            
-            # Calculate key metrics
+            # Calculate key metrics using data up to target_date
             metrics = self._calculate_metrics(filtered_data)
             
             # Get company info
@@ -80,7 +111,8 @@ class ValuationAgent:
                 'symbol': symbol,
                 'company_name': stock_data[symbol].get('company_name', symbol),
                 'sector': stock_data[symbol].get('sector', 'Unknown'),
-                'current_price': stock_data[symbol].get('current_price', 0)
+                'current_price': current_price,
+                'target_date': actual_date  # This is the key field for orchestrator matching
             }
             
             # Prepare analysis data
@@ -164,10 +196,10 @@ class ValuationAgent:
             print(f"❌ Error calculating metrics: {e}")
             return {}
 
-    def analyze_valuation(self, symbol: str) -> Optional[Dict]:
-        """Analyze valuation for a stock symbol"""
+    def analyze_valuation(self, symbol: str, target_date: Optional[str] = None) -> Optional[Dict]:
+        """Analyze valuation for a stock symbol on a specific date"""
         try:
-            analysis_data = self.prepare_analysis_data(symbol)
+            analysis_data = self.prepare_analysis_data(symbol, target_date)
             if not analysis_data:
                 return None
             
@@ -181,8 +213,12 @@ class ValuationAgent:
                 # Parse the response
                 valuation_result = self._parse_valuation_response(response.text, symbol)
                 
-                # Add calculated metrics to result
+                # Add calculated metrics and key data to result
                 valuation_result['metrics'] = analysis_data['metrics']
+                valuation_result['target_date'] = analysis_data.get('target_date')  # Key field for orchestrator
+                valuation_result['current_price'] = analysis_data.get('current_price')
+                valuation_result['sector'] = analysis_data.get('sector')
+                valuation_result['company_name'] = analysis_data.get('company_name')
                 
                 # Save the analysis
                 self.save_analysis(symbol, valuation_result)
