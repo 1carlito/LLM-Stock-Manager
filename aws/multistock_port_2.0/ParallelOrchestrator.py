@@ -32,7 +32,7 @@ class ParallelBacktest:
     """
     
     def __init__(self, data_dir='.', start_date=None, end_date=None, lookback_window=4,
-                 use_sentiment=True, use_valuation=True, use_fundamental=False,
+                 use_sentiment=True, use_valuation=True, use_fundamental=True,
                  backtest_name="parallel", api_keys=None, max_workers=None):
         self.data_dir = data_dir
         self.start_date = start_date
@@ -43,7 +43,11 @@ class ParallelBacktest:
         self.use_fundamental = use_fundamental
         self.backtest_name = backtest_name
         
-        # Set up logging first (needed for _load_api_keys)
+        # API key configuration
+        self.api_keys = api_keys or self._load_api_keys()
+        self.max_workers = max_workers or min(len(self.api_keys), 10)
+        
+        # Set up logging
         log_dir = os.path.join(data_dir, 'logs')
         os.makedirs(log_dir, exist_ok=True)
         
@@ -56,10 +60,6 @@ class ParallelBacktest:
             ]
         )
         self.logger = logging.getLogger(__name__)
-        
-        # API key configuration (after logger is set up)
-        self.api_keys = api_keys or self._load_api_keys()
-        self.max_workers = max_workers or min(len(self.api_keys), 10)
         
         # Initialize portfolio
         self.portfolio = {
@@ -110,28 +110,36 @@ class ParallelBacktest:
         self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API keys from environment variables"""
+        """Load API keys from environment variables for ReasoningAgent (Claude API keys)"""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered API keys (GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.)
-        for i in range(1, 11):  # Support up to 10 API keys
-            key = os.getenv(f"GEMINI_API_KEY_{i}")
+        # Try to load numbered Claude API keys (STOCK_1_CLAUDE_API_KEY, STOCK_2_CLAUDE_API_KEY, etc.)
+        for i in range(1, 21):  # Support up to 20 API keys
+            key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
             if key:
                 keys.append(key)
         
-        # If no numbered keys, use the default key
+        # If no numbered keys, try ANTHROPIC_API_KEY_1-20 as fallback
         if not keys:
-            default_key = os.getenv("GEMINI_API_KEY")
+            for i in range(1, 21):
+                key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
+                if key:
+                    keys.append(key)
+        
+        # If still no keys, try REASONING_CLAUDE_API_KEY as last resort
+        if not keys:
+            default_key = os.getenv("REASONING_CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
             if default_key:
                 keys.append(default_key)
         
         if not keys:
-            raise ValueError("No API keys found. Set GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc. or GEMINI_API_KEY")
+            raise ValueError("No Claude API keys found. Set STOCK_1_CLAUDE_API_KEY through STOCK_20_CLAUDE_API_KEY in .env")
         
-        self.logger.info(f"Loaded {len(keys)} API key(s)")
+        # Note: Logger not available yet during initialization, will log later
+        print(f"Loaded {len(keys)} Claude API key(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
@@ -245,6 +253,66 @@ class ParallelBacktest:
             self.logger.error(f"Error loading previous decisions for {symbol}: {e}")
             return []
     
+    def _load_previous_portfolio_decisions(self, current_date):
+        """Load previous portfolio allocation decisions (up to 4) before current date"""
+        try:
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions')
+            if not os.path.exists(decisions_dir):
+                return []
+            
+            # Find all portfolio decision files for this backtest
+            pattern = os.path.join(decisions_dir, f"portfolio_decisions_*_{self.backtest_name}.json")
+            files = glob.glob(pattern)
+            
+            if not files:
+                # Fall back to any portfolio decisions
+                pattern = os.path.join(decisions_dir, f"portfolio_decisions_*.json")
+                files = glob.glob(pattern)
+                
+            if not files:
+                return []
+            
+            current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+            previous_portfolio_decisions = []
+            
+            # Load decisions from files
+            for file in files:
+                try:
+                    with open(file, 'r') as f:
+                        decision = json.load(f)
+                    
+                    # Check if decision is before current date
+                    decision_date = datetime.strptime(decision.get('date', '1900-01-01'), '%Y-%m-%d')
+                    if decision_date < current_date_obj:
+                        previous_portfolio_decisions.append(decision)
+                        
+                except Exception:
+                    continue
+            
+            # Sort by date and return the most recent ones (up to 4)
+            previous_portfolio_decisions.sort(key=lambda x: x.get('date', '1900-01-01'))
+            return previous_portfolio_decisions[-4:]
+            
+        except Exception as e:
+            self.logger.error(f"Error loading previous portfolio decisions: {e}")
+            return []
+
+    def _save_portfolio_decision(self, portfolio_decisions, current_date):
+        """Save portfolio decision record to file for future context"""
+        try:
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions')
+            os.makedirs(decisions_dir, exist_ok=True)
+            
+            # Create filename with date and backtest name
+            filename = f"portfolio_decisions_{current_date}_{self.backtest_name}.json"
+            filepath = os.path.join(decisions_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                json.dump(portfolio_decisions, f, indent=2, default=str)
+                
+        except Exception as e:
+            self.logger.error(f"Error saving portfolio decision: {e}")
+    
     def _analyze_single_stock(self, symbol, current_date, api_key):
         """
         Analyze a single stock and make a decision using the assigned API key.
@@ -324,9 +392,8 @@ class ParallelBacktest:
             # Get previous decisions for context
             previous_decisions = self._load_previous_decisions(symbol, current_date)
             
-            # Create ReasoningAgent - it will use REASONING_GEMINI_API_KEY (not the stock-specific key)
-            # The stock-specific key (api_key) was only for parallel execution, not for reasoning
-            reasoning_agent = ReasoningAgent(data_dir=self.data_dir)
+            # Create a ReasoningAgent with the assigned API key
+            reasoning_agent = ReasoningAgent(data_dir=self.data_dir, api_key_override=api_key)
             
             # Call reasoning agent
             decision_result = reasoning_agent.make_decision(
@@ -533,18 +600,19 @@ class ParallelBacktest:
                     'total_value': self._calculate_portfolio_value()
                 }
                 
+                # Get previous portfolio decisions for context
+                previous_portfolio_decisions = self._load_previous_portfolio_decisions(current_date)
+                
                 # Get portfolio-level decisions
                 portfolio_decisions = self.portfolio_manager.make_portfolio_decisions(
-                    stock_decisions, portfolio_state, current_date
+                    stock_decisions, portfolio_state, current_date, previous_portfolio_decisions
                 )
                 
                 # Log portfolio manager decisions
                 self.logger.info(f"\n💰 Portfolio Manager Decisions:")
                 for pd in portfolio_decisions.get('portfolio_decisions', []):
-                    amount_usd = pd.get('amount_usd') or 0
-                    target_weight = pd.get('portfolio_weight_target') or 0
-                    self.logger.info(f"  {pd['symbol']}: {pd['action']} ${amount_usd:,.0f} "
-                                   f"(target: {target_weight:.1f}%)")
+                    self.logger.info(f"  {pd['symbol']}: {pd['action']} ${pd.get('amount_usd', 0):,.0f} "
+                                   f"(target: {pd.get('portfolio_weight_target', 0):.1f}%)")
                 
                 summary = portfolio_decisions.get('portfolio_summary', {})
                 self.logger.info(f"\n📈 Portfolio Summary:")
@@ -555,6 +623,9 @@ class ParallelBacktest:
                 # Execute trades based on portfolio manager decisions
                 trades_executed = self._execute_portfolio_trades(portfolio_decisions, current_date)
                 total_trades_executed += trades_executed
+                
+                # Save portfolio decision for future context
+                self._save_portfolio_decision(portfolio_decisions, current_date)
                 
                 # Log portfolio value
                 portfolio_value = self._calculate_portfolio_value()

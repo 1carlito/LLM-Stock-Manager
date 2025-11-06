@@ -46,6 +46,43 @@ class StockData:
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for serialization"""
+        # Extract financial_data arrays from income statements for FundamentalAgent
+        financial_data = {
+            'revenue': [],
+            'netIncome': [],
+            'eps': []
+        }
+        
+        if self.income_statement:
+            # Extract revenue, netIncome, and eps from each income statement period
+            for statement in self.income_statement:
+                if isinstance(statement, dict):
+                    financial_data['revenue'].append(statement.get('revenue', 0))
+                    financial_data['netIncome'].append(statement.get('netIncome', 0))
+                    financial_data['eps'].append(statement.get('eps', 0))
+        
+        # Create profile structure
+        profile = {
+            'companyName': self.company_name,
+            'sector': self.sector,
+            'industry': getattr(self, 'industry', 'Unknown'),
+            'description': getattr(self, 'description', 'No description available')
+        }
+        
+        # Create metrics structure
+        metrics = {
+            'peRatio': self.pe_ratio,
+            'eps': self.eps,
+            'marketCap': self.market_cap
+        }
+        
+        # Create ratios structure (can be extended with more ratios)
+        ratios = {
+            'peRatio': self.pe_ratio,
+            'beta': self.beta,
+            'dividendYield': self.dividend_yield
+        }
+        
         return {
             'symbol': self.symbol,
             'company_name': self.company_name,
@@ -62,10 +99,16 @@ class StockData:
             'eps': self.eps,
             'beta': self.beta,
             'dividend_yield': self.dividend_yield,
+            # Keep original financial statements
             'income_statement': self.income_statement,
             'balance_sheet': self.balance_sheet,
             'cash_flow': self.cash_flow,
-            'sector_performance': self.sector_performance
+            'sector_performance': self.sector_performance,
+            # Add structured data for FundamentalAgent
+            'financial_data': financial_data,
+            'profile': profile,
+            'metrics': metrics,
+            'ratios': ratios
         }
     
     def to_prompt_format(self) -> str:
@@ -386,7 +429,8 @@ class StockDataFmpApi:
         historical_days: int = 240,  # Changed default to 8 months
         from_date: str = None,
         to_date: str = None,
-        include_financials: bool = True
+        include_financials: bool = True,
+        include_historical_prices: bool = False  # Skip historical prices for fundamental-only data
     ) -> Optional[StockData]:
         """
         Fetch complete stock data for a single stock
@@ -397,13 +441,14 @@ class StockDataFmpApi:
             from_date: Start date for historical data in YYYY-MM-DD format
             to_date: End date for historical data in YYYY-MM-DD format
             include_financials: Whether to include financial statements
+            include_historical_prices: Whether to fetch historical price data (False for fundamental-only)
             
         Returns:
             StockData object or None if data couldn't be fetched
         """
         try:
-            # Limit historical days to 8 months
-            if historical_days > 240:
+            # Limit historical days to 8 months (only if historical_days is provided)
+            if historical_days is not None and historical_days > 240:
                 historical_days = 240
 
             # Get company profile
@@ -418,37 +463,37 @@ class StockDataFmpApi:
                 print(f"❌ Could not fetch current quote for {symbol}")
                 return None
             
-            # Get historical price data with date filtering
+            # Get historical price data with date filtering (only if requested)
             historical_prices = []
-            if from_date and to_date:
-                historical_prices = self.get_historical_price(symbol, from_date, to_date)
-            else:
-                historical_prices = self.get_historical_price(symbol, timeseries=historical_days)
-            
-            if not historical_prices:
-                print(f"❌ Could not fetch historical prices for {symbol}")
-                return None
-            
-            # Sort historical prices by date (newest first)
-            historical_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
-            
-            # Calculate price changes
             current_price = quote.get('price', 0)
-            
-            # Calculate price changes if we have enough historical data
             price_change_1d = quote.get('changesPercentage', 0)
             price_change_5d = 0
             price_change_1m = 0
             
-            if len(historical_prices) >= 5:
-                price_5d_ago = historical_prices[4].get('close', current_price)
-                if price_5d_ago > 0:
-                    price_change_5d = ((current_price - price_5d_ago) / price_5d_ago) * 100
-            
-            if len(historical_prices) >= 20:
-                price_1m_ago = historical_prices[19].get('close', current_price)
-                if price_1m_ago > 0:
-                    price_change_1m = ((current_price - price_1m_ago) / price_1m_ago) * 100
+            if include_historical_prices:
+                if from_date and to_date:
+                    historical_prices = self.get_historical_price(symbol, from_date, to_date)
+                else:
+                    historical_prices = self.get_historical_price(symbol, timeseries=historical_days)
+                
+                if not historical_prices:
+                    print(f"⚠️  Could not fetch historical prices for {symbol}, continuing without them")
+                else:
+                    # Sort historical prices by date (newest first)
+                    historical_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
+                    
+                    # Calculate price changes if we have enough historical data
+                    if len(historical_prices) >= 5:
+                        price_5d_ago = historical_prices[4].get('close', current_price)
+                        if price_5d_ago > 0:
+                            price_change_5d = ((current_price - price_5d_ago) / price_5d_ago) * 100
+                    
+                    if len(historical_prices) >= 20:
+                        price_1m_ago = historical_prices[19].get('close', current_price)
+                        if price_1m_ago > 0:
+                            price_change_1m = ((current_price - price_1m_ago) / price_1m_ago) * 100
+            else:
+                print(f"⏭️  Skipping historical price data for {symbol} (fundamental-only mode)")
             
             # Get key metrics
             metrics = self.get_key_metrics(symbol, 'quarter', 1)
@@ -520,7 +565,8 @@ class StockDataFmpApi:
         historical_days: int = 240,
         from_date: str = None,
         to_date: str = None,
-        delay: float = 0.5
+        delay: float = 0.5,
+        include_historical_prices: bool = False  # Skip historical prices for fundamental-only data
     ) -> Dict[str, StockData]:
         """
         Fetch stock data for multiple stocks
@@ -539,7 +585,7 @@ class StockDataFmpApi:
         
         for symbol in symbols:
             print(f"Fetching stock data for {symbol}...")
-            data = self.fetch_stock_data(symbol, historical_days, from_date, to_date)
+            data = self.fetch_stock_data(symbol, historical_days, from_date, to_date, include_historical_prices=include_historical_prices)
             if data:
                 results[symbol] = data
                 print(f"✅ Successfully fetched stock data for {symbol}")
@@ -550,23 +596,36 @@ class StockDataFmpApi:
         
         return results
 
-def save_stock_data(data: Dict[str, StockData], output_file: str = "stock_data.json"):
+def save_stock_data(data: Dict[str, StockData], output_file: str = "stock_data.json", merge: bool = True):
     """
     Save stock data to a JSON file
     
     Args:
         data: Dictionary of StockData objects
         output_file: Path to output file
+        merge: If True, merge with existing data in file. If False, overwrite file.
     """
-    output = {}
+    # Load existing data if merging
+    existing_data = {}
+    if merge and os.path.exists(output_file):
+        try:
+            with open(output_file, 'r') as f:
+                existing_data = json.load(f)
+            print(f"📂 Found existing data with {len(existing_data)} symbols, merging...")
+        except Exception as e:
+            print(f"⚠️  Could not load existing data: {e}, creating new file")
     
+    # Start with existing data, then update/add new symbols
+    output = existing_data.copy() if merge else {}
+    
+    # Add/update symbols from new data
     for symbol, stock_data in data.items():
         output[symbol] = stock_data.to_dict()
     
     with open(output_file, 'w') as f:
         json.dump(output, f, indent=2)
     
-    print(f"💾 Stock data saved to {output_file}")
+    print(f"💾 Stock data saved to {output_file} ({len(output)} symbols total)")
 
 def load_stock_data(input_file: str = "stock_data.json") -> Dict[str, StockData]:
     """Load stock data from a JSON file"""
@@ -620,6 +679,7 @@ def main():
     # New arguments for financial and market data
     parser.add_argument("--no-financials", action="store_true", help="Skip collecting financial statement data")
     parser.add_argument("--no-market-data", action="store_true", help="Skip collecting market and sector data")
+    parser.add_argument("--no-historical-prices", action="store_true", help="Skip fetching historical price data (fundamental-only mode)")
     
     args = parser.parse_args()
     
@@ -657,7 +717,8 @@ def main():
         historical_days=historical_days,
         from_date=from_date,
         to_date=to_date,
-        delay=args.delay
+        delay=args.delay,
+        include_historical_prices=not args.no_historical_prices  # Include historical prices unless --no-historical-prices is set
     )
     
     # Save to file

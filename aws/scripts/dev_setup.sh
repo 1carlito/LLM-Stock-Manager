@@ -18,7 +18,7 @@ REMOTE_HOST="$1"
 # Create .syncignore if it doesn't exist
 if [ ! -f "$EXCLUDE_FILE" ]; then
     cat > "$EXCLUDE_FILE" << EOL
-.git
+.gita
 .gitignore
 *.pyc
 __pycache__

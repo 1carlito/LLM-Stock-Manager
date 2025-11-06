@@ -7,11 +7,11 @@ Analyzes company fundamentals using financial statements and metrics.
 
 import os
 import json
+import re
 from typing import Dict, List, Optional
-from datetime import datetime
-from data_utils import DataManager
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import google.generativeai as genai
+from anthropic import Anthropic
 import numpy as np
 import glob
 
@@ -20,14 +20,18 @@ env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
 # Load default API key - use dedicated fundamental key first, fallback to general key
-default_gemini_api_key = os.getenv('FUNDAMENTAL_GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY')
-MODEL_NAME = 'gemini-2.5-flash-lite'
+default_anthropic_api_key = os.getenv('FUNDAMENTAL_CLAUDE_API_KEY') 
+MODEL_NAME = 'claude-3-5-haiku-20241022'
 
 class FundamentalAgent:
     """
     Fundamental Analysis Agent that examines financial statements,
     ratios, and company information for stock valuation.
     """
+    # Class-level cache for analysis results
+    _analysis_cache = {}  # Format: {symbol: {date: analysis_result}}
+    _last_earnings_date = {}  # Format: {symbol: latest_earnings_date}
+    _regenerate_cycle = 5  # Regenerate analysis every 5 days
 
     def __init__(self, data_dir: str = ".", start_date: str = None, end_date: str = None, api_key_override: str = None):
         """Initialize the Fundamental Agent
@@ -48,978 +52,613 @@ class FundamentalAgent:
         self.cutoff_date = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.strptime("2025-09-18", "%Y-%m-%d")
 
         # Use override API key if provided, otherwise use dedicated fundamental key
-        api_key = api_key_override or default_gemini_api_key
+        api_key = api_key_override or default_anthropic_api_key
         if not api_key:
-            # Try numbered keys as fallback
-            for i in range(1, 11):
-                key = os.getenv(f"GEMINI_API_KEY_{i}")
-                if key:
-                    api_key = key
-                    break
+            raise ValueError("FUNDAMENTAL_CLAUDE_API_KEY environment variable not set and no override provided")
         
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set and no override provided")
-        
-        # Configure with the specific API key
-        genai.configure(api_key=api_key)
+        # Configure Anthropic client with the specific API key
+        self.client = Anthropic(api_key=api_key)
         
         self.model = MODEL_NAME
-        self.gemini_client = genai.GenerativeModel(self.model)
+        print(f"✅ Anthropic FundamentalAgent initialized with {MODEL_NAME}")
 
     def _get_previous_analyses(self, symbol: str, current_date: str = None, days: int = 4) -> List[Dict]:
         """Get the previous N days of analyses for this symbol"""
         try:
-            # Convert current_date to datetime if provided
-            analysis_date = datetime.now()
-            if current_date:
-                if isinstance(current_date, str):
-                    analysis_date = datetime.strptime(current_date, '%Y-%m-%d')
-                else:
-                    analysis_date = current_date
-                    
-            analyses = []
-            pattern = os.path.join(self.output_dir, f"{symbol}_fundamental_analysis_*.json")
-            files = glob.glob(pattern)
+            # Get previous fundamental analysis files
+            files = glob.glob(os.path.join(self.output_dir, f"{symbol}_fundamental_analysis_*.json"))
             
             if not files:
                 return []
                 
-            # Sort files by creation time (newest first)
-            sorted_files = sorted(files, key=os.path.getmtime, reverse=True)
+            # Parse dates from filenames
+            previous_analyses = []
+            target_date = datetime.strptime(current_date, "%Y-%m-%d") if current_date else datetime.now()
             
-            # Skip the problematic file
-            sorted_files = [f for f in sorted_files if "20250922_222509" not in f]
-            
-            # Get up to 'days' previous analyses
-            for i, filepath in enumerate(sorted_files):
-                if i >= days:
-                    break
-                    
+            for file_path in files:
                 try:
-                    with open(filepath, 'r') as f:
-                        analysis = json.load(f)
+                    # Extract date from filename
+                    # Format: SYMBOL_fundamental_analysis_YYYYMMDD_HHMMSS.json
+                    file_parts = os.path.basename(file_path).split('_')
+                    if len(file_parts) < 5:
+                        continue
                         
-                        # Check if this analysis is from before the current date
-                        analysis_date_str = analysis.get('analysis_date', '')
-                        if analysis_date_str:
-                            if isinstance(analysis_date_str, str) and 'T' in analysis_date_str:
-                                file_date = datetime.fromisoformat(analysis_date_str.split('T')[0])
-                            else:
-                                file_date = datetime.fromisoformat(analysis_date_str[:10])
-                                
-                            # Skip if this analysis is from after the current date (avoid look-ahead bias)
-                            if file_date >= analysis_date:
-                                continue
-                        
-                        # Get recommendation and confidence
-                        recommendation = "HOLD"
-                        confidence = 50
-                        reasoning = "Previous analysis"
-                        
-                        # Handle case where analysis is a dictionary
-                        if 'analysis' in analysis and isinstance(analysis['analysis'], dict):
-                            recommendation = analysis['analysis'].get('recommendation', 'HOLD')
-                            confidence = analysis['analysis'].get('confidence', 50)
-                            if isinstance(analysis['analysis'].get('analysis', ''), str):
-                                reasoning = analysis['analysis']['analysis'].split('\n')[0][:100]
-                        # Handle case where analysis is a string
-                        elif 'analysis' in analysis and isinstance(analysis['analysis'], str):
-                            # Try to extract recommendation and confidence from the string
-                            text = analysis['analysis']
-                            if "RECOMMENDATION:" in text:
-                                rec_part = text.split("RECOMMENDATION:")[1].split("\n")[0].strip()
-                                if rec_part in ["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"]:
-                                    recommendation = rec_part
-                            if "CONFIDENCE:" in text:
-                                conf_part = text.split("CONFIDENCE:")[1].split("\n")[0].strip()
-                                try:
-                                    confidence = int(conf_part)
-                                except ValueError:
-                                    pass
-                            reasoning = text.split('\n')[0][:100] if text else ""
-                        
-                        analyses.append({
-                            'date': analysis.get('analysis_date', ''),
-                            'recommendation': recommendation,
-                            'confidence': confidence,
-                            'reasoning': reasoning
-                        })
-                except Exception as e:
-                    print(f"Skipping problematic file {filepath}: {e}")
-                    continue
+                    # Get date part (second to last) and time part (last, remove .json)
+                    date_part = file_parts[-2]  # YYYYMMDD
+                    time_part = file_parts[-1].replace('.json', '')  # HHMMSS
+                    date_str = f"{date_part}_{time_part}"  # YYYYMMDD_HHMMSS
+                    file_date = datetime.strptime(date_str, "%Y%m%d_%H%M%S")
                     
-            return analyses
+                    # Only include analyses before current date
+                    if file_date.date() < target_date.date():
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                            previous_analyses.append(data)
+                except Exception as e:
+                    print(f"Error parsing previous analysis {file_path}: {e}")
+            
+            # Sort by date
+            previous_analyses.sort(key=lambda x: x.get('analysis_date', '2000-01-01'))
+            
+            # Return most recent N
+            return previous_analyses[-days:] if previous_analyses else []
             
         except Exception as e:
             print(f"Error getting previous analyses: {e}")
             return []
 
-    def _filter_data_by_date(self, data: List[Dict], current_date: datetime = None, date_key: str = 'date') -> List[Dict]:
-        """Filter data to only include entries before cutoff date"""
-        if not data:
-            return data
-        
-        # Use provided current_date or default to cutoff_date
-        end_date = current_date if current_date else self.cutoff_date
-            
-        filtered_data = []
-        for entry in data:
-            if date_key in entry:
-                entry_date = datetime.strptime(entry[date_key], "%Y-%m-%d")
-                if self.start_date <= entry_date <= end_date:
-                    filtered_data.append(entry)
-                    
-        return filtered_data
-
-    def _load_stock_data(self, symbol: str, current_date: str = None) -> Optional[Dict]:
-        """Load stock data from file"""
-        try:
-            # Convert current_date to datetime if provided
-            analysis_date = self.cutoff_date
-            if current_date:
-                if isinstance(current_date, str):
-                    analysis_date = datetime.strptime(current_date, '%Y-%m-%d')
-                else:
-                    analysis_date = current_date
-                    
-            # Load stock data from raw_multidata
-            stock_data_file = os.path.join(self.data_dir, "raw_multidata/stock_data_20251009_163317.json")
-            if not os.path.exists(stock_data_file):
-                print(f"❌ Stock data file not found: {stock_data_file}")
-                return None
-                
-            with open(stock_data_file, 'r') as f:
-                stock_data = json.load(f)
-                
-            if symbol not in stock_data:
-                print(f"❌ No data found for {symbol}")
-                return None
-                
-            # Get company data
-            data = stock_data[symbol]
-            
-            # Extract current price from historical data up to current_date (like ValuationAgent does)
-            historical_prices = data.get('historical_prices', [])
-            current_price = data.get('current_price', 0)  # Fallback to static price
-            
-            if historical_prices and current_date:
-                # Filter prices up to current date
-                current_date_str = current_date if isinstance(current_date, str) else current_date.strftime('%Y-%m-%d')
-                for price_data in reversed(historical_prices):
-                    if price_data['date'] <= current_date_str:
-                        current_price = price_data['close']
-                        break
-            
-            data['current_price_as_of_date'] = current_price
-            
-            # Get financial statements (use correct field names from stock_data)
-            data['income_statements'] = data.get('income_statement', [])
-            data['balance_sheets'] = data.get('balance_sheet', [])
-            data['cash_flow_statements'] = data.get('cash_flow', [])
-            
-            # Sort statements by date (most recent first)
-            for key in ['income_statements', 'balance_sheets', 'cash_flow_statements']:
-                if data.get(key):
-                    data[key].sort(key=lambda x: x['date'], reverse=True)
-            
-            return data
-                
-        except Exception as e:
-            print(f"Error loading data for {symbol}: {str(e)}")
-            return None
-
-    def _analyze_profitability(self, income_data: List[Dict]) -> Dict:
-        """Analyze profitability metrics from income statement"""
-        if not income_data:
-            return {
-                'status': 'No income statement data available',
-                'metrics': {}
-            }
-            
-        try:
-            # Get quarterly and annual statements
-            quarterly = [s for s in income_data if s.get('period', '').startswith('Q')]
-            annual = [s for s in income_data if s.get('period') == 'FY']
-            
-            # Analyze latest quarter
-            latest_q = quarterly[0] if quarterly else None
-            prev_q = quarterly[1] if len(quarterly) > 1 else None
-            
-            # Analyze latest year
-            latest_y = annual[0] if annual else None
-            prev_y = annual[1] if len(annual) > 1 else None
-            
-            metrics = {
-                'quarterly': {
-                    'revenue': latest_q.get('revenue', 0) if latest_q else None,
-                    'net_income': latest_q.get('netIncome', 0) if latest_q else None,
-                    'operating_income': latest_q.get('operatingIncome', 0) if latest_q else None,
-                    'gross_profit_margin': latest_q.get('grossProfitMargin', 0) if latest_q else None,
-                    'operating_margin': latest_q.get('operatingMargin', 0) if latest_q else None,
-                    'net_profit_margin': latest_q.get('netProfitMargin', 0) if latest_q else None,
-                    'revenue_growth': ((latest_q.get('revenue', 0) - prev_q.get('revenue', 0)) / prev_q.get('revenue', 1)) if latest_q and prev_q else None,
-                    'net_income_growth': ((latest_q.get('netIncome', 0) - prev_q.get('netIncome', 0)) / prev_q.get('netIncome', 1)) if latest_q and prev_q else None
-                },
-                'annual': {
-                    'revenue': latest_y.get('revenue', 0) if latest_y else None,
-                    'net_income': latest_y.get('netIncome', 0) if latest_y else None,
-                    'operating_income': latest_y.get('operatingIncome', 0) if latest_y else None,
-                    'gross_profit_margin': latest_y.get('grossProfitMargin', 0) if latest_y else None,
-                    'operating_margin': latest_y.get('operatingMargin', 0) if latest_y else None,
-                    'net_profit_margin': latest_y.get('netProfitMargin', 0) if latest_y else None,
-                    'revenue_growth': ((latest_y.get('revenue', 0) - prev_y.get('revenue', 0)) / prev_y.get('revenue', 1)) if latest_y and prev_y else None,
-                    'net_income_growth': ((latest_y.get('netIncome', 0) - prev_y.get('netIncome', 0)) / prev_y.get('netIncome', 1)) if latest_y and prev_y else None
-                }
-            }
-            
-            return {
-                'status': 'success',
-                'metrics': metrics
-            }
-            
-        except Exception as e:
-            return {
-                'status': f'Error analyzing profitability: {str(e)}',
-                'metrics': {}
-            }
-
-    def _analyze_financial_health(self, balance_sheet: List[Dict], cash_flow: List[Dict]) -> Dict:
-        """Analyze financial health metrics from balance sheet and cash flow"""
-        if not balance_sheet or not cash_flow:
-            return {
-                'status': 'Insufficient financial statement data',
-                'metrics': {}
-            }
-            
-        try:
-            # Get quarterly and annual statements (handle both 'Q' and 'Q1', 'Q2', etc.)
-            q_bs = [s for s in balance_sheet if s.get('period', '').startswith('Q')]
-            q_cf = [s for s in cash_flow if s.get('period', '').startswith('Q')]
-            y_bs = [s for s in balance_sheet if s.get('period') == 'FY']
-            y_cf = [s for s in cash_flow if s.get('period') == 'FY']
-            
-            # Latest quarterly metrics
-            latest_q_bs = q_bs[0] if q_bs else None
-            latest_q_cf = q_cf[0] if q_cf else None
-            
-            # Latest annual metrics
-            latest_y_bs = y_bs[0] if y_bs else None
-            latest_y_cf = y_cf[0] if y_cf else None
-            
-            def calc_metrics(bs, cf):
-                if not bs or not cf:
-                    return {}
-                    
-                total_assets = bs.get('totalAssets', 0)
-                total_liabilities = bs.get('totalLiabilities', 0)
-                current_assets = bs.get('totalCurrentAssets', 0)
-                current_liabilities = bs.get('totalCurrentLiabilities', 0)
-                equity = total_assets - total_liabilities
-                
-                return {
-                    'current_ratio': current_assets / current_liabilities if current_liabilities else None,
-                    'quick_ratio': (current_assets - bs.get('inventory', 0)) / current_liabilities if current_liabilities else None,
-                    'debt_to_equity': total_liabilities / equity if equity else None,
-                    'debt_to_assets': total_liabilities / total_assets if total_assets else None,
-                    'operating_cash_flow': cf.get('operatingCashFlow', 0),
-                    'free_cash_flow': cf.get('freeCashFlow', 0),
-                    'cash_and_equivalents': bs.get('cashAndCashEquivalents', 0),
-                    'working_capital': current_assets - current_liabilities,
-                    'return_on_assets': bs.get('netIncome', 0) / total_assets if total_assets else None,
-                    'return_on_equity': bs.get('netIncome', 0) / equity if equity else None
-                }
-            
-            metrics = {
-                'quarterly': calc_metrics(latest_q_bs, latest_q_cf),
-                'annual': calc_metrics(latest_y_bs, latest_y_cf)
-            }
-            
-            return {
-                'status': 'success',
-                'metrics': metrics
-            }
-            
-        except Exception as e:
-            return {
-                'status': f'Error analyzing financial health: {str(e)}',
-                'metrics': {}
-            }
-
-    def _calculate_valuation_ratios(self, current_price: float, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:
-        """Calculate valuation ratios using current price and fundamental data"""
-        try:
-            if not current_price or not income_data or not balance_sheet:
-                return {
-                    'status': 'Insufficient data for valuation ratios',
-                    'ratios': {}
-                }
-            
-            # Get latest quarterly data
-            latest_income = income_data[0] if income_data else None
-            latest_balance = balance_sheet[0] if balance_sheet else None
-            
-            if not latest_income or not latest_balance:
-                return {
-                    'status': 'Missing latest financial statements',
-                    'ratios': {}
-                }
-            
-            # Calculate P/E Ratio
-            eps = latest_income.get('eps', 0)
-            pe_ratio = current_price / eps if eps else None
-            
-            # Calculate P/B Ratio (Price to Book Value per Share)
-            total_assets = latest_balance.get('totalAssets', 0)
-            total_liabilities = latest_balance.get('totalLiabilities', 0)
-            equity = total_assets - total_liabilities
-            shares_outstanding = latest_income.get('weightedAverageShsOut', 0)
-            
-            book_value_per_share = equity / shares_outstanding if shares_outstanding else None
-            pb_ratio = current_price / book_value_per_share if book_value_per_share else None
-            
-            # Calculate Price to Sales
-            revenue = latest_income.get('revenue', 0)
-            revenue_per_share = revenue / shares_outstanding if shares_outstanding else None
-            ps_ratio = current_price / revenue_per_share if revenue_per_share else None
-            
-            # Calculate Price to Cash Flow
-            # We'll use this in the next function if cash_flow is available
-            
-            ratios = {
-                'pe_ratio': pe_ratio,
-                'pb_ratio': pb_ratio,
-                'ps_ratio': ps_ratio,
-                'book_value_per_share': book_value_per_share,
-                'revenue_per_share': revenue_per_share,
-                'eps': eps,
-                'current_price': current_price
-            }
-            
-            return {
-                'status': 'success',
-                'ratios': ratios
-            }
-            
-        except Exception as e:
-            return {
-                'status': f'Error calculating valuation ratios: {str(e)}',
-                'ratios': {}
-            }
-    
-    def _analyze_growth(self, income_data: List[Dict], balance_sheet: List[Dict]) -> Dict:
-        """Analyze growth metrics"""
-        if not income_data or not balance_sheet:
-            return {
-                'status': 'Insufficient data for growth analysis',
-                'metrics': {}
-            }
-            
-        try:
-            # Get annual statements
-            annual_income = [s for s in income_data if s.get('period') == 'FY']
-            annual_bs = [s for s in balance_sheet if s.get('period') == 'FY']
-            
-            if len(annual_income) < 2 or len(annual_bs) < 2:
-                return {
-                    'status': 'Insufficient historical data for growth analysis',
-                    'metrics': {}
-                }
-            
-            # Calculate growth rates
-            def calc_growth_rate(current, previous, field):
-                curr_val = current.get(field, 0)
-                prev_val = previous.get(field, 0)
-                return (curr_val - prev_val) / abs(prev_val) if prev_val else None
-            
-            # Latest two years
-            curr_year = annual_income[0]
-            prev_year = annual_income[1]
-            
-            metrics = {
-                'revenue_growth': calc_growth_rate(curr_year, prev_year, 'revenue'),
-                'net_income_growth': calc_growth_rate(curr_year, prev_year, 'netIncome'),
-                'operating_income_growth': calc_growth_rate(curr_year, prev_year, 'operatingIncome'),
-                'eps_growth': calc_growth_rate(curr_year, prev_year, 'eps'),
-                'asset_growth': calc_growth_rate(annual_bs[0], annual_bs[1], 'totalAssets'),
-                'equity_growth': calc_growth_rate(
-                    {'equity': annual_bs[0].get('totalAssets', 0) - annual_bs[0].get('totalLiabilities', 0)},
-                    {'equity': annual_bs[1].get('totalAssets', 0) - annual_bs[1].get('totalLiabilities', 0)},
-                    'equity'
-                )
-            }
-            
-            return {
-                'status': 'success',
-                'metrics': metrics
-            }
-            
-        except Exception as e:
-            return {
-                'status': f'Error analyzing growth metrics: {str(e)}',
-                'metrics': {}
-            }
-
-    def analyze_fundamentals_multi_date(self, symbol: str, analysis_dates: List[str]) -> List[Optional[Dict]]:
+    def analyze_fundamentals(self, symbol: str, current_date: str = None) -> Dict:
         """
-        Analyze fundamentals for a stock on multiple dates (e.g., every 5 trading days)
+        Analyze company fundamentals for the given stock symbol.
         
         Args:
             symbol: Stock ticker symbol
-            analysis_dates: List of dates to analyze (YYYY-MM-DD format)
+            current_date: Analysis date in YYYY-MM-DD format
             
         Returns:
-            List of analysis results for each date
+            Dictionary with fundamental analysis results
         """
-        results = []
-        
-        for date in analysis_dates:
-            print(f"\n📊 Analyzing {symbol} fundamentals as of {date}...")
-            result = self.analyze_fundamentals(symbol, current_date=date)
-            
-            if result:
-                # Show key metrics
-                if 'metrics' in result and 'valuation_ratios' in result['metrics']:
-                    ratios = result['metrics']['valuation_ratios']
-                    pe = ratios.get('pe_ratio')
-                    pb = ratios.get('pb_ratio')
-                    price = ratios.get('current_price')
-                    pe_str = f"{pe:.2f}" if pe else "N/A"
-                    pb_str = f"{pb:.2f}" if pb else "N/A"
-                    print(f"   ✅ Price: ${price:.2f}, P/E: {pe_str}, P/B: {pb_str}")
-            else:
-                print(f"   ❌ Analysis failed for {date}")
-                
-            results.append(result)
-        
-        return results
-    
-    def analyze_fundamentals(self, symbol: str, current_date: str = None) -> Optional[Dict]:
-        """Analyze fundamentals for a stock symbol"""
+        print(f"\n🔍 Analyzing {symbol} fundamentals...")
         try:
-            # Convert current_date to datetime if provided
-            analysis_date = datetime.now()
+            # Normalize date
             if current_date:
-                if isinstance(current_date, str):
-                    analysis_date = datetime.strptime(current_date, '%Y-%m-%d')
-                else:
-                    analysis_date = current_date
-                    
-            # Load data
-            data = self._load_stock_data(symbol, current_date)
-            if not data:
-                return None
+                target_date = datetime.strptime(current_date, "%Y-%m-%d")
+            else:
+                target_date = datetime.now()
+                current_date = target_date.strftime("%Y-%m-%d")
             
-            # Check if we have financial statements
-            has_income = bool(data.get('income_statements', []))
-            has_balance = bool(data.get('balance_sheets', []))
-            has_cash_flow = bool(data.get('cash_flow_statements', []))
+            # Get data from stock_data.json
+            stock_data = self._find_stock_data(symbol)
+
+            if not stock_data:
+                print(f"❌ No stock data found for {symbol}")
+                return {
+                    'symbol': symbol,
+                    'analysis_date': current_date,
+                    'recommendation': 'HOLD',
+                    'confidence': 0.5,
+                    'summary': 'No fundamental data available',
+                    'error': 'No data found'
+                }
+
+            # Check if we need to regenerate the analysis
+            should_regenerate = self._should_regenerate_analysis(symbol, current_date, stock_data)
             
-            if not (has_income or has_balance or has_cash_flow):
-                print(f"⚠️  No financial statement data available for {symbol}, using price-based analysis only")
-                return self._analyze_price_only(data, current_date)
-            
-            # Run analyses
-            profitability = self._analyze_profitability(data.get('income_statements', []))
-            financial_health = self._analyze_financial_health(
-                data.get('balance_sheets', []),
-                data.get('cash_flow_statements', [])
-            )
-            growth = self._analyze_growth(
-                data.get('income_statements', []),
-                data.get('balance_sheets', [])
-            )
-            
-            # Calculate valuation ratios with current price
-            valuation_ratios = self._calculate_valuation_ratios(
-                data.get('current_price_as_of_date', 0),
-                data.get('income_statements', []),
-                data.get('balance_sheets', [])
-            )
-            
-            # Get previous analyses
-            previous_analyses = self._get_previous_analyses(symbol, current_date)
-            previous_analyses_text = ""
-            
-            if previous_analyses:
-                previous_analyses_text = "\nPREVIOUS FUNDAMENTAL ANALYSES:\n"
-                previous_analyses_text += "Date                     | Recommendation | Confidence | Summary\n"
-                previous_analyses_text += "-------------------------|----------------|------------|--------\n"
+            if should_regenerate:
+                print(f"Generating new fundamental analysis for {symbol} on {current_date}")
+                # Create context for analysis (pass current_date to filter future data)
+                prompt = self._create_fundamental_prompt(symbol, stock_data, current_date)
+    
+                # Get previous analyses for context
+                previous_analyses = self._get_previous_analyses(symbol, current_date)
+                if previous_analyses:
+                    prompt += "\n\nPREVIOUS ANALYSES:\n"
+                    prompt += json.dumps(previous_analyses, indent=2)
+                    prompt += "\n\nConsider these previous analyses for consistency, but update based on new data."
+    
+                # Call OpenAI API
+                print(f"Calling OpenAI API for {symbol} fundamental analysis...")
+                analysis_result = self._call_llm_api(prompt)
                 
-                for analysis in previous_analyses:
-                    date = analysis.get('date', '').split('T')[0] if 'T' in analysis.get('date', '') else analysis.get('date', '')[:10]
-                    recommendation = analysis.get('recommendation', 'HOLD')
-                    confidence = analysis.get('confidence', 50)
-                    reasoning = analysis.get('reasoning', '')[:50] + "..." if analysis.get('reasoning', '') else "N/A"
-                    
-                    previous_analyses_text += f"{date} | {recommendation:14s} | {confidence:10d} | {reasoning}\n"
-            
-            # Prepare analysis prompt
-            prompt = self._build_analysis_prompt(data, profitability, financial_health, growth, valuation_ratios, previous_analyses_text)
-            
-            # Get analysis from Gemini
-            response = self.gemini_client.generate_content(prompt)
-            if not response or not response.text:
-                print(f"❌ No response from Gemini for {symbol}")
-                return None
-            
-            # Parse and format results
-            analysis_result = {
-                'symbol': symbol,
-                'company_name': data.get('company_name', symbol),
-                'sector': data.get('sector', 'Unknown'),
-                'analysis_date': analysis_date.isoformat(),
-                'data_range': {
-                    'start': self.start_date.isoformat(),
-                    'end': analysis_date.isoformat()
-                },
-                'metrics': {
-                    'profitability': profitability['metrics'],
-                    'financial_health': financial_health['metrics'],
-                    'growth': growth['metrics'],
-                    'valuation_ratios': valuation_ratios['ratios']
-                },
-                'analysis': self._parse_analysis_response(response.text),
-                'model_used': self.model
-            }
-            
-            # Save analysis
-            self._save_analysis(symbol, analysis_result)
-            
-            return analysis_result
-            
+                # Parse the response
+                result = self._parse_fundamental_analysis(analysis_result, symbol, current_date, stock_data)
+                
+                # Cache the analysis result
+                if symbol not in self._analysis_cache:
+                    self._analysis_cache[symbol] = {}
+                self._analysis_cache[symbol][current_date] = result
+                
+                # Update last earnings date
+                latest_income_stmt = self._get_latest_statement(stock_data.get('income_statement', []))
+                if latest_income_stmt and 'date' in latest_income_stmt:
+                    self._last_earnings_date[symbol] = latest_income_stmt['date']
+                
+                return result
+            else:
+                print(f"Reusing cached analysis for {symbol}, updating price/ratios only")
+                # Get the cached analysis and update price/ratios
+                cached_analysis = self._update_cached_analysis(symbol, current_date, stock_data)
+                return cached_analysis
+
         except Exception as e:
-            print(f"❌ Error analyzing fundamentals for {symbol}: {e}")
-            return None
+            print(f"❌ Error in fundamental analysis: {e}")
+            return {
+                'symbol': symbol,
+                'analysis_date': current_date or datetime.now().strftime("%Y-%m-%d"),
+                'recommendation': 'HOLD',
+                'confidence': 0.5,
+                'summary': f'Error performing analysis: {str(e)}',
+                'error': str(e)
+            }
 
-    def _build_analysis_prompt(self, data: Dict, profitability: Dict, financial_health: Dict, growth: Dict, valuation_ratios: Dict, previous_analyses_text: str = "") -> str:
-        """Build the prompt for fundamental analysis"""
-        symbol = data.get('symbol', '')
-        company = data.get('company_name', symbol)
-        sector = data.get('sector', 'Unknown')
-        current_price = data.get('current_price_as_of_date', data.get('current_price', 0))
-        
-        # Format metrics with proper handling of None values
-        def fmt_price(val):
-            return f"${val:,.2f}" if val is not None else "N/A"
+    def _should_regenerate_analysis(self, symbol: str, current_date: str, stock_data: Dict) -> bool:
+        """Determine if we need to regenerate the analysis"""
+        # Case 1: No cached analysis for this symbol or date
+        if (symbol not in self._analysis_cache or 
+            current_date not in self._analysis_cache[symbol]):
+            return True
             
-        def fmt_pct(val):
-            return f"{val*100:.1f}%" if val is not None else "N/A"
-            
-        def fmt_ratio(val):
-            return f"{val:.2f}" if val is not None else "N/A"
+        # Case 2: New earnings data available
+        latest_income_stmt = self._get_latest_statement(stock_data.get('income_statement', []))
+        if latest_income_stmt and 'date' in latest_income_stmt:
+            latest_date = latest_income_stmt['date']
+            if (symbol not in self._last_earnings_date or 
+                latest_date != self._last_earnings_date[symbol]):
+                return True
         
-        # Get quarterly statements for trend analysis
-        quarterly_income = [s for s in data.get('income_statements', []) if s.get('period', '').startswith('Q')]
-        quarterly_income = quarterly_income[:4]  # Use up to 4 most recent quarters
-        
-        # Format quarterly trend data
-        quarterly_trend = ""
-        if quarterly_income:
-            quarterly_trend = "QUARTERLY FINANCIAL TRENDS (Most Recent 4 Quarters):\n"
-            quarterly_trend += "Quarter | Revenue | Net Income | Operating Income | Net Margin\n"
-            quarterly_trend += "--------|---------|------------|------------------|----------\n"
-            
-            for q in quarterly_income:
-                quarter_date = q.get('date', 'Unknown')
-                revenue = q.get('revenue', 0)
-                net_income = q.get('netIncome', 0)
-                op_income = q.get('operatingIncome', 0)
-                margin = q.get('netProfitMargin', 0)
-                
-                quarterly_trend += f"{quarter_date} | {fmt_price(revenue)} | {fmt_price(net_income)} | "
-                quarterly_trend += f"{fmt_price(op_income)} | {fmt_pct(margin)}\n"
-        
-        prompt = f"""
-Analyze the fundamental health and outlook for {company} ({symbol}) in the {sector} sector.
-
-Current Price: ${current_price:.2f}
-Analysis Period: {self.start_date.strftime('%Y-%m-%d')} to {self.cutoff_date.strftime('%Y-%m-%d')}
-
-{quarterly_trend}
-
-{previous_analyses_text}
-
-VALUATION RATIOS (calculated with current price):
-- P/E Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pe_ratio'))}
-- P/B Ratio: {fmt_ratio(valuation_ratios['ratios'].get('pb_ratio'))}
-- P/S Ratio: {fmt_ratio(valuation_ratios['ratios'].get('ps_ratio'))}
-- Book Value per Share: {fmt_price(valuation_ratios['ratios'].get('book_value_per_share'))}
-- EPS: {fmt_price(valuation_ratios['ratios'].get('eps'))}
-
-1. PROFITABILITY METRICS:
-
-Quarterly (Most Recent):
-- Revenue: {fmt_price(profitability['metrics']['quarterly'].get('revenue'))}
-- Net Income: {fmt_price(profitability['metrics']['quarterly'].get('net_income'))}
-- Operating Income: {fmt_price(profitability['metrics']['quarterly'].get('operating_income'))}
-- Gross Margin: {fmt_pct(profitability['metrics']['quarterly'].get('gross_profit_margin'))}
-- Operating Margin: {fmt_pct(profitability['metrics']['quarterly'].get('operating_margin'))}
-- Net Margin: {fmt_pct(profitability['metrics']['quarterly'].get('net_profit_margin'))}
-- Revenue Growth (QoQ): {fmt_pct(profitability['metrics']['quarterly'].get('revenue_growth'))}
-- Net Income Growth (QoQ): {fmt_pct(profitability['metrics']['quarterly'].get('net_income_growth'))}
-
-Annual (Most Recent):
-- Revenue: {fmt_price(profitability['metrics']['annual'].get('revenue'))}
-- Net Income: {fmt_price(profitability['metrics']['annual'].get('net_income'))}
-- Operating Income: {fmt_price(profitability['metrics']['annual'].get('operating_income'))}
-- Gross Margin: {fmt_pct(profitability['metrics']['annual'].get('gross_profit_margin'))}
-- Operating Margin: {fmt_pct(profitability['metrics']['annual'].get('operating_margin'))}
-- Net Margin: {fmt_pct(profitability['metrics']['annual'].get('net_profit_margin'))}
-- Revenue Growth (YoY): {fmt_pct(profitability['metrics']['annual'].get('revenue_growth'))}
-- Net Income Growth (YoY): {fmt_pct(profitability['metrics']['annual'].get('net_income_growth'))}
-
-2. FINANCIAL HEALTH:
-
-Quarterly Metrics:
-- Current Ratio: {fmt_ratio(financial_health['metrics']['quarterly'].get('current_ratio'))}
-- Quick Ratio: {fmt_ratio(financial_health['metrics']['quarterly'].get('quick_ratio'))}
-- Debt/Equity: {fmt_ratio(financial_health['metrics']['quarterly'].get('debt_to_equity'))}
-- Operating Cash Flow: {fmt_price(financial_health['metrics']['quarterly'].get('operating_cash_flow'))}
-- Free Cash Flow: {fmt_price(financial_health['metrics']['quarterly'].get('free_cash_flow'))}
-
-Annual Metrics:
-- Current Ratio: {fmt_ratio(financial_health['metrics']['annual'].get('current_ratio'))}
-- Quick Ratio: {fmt_ratio(financial_health['metrics']['annual'].get('quick_ratio'))}
-- Debt/Equity: {fmt_ratio(financial_health['metrics']['annual'].get('debt_to_equity'))}
-- Operating Cash Flow: {fmt_price(financial_health['metrics']['annual'].get('operating_cash_flow'))}
-- Free Cash Flow: {fmt_price(financial_health['metrics']['annual'].get('free_cash_flow'))}
-
-3. GROWTH METRICS (Year-over-Year):
-- Revenue Growth: {fmt_pct(growth['metrics'].get('revenue_growth'))}
-- Net Income Growth: {fmt_pct(growth['metrics'].get('net_income_growth'))}
-- Operating Income Growth: {fmt_pct(growth['metrics'].get('operating_income_growth'))}
-- EPS Growth: {fmt_pct(growth['metrics'].get('eps_growth'))}
-- Asset Growth: {fmt_pct(growth['metrics'].get('asset_growth'))}
-- Equity Growth: {fmt_pct(growth['metrics'].get('equity_growth'))}
-
-Please provide a comprehensive fundamental analysis including:
-
-1. PROFITABILITY ANALYSIS:
-   - Revenue and income trends
-   - Margin analysis and trends
-   - Operating efficiency
-   - Comparison to industry standards
-   - IMPORTANT: Analyze the quarterly trends shown above
-   - IMPORTANT: Consider how your analysis compares to previous recommendations
-
-2. FINANCIAL HEALTH ASSESSMENT:
-   - Liquidity position
-   - Debt management
-   - Cash flow analysis
-   - Balance sheet strength
-
-3. GROWTH ANALYSIS:
-   - Historical growth rates
-   - Growth sustainability
-   - Future growth potential
-   - Growth quality assessment
-
-4. RISK ASSESSMENT:
-   - Financial risks
-   - Business risks
-   - Market position risks
-   - Growth execution risks
-
-5. INVESTMENT RECOMMENDATION:
-   - Fundamental outlook
-   - Investment thesis
-   - Risk/reward assessment
-   - Price target range
-   - Investment horizon
-
-Format your response as:
-RECOMMENDATION: [STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL]
-CONFIDENCE: [1-100]
-PRICE_TARGET_RANGE: $[low] - $[high]
-TIME_HORIZON: [SHORT/MEDIUM/LONG]
-RISK_LEVEL: [LOW/MEDIUM/HIGH]
-ANALYSIS: [Detailed analysis]
-"""
-        
-        return prompt
-
-    def _parse_analysis_response(self, response_text: str) -> Dict:
-        """Parse the analysis response"""
-        try:
-            # Extract key information
-            recommendation = "HOLD"
-            confidence = 50
-            price_target_low = None
-            price_target_high = None
-            time_horizon = "MEDIUM"
-            risk_level = "MEDIUM"
-            analysis = response_text
-            
-            # Parse recommendation
-            if "RECOMMENDATION:" in response_text:
-                rec_match = response_text.split("RECOMMENDATION:")[1].split("\n")[0].strip()
-                if rec_match in ["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"]:
-                    recommendation = rec_match
-            
-            # Parse confidence
-            if "CONFIDENCE:" in response_text:
-                conf_match = response_text.split("CONFIDENCE:")[1].split("\n")[0].strip()
+        # Case 3: Every 5th day for PE/PB recalculation
+        if symbol in self._analysis_cache and current_date in self._analysis_cache[symbol]:
+            cached_analysis = self._analysis_cache[symbol][current_date]
+            analysis_date = cached_analysis.get('analysis_date')
+            if analysis_date:
                 try:
-                    confidence = int(conf_match)
+                    date_obj = datetime.strptime(analysis_date, "%Y-%m-%d")
+                    current_date_obj = datetime.strptime(current_date, "%Y-%m-%d")
+                    days_diff = (current_date_obj - date_obj).days
+                    if days_diff % self._regenerate_cycle == 0 and days_diff > 0:
+                        return True
                 except ValueError:
                     pass
+        
+        return False
+    
+    def _get_latest_statement(self, statements: List[Dict]) -> Optional[Dict]:
+        """Get the most recent financial statement"""
+        if not statements:
+            return None
             
-            # Parse price target range
-            if "PRICE_TARGET_RANGE:" in response_text:
-                target_match = response_text.split("PRICE_TARGET_RANGE:")[1].split("\n")[0].strip()
-                try:
-                    low, high = target_match.replace("$", "").split("-")
-                    price_target_low = float(low.strip())
-                    price_target_high = float(high.strip())
-                except (ValueError, IndexError):
-                    pass
+        sorted_statements = sorted(
+            statements, 
+            key=lambda x: datetime.strptime(x.get('date', '1900-01-01'), "%Y-%m-%d"), 
+            reverse=True
+        )
+        return sorted_statements[0] if sorted_statements else None
+        
+    def _update_cached_analysis(self, symbol: str, current_date: str, stock_data: Dict) -> Dict:
+        """Update price and ratios in cached analysis"""
+        # Get the cached analysis
+        cached_analysis = self._analysis_cache[symbol][current_date].copy()
+        
+        # Update the analysis date
+        cached_analysis['analysis_date'] = current_date
+        
+        # Update the current price
+        current_price = self._get_current_price(current_date, stock_data)
+        cached_analysis['current_price'] = current_price
+        
+        # Calculate and update PE/PB ratios
+        latest_eps = self._get_latest_eps(stock_data)
+        if latest_eps and latest_eps > 0 and current_price > 0:
+            pe_ratio = current_price / latest_eps
+            cached_analysis['pe_ratio'] = pe_ratio
+        
+        # Calculate PB ratio if available
+        latest_book_value_per_share = self._get_latest_book_value_per_share(stock_data)
+        if latest_book_value_per_share and latest_book_value_per_share > 0 and current_price > 0:
+            pb_ratio = current_price / latest_book_value_per_share
+            cached_analysis['pb_ratio'] = pb_ratio
+        
+        return cached_analysis
+    
+    def _get_current_price(self, current_date: str, stock_data: Dict) -> float:
+        """Extract current price from data for the given date"""
+        # Extract current price from historical prices for the target date
+        current_price = 0
+        historical_prices = stock_data.get('historical_prices', [])
+        
+        if historical_prices and current_date:
+            # Find price for the target date or closest previous date
+            target_date_obj = datetime.strptime(current_date, "%Y-%m-%d")
+            sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
             
-            # Parse time horizon
-            if "TIME_HORIZON:" in response_text:
-                horizon_match = response_text.split("TIME_HORIZON:")[1].split("\n")[0].strip()
-                if horizon_match in ["SHORT", "MEDIUM", "LONG"]:
-                    time_horizon = horizon_match
+            for price_entry in sorted_prices:
+                price_date_str = price_entry.get('date', '')
+                if price_date_str:
+                    try:
+                        price_date = datetime.strptime(price_date_str, '%Y-%m-%d')
+                        if price_date <= target_date_obj:
+                            current_price = price_entry.get('close', 0)
+                            if current_price:
+                                break
+                    except ValueError:
+                        continue
             
-            # Parse risk level
-            if "RISK_LEVEL:" in response_text:
-                risk_match = response_text.split("RISK_LEVEL:")[1].split("\n")[0].strip()
-                if risk_match in ["LOW", "MEDIUM", "HIGH"]:
-                    risk_level = risk_match
+            # If no exact date found, use most recent price
+            if not current_price and sorted_prices:
+                current_price = sorted_prices[0].get('close', 0)
+        
+        # Fallback to other price sources
+        if not current_price:
+            current_price = stock_data.get('price', 0) or stock_data.get('current_price', 0)
+        
+        return current_price
+    
+    def _get_latest_eps(self, stock_data: Dict) -> Optional[float]:
+        """Get the latest EPS value"""
+        # Try from financial_data
+        financial_data = stock_data.get('financial_data', {})
+        eps_array = financial_data.get('eps', [])
+        if eps_array and len(eps_array) > 0:
+            return eps_array[0]  # Latest EPS
             
-            return {
-                'recommendation': recommendation,
-                'confidence': confidence,
-                'price_target': {
-                    'low': price_target_low,
-                    'high': price_target_high
-                },
-                'time_horizon': time_horizon,
-                'risk_level': risk_level,
-                'analysis': analysis
-            }
+        # Try from income statement
+        income_statements = stock_data.get('income_statement', [])
+        if income_statements:
+            latest_stmt = self._get_latest_statement(income_statements)
+            if latest_stmt and 'eps' in latest_stmt:
+                return latest_stmt['eps']
+        
+        # Try from metrics
+        metrics = stock_data.get('metrics', {})
+        if metrics and 'eps' in metrics:
+            return metrics['eps']
+            
+        return None
+    
+    def _get_latest_book_value_per_share(self, stock_data: Dict) -> Optional[float]:
+        """Calculate book value per share from latest balance sheet"""
+        balance_sheets = stock_data.get('balance_sheet', [])
+        if not balance_sheets:
+            return None
+            
+        latest_balance = self._get_latest_statement(balance_sheets)
+        if not latest_balance:
+            return None
+        
+        # Calculate book value (total equity)
+        total_equity = latest_balance.get('totalEquity') or latest_balance.get('totalStockholdersEquity', 0)
+        
+        # Get shares outstanding
+        shares_outstanding = (
+            latest_balance.get('weightedAverageShsOut') or 
+            latest_balance.get('commonStock', 0) or 
+            stock_data.get('shares_outstanding', 0)
+        )
+        
+        if total_equity and shares_outstanding and shares_outstanding > 0:
+            return total_equity / shares_outstanding
+            
+        return None
+        
+    def _call_llm_api(self, prompt: str) -> str:
+        """Call LLM API with the given prompt"""
+        try:
+            # Call Anthropic API
+            response = self.client.messages.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=4000
+            )
+            
+            if response and response.content and len(response.content) > 0:
+                return response.content[0].text
+            else:
+                raise Exception("Empty response from Anthropic API")
             
         except Exception as e:
-            print(f"❌ Error parsing fundamental analysis: {e}")
-            return {
-                'recommendation': 'HOLD',
-                'confidence': 50,
-                'price_target': {'low': None, 'high': None},
-                'time_horizon': 'MEDIUM',
-                'risk_level': 'MEDIUM',
-                'analysis': response_text,
-                'parse_error': str(e)
-            }
+            print(f"❌ Error calling Anthropic API: {e}")
+            raise e
 
-    def _save_analysis(self, symbol: str, analysis_data: Dict):
-        """Save fundamental analysis to file"""
+    def _create_fundamental_prompt(self, symbol: str, stock_data: Dict, current_date: str = None) -> str:
+        """Create a prompt for fundamental analysis with date filtering to prevent look-ahead bias"""
+        # Filter financial statements by date to prevent look-ahead bias
+        if current_date:
+            target_date = datetime.strptime(current_date, "%Y-%m-%d")
+        else:
+            target_date = datetime.now()
+            current_date = target_date.strftime("%Y-%m-%d")
+        
+        # Filter income statements - only use those on or before analysis date
+        income_statements = stock_data.get('income_statement', [])
+        filtered_income = []
+        for stmt in income_statements:
+            stmt_date_str = stmt.get('date', '')
+            if stmt_date_str:
+                try:
+                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
+                    if stmt_date <= target_date:
+                        filtered_income.append(stmt)
+                except ValueError:
+                    continue
+        
+        # Filter balance sheets
+        balance_sheets = stock_data.get('balance_sheet', [])
+        filtered_balance = []
+        for stmt in balance_sheets:
+            stmt_date_str = stmt.get('date', '')
+            if stmt_date_str:
+                try:
+                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
+                    if stmt_date <= target_date:
+                        filtered_balance.append(stmt)
+                except ValueError:
+                    continue
+        
+        # Filter cash flow statements
+        cash_flows = stock_data.get('cash_flow', [])
+        filtered_cash_flow = []
+        for stmt in cash_flows:
+            stmt_date_str = stmt.get('date', '')
+            if stmt_date_str:
+                try:
+                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
+                    if stmt_date <= target_date:
+                        filtered_cash_flow.append(stmt)
+                except ValueError:
+                    continue
+        
+        # Rebuild financial_data arrays from filtered statements
+        financial_data = {
+            'revenue': [],
+            'netIncome': [],
+            'eps': []
+        }
+        
+        for stmt in filtered_income:
+            financial_data['revenue'].append(stmt.get('revenue', 0))
+            financial_data['netIncome'].append(stmt.get('netIncome', 0))
+            financial_data['eps'].append(stmt.get('eps', 0))
+        
+        # Extract other data
+        profile = stock_data.get('profile', {})
+        metrics = stock_data.get('metrics', {})
+        ratios = stock_data.get('ratios', {})
+        
+        company_name = profile.get('companyName', symbol)
+        sector = profile.get('sector', 'Unknown')
+        industry = profile.get('industry', 'Unknown')
+        description = profile.get('description', 'No description available')
+        
+        # Calculate current price and key ratios
+        current_price = self._get_current_price(current_date, stock_data)
+        
+        # Calculate PE ratio
+        latest_eps = self._get_latest_eps(stock_data)
+        pe_ratio = None
+        if latest_eps and latest_eps > 0 and current_price > 0:
+            pe_ratio = current_price / latest_eps
+            
+        # Calculate PB ratio
+        latest_book_value = self._get_latest_book_value_per_share(stock_data)
+        pb_ratio = None
+        if latest_book_value and latest_book_value > 0 and current_price > 0:
+            pb_ratio = current_price / latest_book_value
+            
+        # Update ratios with calculated values
+        updated_ratios = ratios.copy()
+        if pe_ratio:
+            updated_ratios['pe_ratio'] = pe_ratio
+        if pb_ratio:
+            updated_ratios['pb_ratio'] = pb_ratio
+        
+        # Format ratio strings for display
+        pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio else "N/A"
+        pb_ratio_str = f"{pb_ratio:.2f}" if pb_ratio else "N/A"
+        
+        # Create prompt with filtered data - limit to 6 quarters for sliding window
+        prompt = f"""
+You are a professional fundamental analyst analyzing {symbol} ({company_name}) on {current_date}.
+
+COMPANY PROFILE:
+- Sector: {sector}
+- Industry: {industry}
+- Description: {description}
+
+FINANCIAL DATA (as of {current_date}):
+{json.dumps(financial_data, indent=2)}
+
+INCOME STATEMENTS (filtered to {current_date}, last 6 quarters):
+{json.dumps(filtered_income[:6], indent=2) if filtered_income else "[]"}
+
+BALANCE SHEETS (filtered to {current_date}, last 6 quarters):
+{json.dumps(filtered_balance[:6], indent=2) if filtered_balance else "[]"}
+
+CASH FLOW STATEMENTS (filtered to {current_date}, last 6 quarters):
+{json.dumps(filtered_cash_flow[:6], indent=2) if filtered_cash_flow else "[]"}
+
+CURRENT PRICE AND KEY RATIOS:
+- Current Price: ${current_price:.2f}
+- P/E Ratio: {pe_ratio_str}
+- P/B Ratio: {pb_ratio_str}
+
+RATIOS:
+{json.dumps(updated_ratios, indent=2)}
+
+METRICS:
+{json.dumps(metrics, indent=2)}
+
+TASK: Perform a comprehensive fundamental analysis of {symbol}. Analyze the company's financials, growth trajectory, market position, and overall health.
+
+Consider:
+1. Profitability metrics (margins, ROE, ROA)
+2. Growth trends (revenue, earnings, cash flow)
+3. Debt levels and financial stability
+4. Valuation metrics (P/E, P/S, PEG, etc.)
+5. Industry positioning and competitive advantages
+6. Management quality and capital allocation
+7. Long-term business model sustainability
+
+Based on this fundamental analysis, provide:
+1. A RECOMMENDATION: BUY, HOLD, or SELL
+2. A CONFIDENCE level: Low (0.5-0.64), Medium (0.65-0.79), or High (0.8-1.0)
+3. Explanation of key positive factors
+4. Explanation of key negative factors
+5. Overall assessment of investment attractiveness
+
+FORMAT YOUR RESPONSE AS:
+RECOMMENDATION: [BUY/HOLD/SELL]
+CONFIDENCE: [0.0-1.0]
+SUMMARY: [One-sentence summary]
+
+ANALYSIS:
+[Detailed analysis with bullet points under sections]
+
+STRENGTHS:
+- [Strength 1]
+- [Strength 2]
+...
+
+WEAKNESSES:
+- [Weakness 1]
+- [Weakness 2]
+...
+
+FINANCIAL HEALTH:
+[Assessment of financial health with metrics]
+
+VALUATION:
+[Valuation assessment with metrics]
+
+CONCLUSION:
+[Paragraph that justifies the recommendation and confidence level]
+
+Make sure your recommendation is consistent with the overall analysis. If the data suggests mixed signals, reflect this in your confidence level. Provide a nuanced view, not just simplistic "good" or "bad" observations.
+"""
+        return prompt
+
+    def _parse_fundamental_analysis(self, response: str, symbol: str, current_date: str, stock_data: Dict) -> Dict:
+        """Parse the LLM response into structured fundamental analysis"""
         try:
+            # Extract current price from historical prices for the target date
+            current_price = self._get_current_price(current_date, stock_data)
+            
+            # Calculate PE and PB ratios
+            latest_eps = self._get_latest_eps(stock_data)
+            pe_ratio = None
+            if latest_eps and latest_eps > 0 and current_price > 0:
+                pe_ratio = current_price / latest_eps
+                
+            latest_book_value = self._get_latest_book_value_per_share(stock_data)
+            pb_ratio = None
+            if latest_book_value and latest_book_value > 0 and current_price > 0:
+                pb_ratio = current_price / latest_book_value
+            
+            result = {
+                'symbol': symbol,
+                'analysis_date': current_date,
+                'target_date': current_date,
+                'current_price': current_price,
+                'pe_ratio': pe_ratio,
+                'pb_ratio': pb_ratio,
+                'raw_response': response
+            }
+            
+            # Extract recommendation
+            recommendation_match = re.search(r'RECOMMENDATION:\s*(BUY|HOLD|SELL)', response, re.IGNORECASE)
+            if recommendation_match:
+                result['recommendation'] = recommendation_match.group(1).upper()
+            else:
+                result['recommendation'] = 'HOLD'
+                
+            # Extract confidence
+            confidence_match = re.search(r'CONFIDENCE:\s*(0\.\d+|1\.0)', response)
+            if confidence_match:
+                result['confidence'] = float(confidence_match.group(1))
+            else:
+                result['confidence'] = 0.5
+                
+            # Extract summary
+            summary_match = re.search(r'SUMMARY:\s*(.+?)(?:\n|$)', response)
+            if summary_match:
+                result['summary'] = summary_match.group(1).strip()
+            else:
+                result['summary'] = 'No summary provided'
+            
+            # Extract strengths
+            strengths = []
+            strengths_section = re.search(r'STRENGTHS:(.*?)(?:WEAKNESSES:|FINANCIAL HEALTH:|VALUATION:|CONCLUSION:)', response, re.DOTALL)
+            if strengths_section:
+                for line in strengths_section.group(1).strip().split('\n'):
+                    if line.strip().startswith('-'):
+                        strengths.append(line.strip()[1:].strip())
+            result['strengths'] = strengths
+                
+            # Extract weaknesses
+            weaknesses = []
+            weaknesses_section = re.search(r'WEAKNESSES:(.*?)(?:FINANCIAL HEALTH:|VALUATION:|CONCLUSION:)', response, re.DOTALL)
+            if weaknesses_section:
+                for line in weaknesses_section.group(1).strip().split('\n'):
+                    if line.strip().startswith('-'):
+                        weaknesses.append(line.strip()[1:].strip())
+            result['weaknesses'] = weaknesses
+            
+            # Extract conclusion
+            conclusion_match = re.search(r'CONCLUSION:(.*?)(?:$)', response, re.DOTALL)
+            if conclusion_match:
+                result['conclusion'] = conclusion_match.group(1).strip()
+            else:
+                result['conclusion'] = 'No conclusion provided'
+            
+            # Add model used
+            result['model_used'] = self.model
+                
+            # Save to file
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{symbol}_fundamental_analysis_{timestamp}.json"
             filepath = os.path.join(self.output_dir, filename)
             
             with open(filepath, 'w') as f:
-                json.dump(analysis_data, f, indent=2)
+                json.dump(result, f, indent=2)
             
-            print(f"✅ Fundamental analysis saved: {filepath}")
-            
-        except Exception as e:
-            print(f"❌ Error saving fundamental analysis for {symbol}: {e}")
-
-    def _analyze_price_only(self, data: Dict, current_date: str = None) -> Dict:
-        """Analyze fundamentals using only price data when financial statements are unavailable"""
-        try:
-            symbol = data.get('symbol', '')
-            company = data.get('company_name', symbol)
-            sector = data.get('sector', 'Unknown')
-            current_price = data.get('current_price', 0)
-            
-            # Convert current_date to datetime if provided
-            analysis_date = datetime.now()
-            if current_date:
-                if isinstance(current_date, str):
-                    analysis_date = datetime.strptime(current_date, '%Y-%m-%d')
-                else:
-                    analysis_date = current_date
-                    
-            # Calculate basic price metrics
-            historical_data = data.get('historical_prices', [])
-            if historical_data:
-                prices = [float(d['close']) for d in historical_data]
-                volumes = [float(d['volume']) for d in historical_data]
-                
-                # Calculate price performance
-                price_1y_ago = prices[0] if len(prices) >= 200 else None
-                price_6m_ago = prices[int(len(prices)*0.5)] if len(prices) >= 120 else None
-                price_3m_ago = prices[int(len(prices)*0.75)] if len(prices) >= 60 else None
-                
-                metrics = {
-                    'price_performance': {
-                        '1y_return': (current_price - price_1y_ago) / price_1y_ago if price_1y_ago else None,
-                        '6m_return': (current_price - price_6m_ago) / price_6m_ago if price_6m_ago else None,
-                        '3m_return': (current_price - price_3m_ago) / price_3m_ago if price_3m_ago else None,
-                        'volatility': np.std([(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]) * np.sqrt(252) if len(prices) > 1 else None
-                    },
-                    'trading_metrics': {
-                        'avg_volume': np.mean(volumes) if volumes else None,
-                        'current_price': current_price,
-                        'price_range': {
-                            'high': max(prices) if prices else None,
-                            'low': min(prices) if prices else None
-                        }
-                    }
-                }
-            else:
-                metrics = {}
-            
-            # Build simplified prompt
-            prompt = f"""
-Analyze the fundamental outlook for {company} ({symbol}) in the {sector} sector.
-
-**Important Note**: Financial statement data is not available for this analysis. Please provide an assessment based on:
-1. The company's business model and sector position
-2. Market performance and trading characteristics
-3. Industry trends and competitive position
-4. General investment outlook
-
-Current Price: ${current_price:.2f}
-Analysis Period: {self.start_date.strftime('%Y-%m-%d')} to {analysis_date.strftime('%Y-%m-%d')}
-
-Please provide a comprehensive fundamental analysis including:
-
-1. BUSINESS MODEL ASSESSMENT:
-   - Core business strengths
-   - Revenue model sustainability
-   - Market position
-   - Competitive advantages
-
-2. SECTOR ANALYSIS:
-   - {sector} sector outlook
-   - Industry trends
-   - Growth drivers
-   - Competitive landscape
-
-3. INVESTMENT THESIS:
-   - Long-term growth potential
-   - Key value drivers
-   - Market opportunities
-   - Strategic positioning
-
-4. RISK ASSESSMENT:
-   - Business risks
-   - Market risks
-   - Execution risks
-   - Regulatory risks
-
-5. INVESTMENT RECOMMENDATION:
-   - Fundamental outlook
-   - Investment thesis
-   - Risk/reward assessment
-   - Price outlook
-   - Investment horizon
-
-Format your response as:
-RECOMMENDATION: [STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL]
-CONFIDENCE: [1-100]
-PRICE_OUTLOOK: [POSITIVE/NEUTRAL/NEGATIVE]
-TIME_HORIZON: [SHORT/MEDIUM/LONG]
-RISK_LEVEL: [LOW/MEDIUM/HIGH]
-ANALYSIS: [Detailed analysis]
-"""
-            
-            # Get analysis from Gemini
-            response = self.gemini_client.generate_content(prompt)
-            if not response or not response.text:
-                print(f"❌ No response from Gemini for {symbol}")
-                return None
-            
-            # Parse response
-            analysis_parsed = self._parse_price_only_response(response.text)
-            
-            # Format result
-            result = {
-                'symbol': symbol,
-                'company_name': company,
-                'sector': sector,
-                'analysis_date': analysis_date.isoformat(),
-                'data_range': {
-                    'start': self.start_date.isoformat(),
-                    'end': analysis_date.isoformat()
-                },
-                'note': 'Analysis based on price data only - financial statements not available',
-                'metrics': metrics,
-                'analysis': analysis_parsed,
-                'model_used': self.model
-            }
-            
-            # Save analysis
-            self._save_analysis(symbol, result)
+            print(f"✅ Fundamental analysis saved to {filepath}")
             
             return result
             
         except Exception as e:
-            print(f"❌ Error in price-only analysis for {symbol}: {e}")
-            return None
-
-    def _parse_price_only_response(self, response_text: str) -> Dict:
-        """Parse response for price-only analysis"""
-        try:
-            # Extract key information
-            recommendation = "HOLD"
-            confidence = 50
-            price_outlook = "NEUTRAL"
-            time_horizon = "MEDIUM"
-            risk_level = "MEDIUM"
-            analysis = response_text
-            
-            # Parse recommendation
-            if "RECOMMENDATION:" in response_text:
-                rec_match = response_text.split("RECOMMENDATION:")[1].split("\n")[0].strip()
-                if rec_match in ["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"]:
-                    recommendation = rec_match
-            
-            # Parse confidence
-            if "CONFIDENCE:" in response_text:
-                conf_match = response_text.split("CONFIDENCE:")[1].split("\n")[0].strip()
-                try:
-                    confidence = int(conf_match)
-                except ValueError:
-                    pass
-            
-            # Parse price outlook
-            if "PRICE_OUTLOOK:" in response_text:
-                outlook_match = response_text.split("PRICE_OUTLOOK:")[1].split("\n")[0].strip()
-                if outlook_match in ["POSITIVE", "NEUTRAL", "NEGATIVE"]:
-                    price_outlook = outlook_match
-            
-            # Parse time horizon
-            if "TIME_HORIZON:" in response_text:
-                horizon_match = response_text.split("TIME_HORIZON:")[1].split("\n")[0].strip()
-                if horizon_match in ["SHORT", "MEDIUM", "LONG"]:
-                    time_horizon = horizon_match
-            
-            # Parse risk level
-            if "RISK_LEVEL:" in response_text:
-                risk_match = response_text.split("RISK_LEVEL:")[1].split("\n")[0].strip()
-                if risk_match in ["LOW", "MEDIUM", "HIGH"]:
-                    risk_level = risk_match
-            
+            print(f"❌ Error parsing fundamental analysis: {e}")
             return {
-                'recommendation': recommendation,
-                'confidence': confidence,
-                'price_outlook': price_outlook,
-                'time_horizon': time_horizon,
-                'risk_level': risk_level,
-                'analysis': analysis
+                'symbol': symbol,
+                'analysis_date': current_date,
+                'recommendation': 'HOLD',
+                'confidence': 0.5,
+                'summary': f'Error parsing analysis: {str(e)}',
+                'model_used': self.model
             }
+            
+    def _find_stock_data(self, symbol: str) -> Optional[Dict]:
+        """Find stock data in JSON files"""
+        try:
+            # Only search for exact filename stock_data.json
+            file_path = os.path.join(self.data_dir, "stock_data.json")
+            
+            if not os.path.exists(file_path):
+                return None
+
+            # Load the file and check if symbol exists
+            try:
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                
+                # Check if symbol exists in this file
+                if symbol in data:
+                    return data[symbol]
+            except Exception as e:
+                print(f"❌ Error loading stock_data.json: {e}")
+                return None
+                    
+            return None
             
         except Exception as e:
-            print(f"❌ Error parsing price-only analysis: {e}")
-            return {
-                'recommendation': 'HOLD',
-                'confidence': 50,
-                'price_outlook': 'NEUTRAL',
-                'time_horizon': 'MEDIUM',
-                'risk_level': 'MEDIUM',
-                'analysis': response_text,
-                'parse_error': str(e)
-            }
+            print(f"❌ Error finding stock data: {e}")
+            return None

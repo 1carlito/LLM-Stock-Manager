@@ -369,3 +369,7 @@ Cash: $3,262.62
 NVDA: 6,013 shares @ $187.24 (value: $1,126,014.12)
 PLTR: 6 shares @ $182.39 (value: $1,094.34)
 JPM: 0 shares (position sold)
+
+
+
+

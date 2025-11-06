@@ -7,7 +7,7 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-import google.generativeai as genai
+from anthropic import Anthropic
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -19,7 +19,6 @@ class PortfolioManagerAgent:
     portfolio-level allocation decisions considering:
     - Available capital
     - Current positions
-    - Risk management
     - Position sizing
     - Portfolio balance
     """
@@ -28,28 +27,19 @@ class PortfolioManagerAgent:
         self.data_dir = data_dir
         
         # Use provided API key or load from environment
-        # Try dedicated portfolio key first, then general key, then numbered keys
+        # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
         self.api_key = api_key
         if not self.api_key:
-            self.api_key = os.getenv("GEMINI_API_KEY_PORTFOLIO")
-        if not self.api_key:
-            self.api_key = os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            # Try numbered keys as fallback
-            for i in range(1, 21):
-                key = os.getenv(f"GEMINI_API_KEY_{i}")
-                if key:
-                    self.api_key = key
-                    break
+            self.api_key = os.getenv("PORTFOLIO_CLAUDE_API_KEY")
         
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY_PORTFOLIO, GEMINI_API_KEY, or GEMINI_API_KEY_1-20 environment variable not set")
+            raise ValueError("PORTFOLIO_CLAUDE_API_KEY environment variable not set. Portfolio Manager needs only one API key since it runs sequentially after all stock decisions are collected.")
         
-        genai.configure(api_key=self.api_key)
-        self.model_name = "gemini-2.5-pro"
-        print("✅ PortfolioManagerAgent initialized with Gemini Pro API")
+        self.client = Anthropic(api_key=self.api_key)
+        self.model_name = "claude-sonnet-4-5-20250929"
+        print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
     
-    def make_portfolio_decisions(self, stock_decisions, portfolio_state, current_date):
+    def make_portfolio_decisions(self, stock_decisions, portfolio_state, current_date, previous_portfolio_decisions=None):
         """
         Make portfolio-level allocation decisions based on individual stock decisions.
         
@@ -60,28 +50,33 @@ class PortfolioManagerAgent:
                 {'cash': 1000000, 'positions': {'AAPL': {'shares': 100, 'avg_price': 150}}, 
                  'total_value': 1050000, 'last_prices': {'AAPL': 155}}
             current_date: Current trading date
+            previous_portfolio_decisions: List of previous portfolio allocation decisions (optional)
         
         Returns:
             Dict with portfolio-level decisions including position sizes for each action
         """
         try:
             # Build prompt with all stock decisions and portfolio context
-            prompt = self._build_portfolio_prompt(stock_decisions, portfolio_state, current_date)
+            prompt = self._build_portfolio_prompt(stock_decisions, portfolio_state, current_date, previous_portfolio_decisions)
             
             print(f"📊 Calling Portfolio Manager API for {len(stock_decisions)} stock decisions...")
             
-            # Call Gemini API
-            model = genai.GenerativeModel(self.model_name)
-            response = model.generate_content(prompt)
+            # Call Claude API
+            response = self.client.messages.create(
+                model=self.model_name,
+                max_tokens=4000,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}]
+            )
             
-            if not response or not response.text:
-                raise Exception("Empty response from Gemini API")
+            if not response or not response.content or len(response.content) == 0:
+                raise Exception("Empty response from Claude API")
             
             print(f"✅ Got Portfolio Manager response")
             
             # Parse response into portfolio decisions
             portfolio_decisions = self._parse_portfolio_response(
-                response.text, stock_decisions, portfolio_state, current_date
+                response.content[0].text, stock_decisions, portfolio_state, current_date
             )
             
             return portfolio_decisions
@@ -91,7 +86,7 @@ class PortfolioManagerAgent:
             # Return default decisions - execute as-is with simple allocation
             return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
     
-    def _build_portfolio_prompt(self, stock_decisions, portfolio_state, current_date):
+    def _build_portfolio_prompt(self, stock_decisions, portfolio_state, current_date, previous_portfolio_decisions=None):
         """Build prompt for portfolio-level decision making"""
         
         # Calculate portfolio metrics
@@ -99,33 +94,63 @@ class PortfolioManagerAgent:
         cash = portfolio_state.get('cash', 0)
         positions = portfolio_state.get('positions', {})
         last_prices = portfolio_state.get('last_prices', {})
+        initial_value = portfolio_state.get('initial_value', 1000000)  # Default to $1M if not provided
         
-        # Calculate position values
+        # Calculate current total return percentage
+        total_return_pct = ((total_value - initial_value) / initial_value) * 100 if initial_value > 0 else 0
+        
+        # Calculate position values and unrealized PnL
         position_values = {}
+        total_unrealized_pnl = 0
+        
         for symbol, pos in positions.items():
             if pos['shares'] > 0:
                 current_price = last_prices.get(symbol, pos.get('avg_price', 0))
+                position_value = pos['shares'] * current_price
+                cost_basis = pos['shares'] * pos.get('avg_price', current_price)
+                unrealized_pnl = position_value - cost_basis
+                total_unrealized_pnl += unrealized_pnl
+                
                 position_values[symbol] = {
                     'shares': pos['shares'],
                     'current_price': current_price,
-                    'value': pos['shares'] * current_price,
-                    'pct_of_portfolio': (pos['shares'] * current_price / total_value * 100) if total_value > 0 else 0
+                    'avg_price': pos.get('avg_price', current_price),
+                    'value': position_value,
+                    'unrealized_pnl': unrealized_pnl,
+                    'pct_of_portfolio': (position_value / total_value * 100) if total_value > 0 else 0
                 }
         
         prompt = f"""
 You are a Portfolio Manager making final allocation decisions for a trading portfolio on {current_date}. Optimize for returns; do not apply conservative cash buffers unless the data clearly warrants it.
 
-CURRENT PORTFOLIO STATE:
+CURRENT PORTFOLIO PERFORMANCE:
+- Current Total Return (percent): {total_return_pct:.2f}%
 - Total Portfolio Value: ${total_value:,.2f}
 - Available Cash: ${cash:,.2f}
 - Cash Percentage: {(cash/total_value*100) if total_value > 0 else 0:.1f}%
+- Total Unrealized PnL: ${total_unrealized_pnl:,.2f}
 
 CURRENT POSITIONS:
 {json.dumps(position_values, indent=2) if position_values else "No current positions"}
 
 INDIVIDUAL STOCK DECISIONS:
 {json.dumps(stock_decisions, indent=2)}
+"""
+        
+        # Add previous portfolio decisions if available
+        if previous_portfolio_decisions and len(previous_portfolio_decisions) > 0:
+            prompt += f"""
+PREVIOUS PORTFOLIO ALLOCATION DECISIONS:
+{json.dumps(previous_portfolio_decisions, indent=2)}
 
+Review these previous allocation decisions to understand the portfolio's recent trading history. Consider:
+- Whether previous allocations achieved their intended portfolio weights
+- How the portfolio evolved through these previous decisions
+- Any patterns in position sizing or trading activity
+- Current vs. target allocations based on recent history
+"""
+        
+        prompt += f"""
 YOUR TASK:
 Analyze all individual stock decisions and make portfolio-level allocation decisions. For each stock with a BUY or SELL decision, determine:
 
@@ -267,4 +292,3 @@ IMPORTANT:
             },
             'model_used': 'fallback'
         }
-

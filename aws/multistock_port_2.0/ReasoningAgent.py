@@ -8,56 +8,63 @@ import re
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from anthropic import Anthropic
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Configure Gemini
-import google.generativeai as genai
+# Load Claude API key - fallback only (should be passed via api_key_override in parallel mode)
+# In parallel mode, ParallelOrchestrator passes API keys directly to each ReasoningAgent instance
+api_key = None
+# Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+for i in range(1, 21):
+    key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+    if key:
+        api_key = key
+        break
 
-# Load Gemini API key - use dedicated REASONING_GEMINI_API_KEY first, then fallback to numbered keys
-api_key = os.getenv("REASONING_GEMINI_API_KEY")
+# Fallback to ANTHROPIC_API_KEY_* if STOCK keys not found
 if not api_key:
-    # Try general key as fallback
-    api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    # Try numbered keys as last resort
     for i in range(1, 21):
-        key = os.getenv(f"GEMINI_API_KEY_{i}")
+        key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
         if key:
             api_key = key
             break
 
-if not api_key:
-    raise ValueError("REASONING_GEMINI_API_KEY, GEMINI_API_KEY, or GEMINI_API_KEY_1-20 environment variable not set")
+# Only raise error if no keys found at all (for non-parallel usage)
+# In parallel mode, api_key_override will always be provided
 
-MODEL_NAME = "gemini-2.5-pro"  # Using Gemini Pro for advanced reasoning
+MODEL_NAME = "claude-sonnet-4-5-20250929"  # Using Claude Sonnet for advanced reasoning
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
         self.model = MODEL_NAME
         
-        # Use override API key if provided, otherwise use dedicated reasoning key
+        # Use override API key if provided (always used in parallel mode)
+        # Fallback to STOCK_*_CLAUDE_API_KEY keys for non-parallel usage
         self.api_key = api_key_override
         if not self.api_key:
-            self.api_key = os.getenv("REASONING_GEMINI_API_KEY")
-        if not self.api_key:
-            self.api_key = os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            # Try numbered keys as last resort
+            # Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
             for i in range(1, 21):
-                key = os.getenv(f"GEMINI_API_KEY_{i}")
+                key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
                 if key:
                     self.api_key = key
                     break
+            # Fallback to ANTHROPIC_API_KEY_* if STOCK keys not found
+            if not self.api_key:
+                for i in range(1, 21):
+                    key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
+                    if key:
+                        self.api_key = key
+                        break
         if not self.api_key:
-            raise ValueError("REASONING_GEMINI_API_KEY, GEMINI_API_KEY, or GEMINI_API_KEY_1-20 environment variable not set")
+            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set STOCK_1_CLAUDE_API_KEY through STOCK_20_CLAUDE_API_KEY in .env")
         
-        # Configure with the specific API key
-        genai.configure(api_key=self.api_key)
-        print("✅ ReasoningAgent initialized with Gemini Pro API")
+        # Initialize Claude client
+        self.client = Anthropic(api_key=self.api_key)
+        print(f"✅ ReasoningAgent initialized with {self.model}")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
         """
@@ -75,39 +82,40 @@ class ReasoningAgent:
             # Format the prompt with analysis data and previous decisions
             prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Gemini API for {symbol}...")
+            print(f"📞 Calling Claude API for {symbol}...")
             
-            response = self._call_gemini_api(prompt)
+            response = self._call_claude_api(prompt)
             
-            print(f"✅ Got Gemini response for {symbol}")
+            print(f"✅ Got Claude response for {symbol}")
             return self._parse_response(response, symbol, current_date)
         except Exception as e:
-            print(f"❌ Gemini API Error for {symbol}: {e}")
+            print(f"❌ Claude API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
                 "decision": "HOLD",
                 "confidence": 0.5,
                 "reasoning": f"Error: {str(e)}",
-                "model_used": "gemini-2.5-pro"
+                "model_used": MODEL_NAME
             }
 
-    def _call_gemini_api(self, prompt: str) -> str:
-        """Call Gemini API with the given prompt"""
+    def _call_claude_api(self, prompt: str) -> str:
+        """Call Claude API with the given prompt"""
         try:
-            # Initialize Gemini client
-            model = genai.GenerativeModel(self.model)
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}]
+            )
             
-            # Generate response
-            response = model.generate_content(prompt)
-            
-            if response and response.text:
-                return response.text
+            if response and response.content and len(response.content) > 0:
+                return response.content[0].text
             else:
-                raise Exception("Empty response from Gemini API")
+                raise Exception("Empty response from Claude API")
                 
         except Exception as e:
-            print(f"❌ Error calling Gemini API: {e}")
+            print(f"❌ Error calling Claude API: {e}")
             raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
@@ -198,7 +206,7 @@ REASONING: [Brief explanation of your decision, key factors considered, and risk
                 'decision': decision,
                 'confidence': confidence_normalized,
                 'reasoning': reasoning,
-                'model_used': 'gemini-2.5-pro',
+                'model_used': MODEL_NAME,
                 'raw_response': response_text
             }
             
@@ -213,5 +221,5 @@ REASONING: [Brief explanation of your decision, key factors considered, and risk
                 'decision': "HOLD",
                 'confidence': 0.5,
                 'reasoning': f'Parse error: {str(e)}',
-                'model_used': 'gemini-2.5-pro'
+                'model_used': MODEL_NAME
             }

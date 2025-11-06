@@ -12,15 +12,13 @@ import glob
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-import google.generativeai as genai
+from anthropic import Anthropic
 
-# Initialize Gemini - Load .env from the same directory as this script
+# Initialize Claude - Load .env from the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Load default API key - use dedicated sentiment key first, fallback to general key
-default_api_key = os.getenv("SENTIMENT_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "claude-3-5-haiku-20241022"
 
 class SentimentAgent:
     def __init__(self, data_dir: str = ".", api_key_override: str = None):
@@ -36,24 +34,14 @@ class SentimentAgent:
         os.makedirs(self.output_dir, exist_ok=True)
         
         # Use override API key if provided, otherwise use dedicated sentiment key
-        api_key = api_key_override or default_api_key
-        if not api_key:
-            # Try numbered keys as fallback
-            for i in range(1, 11):
-                key = os.getenv(f"GEMINI_API_KEY_{i}")
-                if key:
-                    api_key = key
-                    break
+        api_key = api_key_override or os.getenv("SENTIMENT_CLAUDE_API_KEY")
         
         if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set and no override provided")
+            raise ValueError("SENTIMENT_CLAUDE_API_KEY environment variable not set and no override provided")
         
-        # Configure with the specific API key
-        genai.configure(api_key=api_key)
-        
-        # Initialize Gemini client
+        # Initialize Claude client
+        self.client = Anthropic(api_key=api_key)
         self.model = MODEL_NAME
-        self.gemini_client = genai.GenerativeModel(self.model)
         
         # Load stock data for current prices
         self.stock_data = self._load_stock_data()
@@ -61,13 +49,14 @@ class SentimentAgent:
     def _load_stock_data(self) -> Dict:
         """Load stock data from the raw_multidata directory"""
         try:
+            # Load stock data from raw_multidata
             stock_data_file = os.path.join(self.data_dir, "raw_multidata", "stock_data_20251009_163317.json")
-            if os.path.exists(stock_data_file):
-                with open(stock_data_file, 'r') as f:
-                    return json.load(f)
-            else:
-                print("❌ Stock data file not found")
+            if not os.path.exists(stock_data_file):
+                print(f"❌ Stock data file not found: {stock_data_file}")
                 return {}
+            
+            with open(stock_data_file, 'r') as f:
+                return json.load(f)
         except Exception as e:
             print(f"❌ Error loading stock data: {e}")
             return {}
@@ -106,19 +95,28 @@ class SentimentAgent:
             return None
 
     def _load_news_data(self, symbol: str) -> Optional[Dict]:
-        """Load news data for a symbol"""
+        """Load news data for a symbol from news_data directory"""
         try:
-            # Find the most recent news data file in news_data directory
-            pattern = os.path.join(self.data_dir, "news_data", f"{symbol}_combined_news_*.json")
+            # Look in news_data directory only
+            news_data_dir = os.path.join(self.data_dir, "news_data")
+            
+            # First try symbol-specific combined news files
+            pattern = os.path.join(news_data_dir, f"{symbol}_combined_news_*.json")
             files = glob.glob(pattern)
             
             if not files:
-                # Try alternative pattern
-                pattern = os.path.join(self.data_dir, "news_data", "*combined_news*.json")
+                # Try alternative pattern for combined news
+                pattern = os.path.join(news_data_dir, "*combined_news*.json")
                 files = glob.glob(pattern)
-                
+            
+            # Also check for monthly news files (july_2025_ticker_news.json, etc.)
             if not files:
-                print(f"❌ No news data files found for {symbol}")
+                monthly_files = glob.glob(os.path.join(news_data_dir, "*_ticker_news.json"))
+                if monthly_files:
+                    files = monthly_files
+            
+            if not files:
+                print(f"❌ No news data files found for {symbol} in {news_data_dir}")
                 return None
                 
             # Get the most recent file
@@ -128,7 +126,13 @@ class SentimentAgent:
             # Load the file
             with open(latest_file, 'r') as f:
                 news_data = json.load(f)
-                
+            
+            # Handle monthly news file format (e.g., {'july_2025_ticker_news': {...}})
+            if len(news_data) == 1 and isinstance(news_data, dict):
+                first_key = list(news_data.keys())[0]
+                if '_ticker_news' in first_key:
+                    news_data = news_data[first_key]
+            
             # Handle different news data formats
             if 'parsed_results' in news_data and symbol in news_data['parsed_results']:
                 # Format: {'parsed_results': {'PLTR': {'news': [...]}}}
@@ -197,9 +201,44 @@ class SentimentAgent:
             elif 'articles' in news_data:
                 # Already in the format we want
                 return news_data
-            else:
-                print(f"❌ Unrecognized news data format in {latest_file}")
-                return None
+            elif symbol in news_data:
+                # Format: {TICKER: {date: [articles]}} or {TICKER: [articles]}
+                symbol_data = news_data[symbol]
+                articles = []
+                
+                if isinstance(symbol_data, dict):
+                    # Format: {date: [articles]}
+                    for date_key, date_articles in symbol_data.items():
+                        for article in date_articles if isinstance(date_articles, list) else [date_articles]:
+                            articles.append({
+                                'date': date_key if isinstance(date_key, str) else article.get('date', ''),
+                                'title': article.get('title', ''),
+                                'source': article.get('source', 'Unknown'),
+                                'sentiment': article.get('sentiment', 'neutral'),
+                                'text': article.get('text', '')[:500]
+                            })
+                elif isinstance(symbol_data, list):
+                    # Format: [articles]
+                    for article in symbol_data:
+                        articles.append({
+                            'date': article.get('date', ''),
+                            'title': article.get('title', ''),
+                            'source': article.get('source', 'Unknown'),
+                            'sentiment': article.get('sentiment', 'neutral'),
+                            'text': article.get('text', '')[:500]
+                        })
+                
+                if articles:
+                    return {
+                        'articles': articles,
+                        'date_range': {
+                            'start': '2025-07-01',
+                            'end': '2025-10-01'
+                        }
+                    }
+            
+            print(f"❌ Unrecognized news data format in {latest_file}")
+            return None
                 
         except Exception as e:
             print(f"❌ Error loading news data: {e}")
@@ -434,12 +473,17 @@ class SentimentAgent:
             - IMPORTANT: Consider both the quantity and quality of news in your assessment
             """
             
-            # Generate sentiment analysis using Gemini
-            response = self.gemini_client.generate_content(prompt)
+            # Generate sentiment analysis using Claude
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}]
+            )
             
-            if response and response.text:
+            if response and response.content and len(response.content) > 0:
                 # Parse the response
-                sentiment_result = self._parse_sentiment_response(response.text)
+                sentiment_result = self._parse_sentiment_response(response.content[0].text)
                 
                 # Add metadata
                 sentiment_result['symbol'] = symbol
@@ -457,7 +501,7 @@ class SentimentAgent:
                 print(f"✅ Sentiment analysis saved: {self.output_dir}/{symbol}_sentiment_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
                 return sentiment_result
             else:
-                print(f"❌ No response from Gemini for {symbol}")
+                print(f"❌ No response from Claude for {symbol}")
                 return None
                 
         except Exception as e:
