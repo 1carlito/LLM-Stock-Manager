@@ -110,36 +110,36 @@ class ParallelBacktest:
         self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API keys from environment variables for ReasoningAgent (Claude API keys)"""
+        """Load API keys from environment variables for ReasoningAgent (OpenAI API keys)"""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered Claude API keys (STOCK_1_CLAUDE_API_KEY, STOCK_2_CLAUDE_API_KEY, etc.)
+        # Try to load numbered OpenAI API keys (STOCK_1_OPENAI_API_KEY, STOCK_2_OPENAI_API_KEY, etc.)
         for i in range(1, 21):  # Support up to 20 API keys
-            key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+            key = os.getenv(f"STOCK_{i}_OPENAI_API_KEY")
             if key:
                 keys.append(key)
         
-        # If no numbered keys, try ANTHROPIC_API_KEY_1-20 as fallback
+        # If no numbered keys, try OPENAI_API_KEY_1-20 as fallback
         if not keys:
             for i in range(1, 21):
-                key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
+                key = os.getenv(f"OPENAI_API_KEY_{i}")
                 if key:
                     keys.append(key)
         
-        # If still no keys, try REASONING_CLAUDE_API_KEY as last resort
+        # If still no keys, try REASONING_OPENAI_API_KEY as last resort
         if not keys:
-            default_key = os.getenv("REASONING_CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+            default_key = os.getenv("REASONING_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
             if default_key:
                 keys.append(default_key)
         
         if not keys:
-            raise ValueError("No Claude API keys found. Set STOCK_1_CLAUDE_API_KEY through STOCK_20_CLAUDE_API_KEY in .env")
+            raise ValueError("No OpenAI API keys found. Set STOCK_1_OPENAI_API_KEY through STOCK_20_OPENAI_API_KEY in .env")
         
         # Note: Logger not available yet during initialization, will log later
-        print(f"Loaded {len(keys)} Claude API key(s) for ReasoningAgent")
+        print(f"Loaded {len(keys)} OpenAI API key(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
@@ -212,7 +212,7 @@ class ParallelBacktest:
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_GPT')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -256,7 +256,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_GPT')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -300,7 +300,7 @@ class ParallelBacktest:
     def _save_portfolio_decision(self, portfolio_decisions, current_date):
         """Save portfolio decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_GPT')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name
@@ -427,7 +427,7 @@ class ParallelBacktest:
     def _save_decision(self, symbol, decision_record):
         """Save a decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_GPT')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name

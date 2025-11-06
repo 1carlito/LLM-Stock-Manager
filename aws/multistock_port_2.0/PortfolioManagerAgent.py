@@ -7,7 +7,7 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-from anthropic import Anthropic
+from openai import OpenAI
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -25,18 +25,19 @@ class PortfolioManagerAgent:
     
     def __init__(self, data_dir=".", api_key=None):
         self.data_dir = data_dir
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_GPT")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
         self.api_key = api_key
         if not self.api_key:
-            self.api_key = os.getenv("PORTFOLIO_CLAUDE_API_KEY")
+            self.api_key = os.getenv("PORTFOLIO_OPENAI_API_KEY")
         
         if not self.api_key:
-            raise ValueError("PORTFOLIO_CLAUDE_API_KEY environment variable not set. Portfolio Manager needs only one API key since it runs sequentially after all stock decisions are collected.")
+            raise ValueError("PORTFOLIO_OPENAI_API_KEY environment variable not set. Portfolio Manager needs only one API key since it runs sequentially after all stock decisions are collected.")
         
-        self.client = Anthropic(api_key=self.api_key)
-        self.model_name = "claude-sonnet-4-5-20250929"
+        self.client = OpenAI(api_key=self.api_key)
+        self.model_name = "gpt-5"
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
     
     def make_portfolio_decisions(self, stock_decisions, portfolio_state, current_date, previous_portfolio_decisions=None):
@@ -61,30 +62,59 @@ class PortfolioManagerAgent:
             
             print(f"📊 Calling Portfolio Manager API for {len(stock_decisions)} stock decisions...")
             
-            # Call Claude API
-            response = self.client.messages.create(
+            # Call OpenAI API
+            response = self.client.responses.create(
                 model=self.model_name,
-                max_tokens=4000,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
+                input=prompt,
+                max_output_tokens=4000,
             )
             
-            if not response or not response.content or len(response.content) == 0:
-                raise Exception("Empty response from Claude API")
+            if not response or not getattr(response, "output_text", None):
+                raise Exception("Empty response from OpenAI API")
             
-            print(f"✅ Got Portfolio Manager response")
+            print(f"✅ Got OpenAI Portfolio response")
             
             # Parse response into portfolio decisions
             portfolio_decisions = self._parse_portfolio_response(
-                response.content[0].text, stock_decisions, portfolio_state, current_date
+                response.output_text, stock_decisions, portfolio_state, current_date
             )
+            self._save_portfolio_decision(portfolio_decisions)
             
             return portfolio_decisions
-            
         except Exception as e:
-            print(f"❌ Portfolio Manager API Error: {e}")
+            print(f"❌ OpenAI Portfolio API Error: {e}")
             # Return default decisions - execute as-is with simple allocation
             return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
+            
+    def _save_portfolio_decision(self, portfolio_decisions):
+        """Save the portfolio decision to a JSON file"""
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(self.portfolio_save_dir, exist_ok=True)
+            
+            # Format the filename with date and timestamp
+            date_str = portfolio_decisions.get('date')
+            if hasattr(date_str, 'strftime'):
+                date_str = date_str.strftime('%Y%m%d')
+            else:
+                # If date_str is already a string, ensure it's formatted consistently
+                try:
+                    date_str = datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y%m%d')
+                except ValueError:
+                    date_str = datetime.now().strftime('%Y%m%d')  # Fallback
+            
+            timestamp = datetime.now().strftime('%H%M%S')
+            filename = f"portfolio_decision_{date_str}_{timestamp}.json"
+            file_path = os.path.join(self.portfolio_save_dir, filename)
+            
+            # Save the decision to file
+            with open(file_path, 'w') as f:
+                json.dump(portfolio_decisions, f, indent=2)
+            
+            print(f"✅ Portfolio decision saved to {file_path}")
+        except Exception as e:
+            print(f"❌ Error saving portfolio decision: {e}")
+            # Persistence failure should not interrupt the backtest
     
     def _build_portfolio_prompt(self, stock_decisions, portfolio_state, current_date, previous_portfolio_decisions=None):
         """Build prompt for portfolio-level decision making"""

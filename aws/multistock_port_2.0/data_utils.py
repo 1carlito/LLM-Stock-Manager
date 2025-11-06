@@ -33,7 +33,20 @@ class DataManager:
         Returns:
             Path to latest data file or None if not found
         """
-        # Always look in backtest_data_90days for stock data
+        latest_file = None
+        latest_timestamp = None
+        
+        # First check for stock_data.json in base directory (most common case)
+        base_stock_data = os.path.join(self.base_dir, "stock_data.json")
+        if os.path.exists(base_stock_data):
+            try:
+                file_timestamp = os.path.getmtime(base_stock_data)
+                latest_timestamp = file_timestamp
+                latest_file = base_stock_data
+            except Exception as e:
+                print(f"Error checking file {base_stock_data}: {str(e)}")
+        
+        # Also look in backtest_data_90days for stock data
         data_dir = os.path.join(self.base_dir, "backtest_data_90days")
         
         # Patterns to search for
@@ -46,9 +59,6 @@ class DataManager:
             ])
         # Also look for general stock data files
         patterns.append("stock_data_*.json")
-        
-        latest_file = None
-        latest_timestamp = None
         
         for pattern in patterns:
             # Search in data directory

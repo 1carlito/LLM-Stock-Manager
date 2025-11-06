@@ -7,27 +7,26 @@ import json
 import re
 from datetime import datetime
 from dotenv import load_dotenv
-import openai
-from anthropic import Anthropic
+from openai import OpenAI
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Load Claude API key - fallback only (should be passed via api_key_override in parallel mode)
+# Load OpenAI API key - fallback only (should be passed via api_key_override in parallel mode)
 # In parallel mode, ParallelOrchestrator passes API keys directly to each ReasoningAgent instance
 api_key = None
-# Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+# Try STOCK_*_OPENAI_API_KEY keys first (used by ParallelOrchestrator)
 for i in range(1, 21):
-    key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+    key = os.getenv(f"STOCK_{i}_OPENAI_API_KEY")
     if key:
         api_key = key
         break
 
-# Fallback to ANTHROPIC_API_KEY_* if STOCK keys not found
+# Fallback to OPENAI_API_KEY_* if STOCK keys not found
 if not api_key:
     for i in range(1, 21):
-        key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
+        key = os.getenv(f"OPENAI_API_KEY_{i}")
         if key:
             api_key = key
             break
@@ -35,35 +34,36 @@ if not api_key:
 # Only raise error if no keys found at all (for non-parallel usage)
 # In parallel mode, api_key_override will always be provided
 
-MODEL_NAME = "claude-sonnet-4-5-20250929"  # Using Claude Sonnet for advanced reasoning
+MODEL_NAME = "gpt-5"  # Using GPT-5 for advanced reasoning
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_GPT")
         self.model = MODEL_NAME
         
         # Use override API key if provided (always used in parallel mode)
-        # Fallback to STOCK_*_CLAUDE_API_KEY keys for non-parallel usage
+        # Fallback to STOCK_*_OPENAI_API_KEY keys for non-parallel usage
         self.api_key = api_key_override
         if not self.api_key:
-            # Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+            # Try STOCK_*_OPENAI_API_KEY keys first (used by ParallelOrchestrator)
             for i in range(1, 21):
-                key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+                key = os.getenv(f"STOCK_{i}_OPENAI_API_KEY")
                 if key:
                     self.api_key = key
                     break
-            # Fallback to ANTHROPIC_API_KEY_* if STOCK keys not found
+            # Fallback to OPENAI_API_KEY_* if STOCK keys not found
             if not self.api_key:
                 for i in range(1, 21):
-                    key = os.getenv(f"ANTHROPIC_API_KEY_{i}")
+                    key = os.getenv(f"OPENAI_API_KEY_{i}")
                     if key:
                         self.api_key = key
                         break
         if not self.api_key:
-            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set STOCK_1_CLAUDE_API_KEY through STOCK_20_CLAUDE_API_KEY in .env")
+            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set STOCK_1_OPENAI_API_KEY through STOCK_20_OPENAI_API_KEY in .env")
         
-        # Initialize Claude client
-        self.client = Anthropic(api_key=self.api_key)
+        # Initialize OpenAI client
+        self.client = OpenAI(api_key=self.api_key)
         print(f"✅ ReasoningAgent initialized with {self.model}")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
@@ -82,14 +82,16 @@ class ReasoningAgent:
             # Format the prompt with analysis data and previous decisions
             prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Claude API for {symbol}...")
+            print(f"📞 Calling OpenAI API for {symbol}...")
             
             response = self._call_claude_api(prompt)
             
-            print(f"✅ Got Claude response for {symbol}")
-            return self._parse_response(response, symbol, current_date)
+            print(f"✅ Got OpenAI response for {symbol}")
+            decision_result = self._parse_response(response, symbol, current_date)
+            self._save_decision(decision_result)
+            return decision_result
         except Exception as e:
-            print(f"❌ Claude API Error for {symbol}: {e}")
+            print(f"❌ OpenAI API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
@@ -98,24 +100,51 @@ class ReasoningAgent:
                 "reasoning": f"Error: {str(e)}",
                 "model_used": MODEL_NAME
             }
+            
+    def _save_decision(self, decision_result):
+        """Save the decision to a JSON file in the decision_save_dir"""
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(self.decision_save_dir, exist_ok=True)
+            
+            # Format the filename with symbol and timestamp
+            symbol = decision_result.get('symbol', 'unknown')
+            date_str = decision_result.get('date')
+            if hasattr(date_str, 'strftime'):
+                date_str = date_str.strftime('%Y%m%d')
+            else:
+                # If date_str is already a string, ensure it's formatted consistently
+                date_str = datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y%m%d')
+            
+            timestamp = datetime.now().strftime('%H%M%S')
+            filename = f"{symbol}_reasoning_analysis_{date_str}_{timestamp}.json"
+            file_path = os.path.join(self.decision_save_dir, filename)
+            
+            # Save the decision to file
+            with open(file_path, 'w') as f:
+                json.dump(decision_result, f, indent=2)
+            
+            print(f"✅ Decision saved to {file_path}")
+        except Exception as e:
+            print(f"❌ Error saving decision: {e}")
+            # Don't raise exception - this is non-critical functionality
 
     def _call_claude_api(self, prompt: str) -> str:
-        """Call Claude API with the given prompt"""
+        """Call OpenAI API with the given prompt"""
         try:
-            response = self.client.messages.create(
+            response = self.client.responses.create(
                 model=self.model,
-                max_tokens=4000,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
+                input=prompt,
+                max_output_tokens=4000,
             )
             
-            if response and response.content and len(response.content) > 0:
-                return response.content[0].text
+            if response and getattr(response, "output_text", None):
+                return response.output_text
             else:
-                raise Exception("Empty response from Claude API")
+                raise Exception("Empty response from OpenAI API")
                 
         except Exception as e:
-            print(f"❌ Error calling Claude API: {e}")
+            print(f"❌ Error calling OpenAI API: {e}")
             raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
