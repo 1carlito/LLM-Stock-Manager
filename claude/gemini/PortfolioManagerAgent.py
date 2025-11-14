@@ -7,17 +7,16 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-from xai_sdk import Client as XAIClient
-from xai_sdk.chat import user as xai_user, system as xai_system
+import google.generativeai as genai
 
-# Load environment variables from .env in the same directory as this script
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-load_dotenv(dotenv_path=env_path)
+# Load environment variables, prefer global ~/.env but fall back to local .env
+home_env_path = os.path.expanduser('~/.env')
+local_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 
-DEFAULT_PORTFOLIO_TOKEN = (
-    os.getenv("PORTFOLIO_XAI_API_KEY")
-)
-
+if os.path.exists(home_env_path):
+    load_dotenv(dotenv_path=home_env_path)
+if os.path.exists(local_env_path):
+    load_dotenv(dotenv_path=local_env_path)
 
 class PortfolioManagerAgent:
     """
@@ -29,20 +28,23 @@ class PortfolioManagerAgent:
     - Portfolio balance
     """
     
-    def __init__(self, data_dir=".", api_key=None):
+    def __init__(self, data_dir=".", api_key=None, auto_save=False):
         self.data_dir = data_dir
-        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_Grok")
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_Gemini")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
-        self.api_key = api_key or DEFAULT_PORTFOLIO_TOKEN
+        self.api_key = api_key
         if not self.api_key:
-            raise ValueError(
-                "No xAI API token found. Pass api_key or set PORTFOLIO_XAI_API_KEY / XAI_API_KEY_1 in the environment."
-            )
+            self.api_key = os.getenv("PORTFOLIO_GEMINI_API_KEY")
         
-        self.client = XAIClient(api_key=self.api_key)
-        self.model_name = os.getenv("XAI_PORTFOLIO_MODEL", "grok-4-0709")
+        if not self.api_key:
+            raise ValueError("PORTFOLIO_GEMINI_API_KEY environment variable not set. Portfolio Manager needs only one API key since it runs sequentially after all stock decisions are collected.")
+        
+        # Initialize Gemini client
+        genai.configure(api_key=self.api_key)
+        self.model_name = "gemini-2.5-pro"
+        self.model = genai.GenerativeModel(self.model_name)
         
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
     
@@ -66,54 +68,46 @@ class PortfolioManagerAgent:
             # Build prompt with all stock decisions and portfolio context
             prompt = self._build_portfolio_prompt(stock_decisions, portfolio_state, current_date, previous_portfolio_decisions)
             
-            print(f"📊 Calling Grok API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
+            print(f"📊 Calling Gemini API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
             
-            # Call Grok API
-            response_text = self._call_grok_api(prompt)
+            # Call Gemini API
+            response_text = self._call_gemini_api(prompt)
             
-            print(f"✅ Got Grok Portfolio response")
+            print(f"✅ Got Gemini Portfolio response")
             
             # Parse response into portfolio decisions
             try:
                 portfolio_decisions = self._parse_portfolio_response(
                     response_text, stock_decisions, portfolio_state, current_date
                 )
-                self._save_portfolio_decision(portfolio_decisions)
                 return portfolio_decisions
             except Exception as parse_error:
                 print(f"❌ Error parsing portfolio response: {parse_error}")
                 return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
         except Exception as e:
-            print(f"❌ Grok API Error: {e}")
+            print(f"❌ Gemini API Error: {e}")
             return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
             
-    def _call_grok_api(self, prompt: str) -> str:
-        """Make call to xAI Grok API"""
-        chat = self.client.chat.create(model=self.model_name, temperature=0)
-        chat.append(
-            xai_system(
-                "You are the best portfolio manager in the world. "
-                "Respond strictly with valid JSON in the structure specified."
+    def _call_gemini_api(self, prompt: str) -> str:
+        """Make call to Gemini API"""
+        try:
+            instruction_prefix = "You are the best portfolio manager in the world. Respond strictly with valid JSON in the structure specified.\n\n"
+            response = self.model.generate_content(
+                [
+                    {
+                        "role": "user",
+                        "parts": [{"text": instruction_prefix + prompt}],
+                    }
+                ]
             )
-        )
-        chat.append(xai_user(prompt))
-
-        response = chat.sample()
-        content = getattr(response, "content", None)
-
-        if isinstance(content, str):
-            return content
-
-        if isinstance(content, list):
-            parts = []
-            for part in content:
-                part_text = getattr(part, "text", None)
-                if part_text:
-                    parts.append(part_text)
-            if parts:
-                return "".join(parts)
-
-        raise RuntimeError(f"Unexpected Grok response format: {response}")
+            
+            if response and getattr(response, "text", None):
+                return response.text
+            if response and hasattr(response, "output_text"):
+                return response.output_text
+            raise Exception("Empty response from Gemini API")
+        except Exception as e:
+            raise Exception(f"Gemini API Error: {e}")
             
     def _save_portfolio_decision(self, portfolio_decisions):
         """Save the portfolio decision to a JSON file"""

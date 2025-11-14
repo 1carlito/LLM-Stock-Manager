@@ -104,45 +104,35 @@ class ParallelBacktest:
         self.logger.info(f"Parallel Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
         self.logger.info(f"- Data directory: {data_dir}")
-        self.logger.info(f"- xAI tokens available: {len(self.api_keys)}")
+        self.logger.info(f"- Claude API keys available: {len(self.api_keys)}")
         self.logger.info(f"- Max parallel workers: {self.max_workers}")
         self.logger.info(f"- Lookback window: {lookback_window} days")
         self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API tokens from environment variables for ReasoningAgent (xAI Grok)."""
+        """Load API keys from environment variables for ReasoningAgent (Claude API keys)"""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered tokens (supporting multiple naming conventions)
-        for i in range(1, 7):  # Support up to 6 API tokens
-            candidate_names = [
-                f"XAI_API_KEY_{i}"     
-            ]
-            token = next((os.getenv(name) for name in candidate_names if os.getenv(name)), None)
-            if token:
-                keys.append(token)
+        # Try to load numbered Claude API keys (STOCK_*_CLAUDE_API_KEY)
+        for i in range(1, 7):  # Support up to 6 API keys
+            key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+            if key:
+                keys.append(key)
         
-        # If still no tokens, try the shared defaults
+        # If still no keys, try the default Claude API key
         if not keys:
-            for fallback_name in (
-                "XAI_API_KEY_1",
-                "PORTFOLIO_XAI_API_KEY"
-            ):
-                default_token = os.getenv(fallback_name)
-                if default_token:
-                    keys.append(default_token)
-                    break
+            default_key = os.getenv("ANTHROPIC_API_KEY")
+            if default_key:
+                keys.append(default_key)
         
         if not keys:
-            raise ValueError(
-                "No xAI API tokens found. Set XAI_API_KEY_1 / XAI_API_KEY (or related variants) in the environment."
-            )
+            raise ValueError("No Claude API keys found. Set STOCK_1_CLAUDE_API_KEY through STOCK_6_CLAUDE_API_KEY in .env")
         
         # Note: Logger not available yet during initialization, will log later
-        print(f"Loaded {len(keys)} xAI token(s) for ReasoningAgent")
+        print(f"Loaded {len(keys)} Claude API key(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
@@ -215,7 +205,7 @@ class ParallelBacktest:
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Grok')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -259,7 +249,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Grok')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -303,7 +293,7 @@ class ParallelBacktest:
     def _save_portfolio_decision(self, portfolio_decisions, current_date):
         """Save portfolio decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Grok')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name
@@ -430,7 +420,7 @@ class ParallelBacktest:
     def _save_decision(self, symbol, decision_record):
         """Save a decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Grok')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name

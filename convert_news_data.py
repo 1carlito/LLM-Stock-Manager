@@ -16,10 +16,16 @@ from typing import Dict, List, Any
 from dotenv import load_dotenv
 
 class NewsDataManager:
-    def __init__(self, output_dir: str = "news_data"):
+    def __init__(
+        self,
+        stock_output_dir: str = "/Users/pc/stock_agent_eval/stock_agent_eval_clean/aws/Mid_Cap/sentiment_files/stock_news",
+        general_output_dir: str = "/Users/pc/stock_agent_eval/stock_agent_eval_clean/aws/Mid_Cap/sentiment_files/general_market_news",
+    ):
         load_dotenv()
-        self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
+        self.stock_output_dir = stock_output_dir
+        self.general_output_dir = general_output_dir
+        os.makedirs(self.stock_output_dir, exist_ok=True)
+        os.makedirs(self.general_output_dir, exist_ok=True)
         
         # Initialize Stock News API
         self.api_key = os.getenv("STOCK_NEWS_API_KEY")
@@ -139,12 +145,32 @@ class NewsDataManager:
             })
         return converted
 
-    def combine_news_data(self, symbol: str, manual_news: List[Dict], days: int = 30) -> Dict[str, Any]:
+    def _save_news_file(self, sentiment_data: Dict[str, Any], symbol: str, output_type: str) -> str:
+        """Persist the news payload to the correct directory"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_symbol = symbol or "GENERAL_MARKET"
+        if output_type == "general":
+            filename = f"{file_symbol}_general_news_{timestamp}.json"
+            directory = self.general_output_dir
+        else:
+            filename = f"{file_symbol}_combined_news_{timestamp}.json"
+            directory = self.stock_output_dir
+
+        os.makedirs(directory, exist_ok=True)
+        filepath = os.path.join(directory, filename)
+
+        with open(filepath, "w") as f:
+            json.dump(sentiment_data, f, indent=2)
+
+        return filepath
+
+    def combine_news_data(self, symbol: str, manual_news: List[Dict], days: int = 30, general_market: bool = False) -> Dict[str, Any]:
         """Combine manual and API news data"""
-        print(f"🔄 Processing news for {symbol}...")
+        target_symbol = "GENERAL_MARKET" if general_market else symbol
+        print(f"🔄 Processing news for {target_symbol}...")
         
         # Get API news
-        api_articles = self.fetch_api_news(symbol, days=days)
+        api_articles = self.fetch_api_news(symbol, days=days) if symbol else []
         
         # Convert both sources
         converted_api = self.convert_api_news(api_articles)
@@ -173,30 +199,30 @@ class NewsDataManager:
         
         # Create final format
         sentiment_data = {
-            "stock_symbol": symbol,
+            "stock_symbol": target_symbol,
             "search_date": datetime.now().isoformat(),
             "api_articles": len(converted_api),
             "manual_articles": len(converted_manual),
             "total_articles": len(combined_news),
             "parsed_results": {
-                symbol: {
+                target_symbol: {
                     "news": combined_news,
                     "press_releases": [],
                     "analyst_actions": [],
-                    "market_impact": f"Combined news analysis for {symbol} covering {len(combined_news)} articles"
+                    "market_impact": (
+                        f"Combined news analysis for general market covering {len(combined_news)} articles"
+                        if general_market
+                        else f"Combined news analysis for {target_symbol} covering {len(combined_news)} articles"
+                    ),
                 }
             }
         }
         
         # Save to file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{symbol}_combined_news_{timestamp}.json"
-        filepath = os.path.join(self.output_dir, filename)
+        output_type = "general" if general_market else "stock"
+        filepath = self._save_news_file(sentiment_data, symbol or target_symbol, output_type)
         
-        with open(filepath, 'w') as f:
-            json.dump(sentiment_data, f, indent=2)
-        
-        print(f"\n📊 News Summary for {symbol}:")
+        print(f"\n📊 News Summary for {target_symbol}:")
         print(f"   API Articles: {len(converted_api)}")
         print(f"   Manual Articles: {len(converted_manual)}")
         print(f"   Total Unique Articles: {len(combined_news)}")
@@ -265,12 +291,7 @@ def process_stock_news():
                 }
                 
                 # Save to file
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"{symbol}_combined_news_{timestamp}.json"
-                filepath = os.path.join(manager.output_dir, filename)
-                
-                with open(filepath, 'w') as f:
-                    json.dump(sentiment_data, f, indent=2)
+                filepath = manager._save_news_file(sentiment_data, symbol, "stock")
                 
                 print(f"✅ Successfully processed {symbol}: {len(converted)} articles")
                 print(f"   Saved to: {filepath}")

@@ -7,36 +7,48 @@ import json
 import re
 from datetime import datetime
 from dotenv import load_dotenv
-from xai_sdk import Client as XAIClient
-from xai_sdk.chat import user as xai_user, system as xai_system
+import anthropic
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Gather default API token (parallel orchestrator typically overrides this)
-DEFAULT_API_TOKEN = (
-    os.getenv("XAI_API_KEY")
-    or os.getenv("XAI_API_KEY_1")
-)
+# Load Claude API key - fallback only (should be passed via api_key_override in parallel mode)
+# In parallel mode, ParallelOrchestrator passes API keys directly to each ReasoningAgent instance
+api_key = None
+# Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+for i in range(1, 7):
+    key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+    if key:
+        api_key = key
+        break
 
-MODEL_NAME = os.getenv("XAI_REASONING_MODEL", "grok-4-0709")
+# Only raise error if no keys found at all (for non-parallel usage)
+# In parallel mode, api_key_override will always be provided
 
+MODEL_NAME = "claude-haiku-4-5-20251001"  # Using Claude Haiku 4.5 API
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
-        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Grok")
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Claude")
         self.model = MODEL_NAME
         
-        # Use override API token if provided (parallel mode), otherwise fallback to env
-        self.api_key = api_key_override or DEFAULT_API_TOKEN
+        # Use override API key if provided (always used in parallel mode)
+        # Fallback to STOCK_*_CLAUDE_API_KEY for non-parallel usage
+        self.api_key = api_key_override
         if not self.api_key:
-            raise ValueError(
-                "No xAI API token provided. Pass api_key_override or set XAI_API_KEY / XAI_API_KEY_1 in the environment."
-            )
+            # Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+            for i in range(1, 7):
+                key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+                if key:
+                    self.api_key = key
+                    break
+        if not self.api_key:
+            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set STOCK_1_CLAUDE_API_KEY through STOCK_6_CLAUDE_API_KEY in .env")
         
-        self.client = XAIClient(api_key=self.api_key)
+        # Initialize Anthropic client
+        self.client = anthropic.Anthropic(api_key=self.api_key)
         print(f"✅ ReasoningAgent initialized with {self.model}")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
@@ -55,17 +67,16 @@ class ReasoningAgent:
             # Format the prompt with analysis data and previous decisions
             prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Grok API for {symbol}...")
+            print(f"📞 Calling Claude API for {symbol}...")
             
-            response = self._call_grok_api(prompt)
-                
-            print(f"✅ Got Grok response for {symbol}")
+            response = self._call_claude_api(prompt)
             
+            print(f"✅ Got Claude response for {symbol}")
             decision_result = self._parse_response(response, symbol, current_date)
             self._save_decision(decision_result)
             return decision_result
         except Exception as e:
-            print(f"❌ Grok API Error for {symbol}: {e}")
+            print(f"❌ Claude API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
@@ -103,25 +114,30 @@ class ReasoningAgent:
             print(f"❌ Error saving decision: {e}")
             # Don't raise exception - this is non-critical functionality
 
-    def _call_grok_api(self, prompt: str) -> str:
-        """Call the xAI Grok API and return the assistant response text."""
-        chat = self.client.chat.create(model=self.model, temperature=0)
-        chat.append(xai_system("You are the best trading advisor in the world."))
-        chat.append(xai_user(prompt))
-
-        response = chat.sample()
-        content = getattr(response, "content", None)
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            pieces = []
-            for part in content:
-                part_text = getattr(part, "text", None)
-                if part_text:
-                    pieces.append(part_text)
-            if pieces:
-                return "".join(pieces)
-        raise RuntimeError(f"Unexpected Grok response format: {response}")
+    def _call_claude_api(self, prompt: str) -> str:
+        """Call Claude API with the given prompt"""
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                system="You are the best trading advisor in the world."
+            )
+            
+            if response and response.content:
+                # Extract text content from the response
+                for content_block in response.content:
+                    if content_block.type == "text":
+                        return content_block.text
+                return ""
+            else:
+                raise Exception("Empty response from Claude API")
+                
+        except Exception as e:
+            print(f"❌ Error calling Claude API: {e}")
+            raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
         """Build a prompt that integrates sentiment and valuation analyses for decision making"""

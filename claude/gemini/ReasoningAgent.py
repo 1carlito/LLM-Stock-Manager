@@ -7,36 +7,54 @@ import json
 import re
 from datetime import datetime
 from dotenv import load_dotenv
-from xai_sdk import Client as XAIClient
-from xai_sdk.chat import user as xai_user, system as xai_system
+import google.generativeai as genai
 
-# Load environment variables from .env in the same directory as this script
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-load_dotenv(dotenv_path=env_path)
+# Load environment variables, prefer global ~/.env but fall back to local .env
+home_env_path = os.path.expanduser('~/.env')
+local_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 
-# Gather default API token (parallel orchestrator typically overrides this)
-DEFAULT_API_TOKEN = (
-    os.getenv("XAI_API_KEY")
-    or os.getenv("XAI_API_KEY_1")
-)
+if os.path.exists(home_env_path):
+    load_dotenv(dotenv_path=home_env_path)
+if os.path.exists(local_env_path):
+    load_dotenv(dotenv_path=local_env_path)
 
-MODEL_NAME = os.getenv("XAI_REASONING_MODEL", "grok-4-0709")
+# Load Gemini API key - fallback only (should be passed via api_key_override in parallel mode)
+# In parallel mode, ParallelOrchestrator passes API keys directly to each ReasoningAgent instance
+api_key = None
+# Try GEMINI_API_KEY_* keys first (used by ParallelOrchestrator)
+for i in range(1, 7):
+    key = os.getenv(f"GEMINI_API_KEY_{i}")
+    if key:
+        api_key = key
+        break
 
+# Only raise error if no keys found at all (for non-parallel usage)
+# In parallel mode, api_key_override will always be provided
+
+MODEL_NAME = "gemini-2.5-pro"  # Using Gemini 2.5 Pro API
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
-        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Grok")
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Gemini")
         self.model = MODEL_NAME
         
-        # Use override API token if provided (parallel mode), otherwise fallback to env
-        self.api_key = api_key_override or DEFAULT_API_TOKEN
+        # Use override API key if provided (always used in parallel mode)
+        # Fallback to GEMINI_API_KEY_* for non-parallel usage
+        self.api_key = api_key_override
         if not self.api_key:
-            raise ValueError(
-                "No xAI API token provided. Pass api_key_override or set XAI_API_KEY / XAI_API_KEY_1 in the environment."
-            )
+            # Try GEMINI_API_KEY_* keys first (used by ParallelOrchestrator)
+            for i in range(1, 7):
+                key = os.getenv(f"GEMINI_API_KEY_{i}")
+                if key:
+                    self.api_key = key
+                    break
+        if not self.api_key:
+            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set GEMINI_API_KEY_1 through GEMINI_API_KEY_6 in .env")
         
-        self.client = XAIClient(api_key=self.api_key)
+        # Initialize Gemini client
+        genai.configure(api_key=self.api_key)
+        self.gemini_model = genai.GenerativeModel(self.model)
         print(f"✅ ReasoningAgent initialized with {self.model}")
 
     def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
@@ -55,17 +73,16 @@ class ReasoningAgent:
             # Format the prompt with analysis data and previous decisions
             prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Grok API for {symbol}...")
+            print(f"📞 Calling Gemini API for {symbol}...")
             
-            response = self._call_grok_api(prompt)
-                
-            print(f"✅ Got Grok response for {symbol}")
+            response = self._call_gemini_api(prompt)
             
+            print(f"✅ Got Gemini response for {symbol}")
             decision_result = self._parse_response(response, symbol, current_date)
             self._save_decision(decision_result)
             return decision_result
         except Exception as e:
-            print(f"❌ Grok API Error for {symbol}: {e}")
+            print(f"❌ Gemini API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
@@ -103,25 +120,28 @@ class ReasoningAgent:
             print(f"❌ Error saving decision: {e}")
             # Don't raise exception - this is non-critical functionality
 
-    def _call_grok_api(self, prompt: str) -> str:
-        """Call the xAI Grok API and return the assistant response text."""
-        chat = self.client.chat.create(model=self.model, temperature=0)
-        chat.append(xai_system("You are the best trading advisor in the world."))
-        chat.append(xai_user(prompt))
-
-        response = chat.sample()
-        content = getattr(response, "content", None)
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            pieces = []
-            for part in content:
-                part_text = getattr(part, "text", None)
-                if part_text:
-                    pieces.append(part_text)
-            if pieces:
-                return "".join(pieces)
-        raise RuntimeError(f"Unexpected Grok response format: {response}")
+    def _call_gemini_api(self, prompt: str) -> str:
+        """Call Gemini API with the given prompt"""
+        try:
+            instruction_prefix = "You are the best trading advisor in the world. Respond strictly in the requested format.\n\n"
+            response = self.gemini_model.generate_content(
+                [
+                    {
+                        "role": "user",
+                        "parts": [{"text": instruction_prefix + prompt}],
+                    }
+                ]
+            )
+            
+            if response and getattr(response, "text", None):
+                return response.text
+            if response and hasattr(response, "output_text"):
+                return response.output_text
+            raise Exception("Empty response from Gemini API")
+                
+        except Exception as e:
+            print(f"❌ Error calling Gemini API: {e}")
+            raise e
 
     def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
         """Build a prompt that integrates sentiment and valuation analyses for decision making"""

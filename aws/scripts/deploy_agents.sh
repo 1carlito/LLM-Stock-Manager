@@ -67,12 +67,6 @@ deploy_file "${LOCAL_DIR}/ValuationAgent.py"
 # Deploy process_all_stocks.py
 deploy_file "${LOCAL_DIR}/process_all_stocks.py"
 
-# Deploy ResumeParallelOrchestrator.py
-deploy_file "${LOCAL_DIR}/ResumeParallelOrchestrator.py"
-
-# Deploy test_resume_flow.py
-deploy_file "${LOCAL_DIR}/test_resume_flow.py"
-
 # Deploy StockData_FmpApi.py (needed for data fetching)
 deploy_file "${LOCAL_DIR}/StockData_FmpApi.py"
 
@@ -100,8 +94,6 @@ echo "   - SentimentAgent.py"
 echo "   - FundamentalAgent.py"
 echo "   - ValuationAgent.py"
 echo "   - process_all_stocks.py"
-echo "   - ResumeParallelOrchestrator.py"
-echo "   - test_resume_flow.py"
 echo "   - StockData_FmpApi.py"
 echo "   - stock_data.json"
 echo ""

@@ -14,24 +14,32 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
-# Initialize Claude - Load .env from the same directory as this script
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-load_dotenv(dotenv_path=env_path)
+# Load environment variables, prefer global ~/.env then local .env
+home_env_path = os.path.expanduser('~/.env')
+if os.path.exists(home_env_path):
+    load_dotenv(dotenv_path=home_env_path)
 
 MODEL_NAME = "claude-3-5-haiku-20241022"
 
 class SentimentAgent:
-    def __init__(self, data_dir: str = ".", api_key_override: str = None):
+    def __init__(
+        self,
+        data_dir: str = ".",
+        api_key_override: str = None,
+        stock_data_path: str = None
+    ):
         """Initialize the Sentiment Agent
         
         Args:
             data_dir: Directory for data storage
             api_key_override: Optional API key to use instead of default from .env
+            stock_data_path: Optional explicit path to stock data JSON
         """
-        self.data_dir = data_dir
-        self.output_dir = os.path.join(data_dir, "sentiment_data")
-        self.news_dir = os.path.join(data_dir, "sentiment_data")
+        self.data_dir = os.path.abspath(data_dir)
+        self.output_dir = os.path.join(self.data_dir, "sentiment_data")
         os.makedirs(self.output_dir, exist_ok=True)
+        self.stock_data_path = os.path.abspath(stock_data_path) if stock_data_path else None
+        self.news_dir = self._resolve_news_dir()
         
         # Use override API key if provided, otherwise use dedicated sentiment key
         api_key = api_key_override or os.getenv("SENTIMENT_CLAUDE_API_KEY")
@@ -46,17 +54,69 @@ class SentimentAgent:
         # Load stock data for current prices
         self.stock_data = self._load_stock_data()
 
+    def _resolve_news_dir(self) -> str:
+        """Locate the directory that contains news data"""
+        candidate_dirs = [
+            os.path.join(self.data_dir, "news_data"),
+            os.path.join(self.data_dir, "..", "news_data"),
+            os.path.join(self.data_dir, "sentiment_data", "news_data"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "news_data"),
+        ]
+        
+        seen = set()
+        for path in candidate_dirs:
+            resolved = os.path.abspath(path)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            if os.path.isdir(resolved):
+                return resolved
+        
+        fallback = os.path.join(self.data_dir, "news_data")
+        print(f"⚠️ News data directory not found. Falling back to {fallback}")
+        return fallback
+
     def _load_stock_data(self) -> Dict:
-        """Load stock data from the raw_multidata directory"""
+        """Load stock data from the most relevant source"""
         try:
-            # Load stock data from raw_multidata
-            stock_data_file = os.path.join(self.data_dir, "raw_multidata", "stock_data_20251009_163317.json")
-            if not os.path.exists(stock_data_file):
-                print(f"❌ Stock data file not found: {stock_data_file}")
-                return {}
+            candidate_files: List[str] = []
             
-            with open(stock_data_file, 'r') as f:
-                return json.load(f)
+            if self.stock_data_path:
+                if os.path.exists(self.stock_data_path):
+                    candidate_files.append(self.stock_data_path)
+                else:
+                    print(f"⚠️ Provided stock_data_path not found: {self.stock_data_path}")
+            
+            if not candidate_files:
+                candidate_files.extend([
+                    os.path.join(self.data_dir, "stock_data.json"),
+                    os.path.join(self.data_dir, "stock_data.json.backup"),
+                    os.path.join(os.path.dirname(self.data_dir), "stock_data.json"),
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "stock_data.json"),
+                ])
+                
+                candidate_files.extend(
+                    sorted(
+                        glob.glob(os.path.join(self.data_dir, "**", "stock_data*.json"), recursive=True),
+                        reverse=True,
+                    )
+                )
+            
+            for stock_data_file in candidate_files:
+                if not stock_data_file or not os.path.exists(stock_data_file):
+                    continue
+                
+                try:
+                    with open(stock_data_file, 'r') as f:
+                        data = json.load(f)
+                    if isinstance(data, dict) and data:
+                        print(f"📄 Loaded stock data from {stock_data_file}")
+                        return data
+                except Exception as inner_err:
+                    print(f"⚠️ Failed to load stock data from {stock_data_file}: {inner_err}")
+            
+            print("❌ No valid stock_data.json file found in expected locations.")
+            return {}
         except Exception as e:
             print(f"❌ Error loading stock data: {e}")
             return {}
@@ -65,40 +125,95 @@ class SentimentAgent:
         """Get the current price for a symbol on a specific date"""
         try:
             if symbol not in self.stock_data:
+                print(f"Symbol {symbol} not found in stock data dictionary")
                 return None
-                
+            
             historical_prices = self.stock_data[symbol].get('historical_prices', [])
+            if not historical_prices:
+                print(f"No historical prices found for {symbol}")
+                return None
             
-            # Find the price for the target date or the closest previous date
             target_date_obj = datetime.strptime(target_date, '%Y-%m-%d')
-            
-            # Sort prices by date (most recent first)
-            sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
-            
+            sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''))
+            valid_prices = []
             for price_data in sorted_prices:
                 price_date_str = price_data.get('date', '')
                 if price_date_str:
                     try:
                         price_date = datetime.strptime(price_date_str, '%Y-%m-%d')
                         if price_date <= target_date_obj:
-                            return price_data.get('close', None)
+                            valid_prices.append(price_data)
                     except ValueError:
                         continue
-            
-            # If no exact date found, return the most recent price
-            if sorted_prices:
-                return sorted_prices[0].get('close', None)
-                
+            if valid_prices:
+                latest_price = valid_prices[-1].get('close')
+                if isinstance(latest_price, (int, float)):
+                    return float(latest_price)
+            print(f"No valid historical price for {symbol} on or before {target_date}")
             return None
         except Exception as e:
             print(f"❌ Error getting current price for {symbol} on {target_date}: {e}")
             return None
 
+    def _standardize_date_format(self, date_str: str) -> str:
+        """Standardize various date formats to YYYY-MM-DD"""
+        if not date_str:
+            return ""
+            
+        try:
+            # Already in YYYY-MM-DD format
+            if len(date_str) == 10 and date_str[4] == '-' and date_str[7] == '-':
+                return date_str
+                
+            # ISO format with time component e.g. 2025-09-18T12:30:00Z
+            if len(date_str) >= 10 and date_str[4] == '-' and date_str[7] == '-':
+                try:
+                    date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
+                    return date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+                
+            # Common textual date formats
+            text_formats = [
+                "%a, %d %b %Y %H:%M:%S %z",
+                "%a, %d %b %Y %H:%M:%S",
+                "%d %b %Y",
+                "%d %B %Y",
+                "%b %d %Y",
+                "%b %d, %Y",
+                "%B %d %Y",
+                "%B %d, %Y",
+                "%b %d %Y %H:%M",
+                "%b %d, %Y %H:%M",
+                "%B %d %Y %H:%M",
+                "%B %d, %Y %H:%M",
+            ]
+            for fmt in text_formats:
+                try:
+                    date_obj = datetime.strptime(date_str, fmt)
+                    return date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
+                
+            # MM/DD/YYYY format
+            if '/' in date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, "%m/%d/%Y")
+                    return date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+            
+            # Return original if we couldn't parse
+            return date_str
+        except Exception as e:
+            print(f"Error parsing date '{date_str}': {e}")
+            return date_str
+    
     def _load_news_data(self, symbol: str) -> Optional[Dict]:
         """Load news data for a symbol from news_data directory"""
         try:
-            # Look in news_data directory only
-            news_data_dir = os.path.join(self.data_dir, "news_data")
+            # Look in resolved news_data directory
+            news_data_dir = self.news_dir
             
             # First try symbol-specific combined news files
             pattern = os.path.join(news_data_dir, f"{symbol}_combined_news_*.json")
@@ -118,14 +233,45 @@ class SentimentAgent:
             if not files:
                 print(f"❌ No news data files found for {symbol} in {news_data_dir}")
                 return None
-                
-            # Get the most recent file
-            latest_file = max(files, key=os.path.getmtime)
+
+            symbol_lower = symbol.lower()
+            symbol_files = [f for f in files if symbol_lower in os.path.basename(f).lower()]
+            candidate_files = symbol_files if symbol_files else files
+            candidate_files.sort(key=os.path.getmtime, reverse=True)
+
+            def contains_symbol(data: Dict) -> bool:
+                if not isinstance(data, dict):
+                    return False
+                if symbol in data:
+                    return True
+                parsed = data.get("parsed_results")
+                if isinstance(parsed, dict) and symbol in parsed:
+                    return True
+                if isinstance(data.get("articles"), list):
+                    return True
+                if isinstance(data.get("news"), list):
+                    return True
+                return False
+
+            news_data = None
+            latest_file = None
+            for file_path in candidate_files:
+                try:
+                    with open(file_path, 'r') as f:
+                        potential_data = json.load(f)
+                    if contains_symbol(potential_data):
+                        latest_file = file_path
+                        news_data = potential_data
+                        break
+                except Exception as e:
+                    print(f"⚠️ Error reading news file {file_path}: {e}")
+                    continue
+
+            if not latest_file or news_data is None:
+                print(f"❌ No usable news data file found for {symbol}")
+                return None
+
             print(f"Loading news data from {latest_file}")
-            
-            # Load the file
-            with open(latest_file, 'r') as f:
-                news_data = json.load(f)
             
             # Handle monthly news file format (e.g., {'july_2025_ticker_news': {...}})
             if len(news_data) == 1 and isinstance(news_data, dict):
@@ -141,22 +287,12 @@ class SentimentAgent:
                 articles = []
                 for article in symbol_data.get('news', []):
                     # Convert to standard format
-                    date_str = article.get('date', '')
-                    # Try to standardize date format
-                    try:
-                        if ',' in date_str:  # "Wed, 17 Sep 2025 18:46:05 -0400"
-                            date_obj = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
-                            date_str = date_obj.strftime("%Y-%m-%d")
-                        # Otherwise assume it's already YYYY-MM-DD
-                    except ValueError:
-                        # If parsing fails, keep original
-                        pass
+                    date_str = self._standardize_date_format(article.get('date', ''))
                         
                     articles.append({
                         'date': date_str,
                         'title': article.get('title', ''),
                         'source': article.get('source_name', article.get('source', 'Unknown')),
-                        'sentiment': article.get('sentiment', 'neutral'),
                         'text': article.get('text', '')[:500]  # Truncate long articles
                     })
                 
@@ -172,22 +308,12 @@ class SentimentAgent:
                 articles = []
                 for article in news_data.get('news', []):
                     # Convert to standard format
-                    date_str = article.get('date', '')
-                    # Try to standardize date format
-                    try:
-                        if ',' in date_str:  # "Wed, 17 Sep 2025 18:46:05 -0400"
-                            date_obj = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
-                            date_str = date_obj.strftime("%Y-%m-%d")
-                        # Otherwise assume it's already YYYY-MM-DD
-                    except ValueError:
-                        # If parsing fails, keep original
-                        pass
+                    date_str = self._standardize_date_format(article.get('date', ''))
                         
                     articles.append({
                         'date': date_str,
                         'title': article.get('title', ''),
                         'source': article.get('source_name', article.get('source', 'Unknown')),
-                        'sentiment': article.get('sentiment', 'neutral'),
                         'text': article.get('text', '')[:500]  # Truncate long articles
                     })
                 
@@ -214,7 +340,6 @@ class SentimentAgent:
                                 'date': date_key if isinstance(date_key, str) else article.get('date', ''),
                                 'title': article.get('title', ''),
                                 'source': article.get('source', 'Unknown'),
-                                'sentiment': article.get('sentiment', 'neutral'),
                                 'text': article.get('text', '')[:500]
                             })
                 elif isinstance(symbol_data, list):
@@ -224,7 +349,6 @@ class SentimentAgent:
                             'date': article.get('date', ''),
                             'title': article.get('title', ''),
                             'source': article.get('source', 'Unknown'),
-                            'sentiment': article.get('sentiment', 'neutral'),
                             'text': article.get('text', '')[:500]
                         })
                 
@@ -340,15 +464,17 @@ class SentimentAgent:
             filtered_news = []
             for article in news_data.get('articles', []):
                 article_date_str = article.get('date', '')
-                if article_date_str:
+                standardized_date = self._standardize_date_format(article_date_str)
+                if standardized_date:
                     try:
-                        article_date = datetime.strptime(article_date_str, '%Y-%m-%d')
-                        # Only include articles up to the current analysis date
+                        article_date = datetime.strptime(standardized_date, '%Y-%m-%d')
                         if article_date <= analysis_date:
+                            article['date'] = standardized_date
                             filtered_news.append(article)
                     except ValueError:
-                        # If date parsing fails, skip this article
-                        continue
+                        print(f"⚠️ Invalid standardized date: {standardized_date} for article: {article.get('title', '')}")
+                else:
+                    print(f"⚠️ Could not parse date format: {article_date_str} for article: {article.get('title', '')}")
                         
             if not filtered_news:
                 print(f"❌ No news articles found for {symbol} before {current_date}")
@@ -385,7 +511,7 @@ class SentimentAgent:
             current_price = None
             try:
                 current_price = self._get_current_price(symbol, current_date)
-                if current_price:
+                if current_price is not None:
                     print(f"Current price for {symbol} on {current_date}: ${current_price:.2f}")
                 else:
                     print(f"❌ Could not find current price for {symbol} on {current_date}")
@@ -395,7 +521,6 @@ class SentimentAgent:
             
             # Group news by week for better trend analysis
             news_by_week = {}
-            weekly_sentiment_counts = {}
             
             for article in filtered_news:
                 article_date = datetime.strptime(article['date'], '%Y-%m-%d')
@@ -406,37 +531,14 @@ class SentimentAgent:
                 # Add article to week
                 if week_key not in news_by_week:
                     news_by_week[week_key] = []
-                    weekly_sentiment_counts[week_key] = {"positive": 0, "neutral": 0, "negative": 0}
                     
                 news_by_week[week_key].append(article)
-                
-                # Count sentiment
-                sentiment = article.get('sentiment', '').lower()
-                if sentiment in ['positive', 'neutral', 'negative']:
-                    weekly_sentiment_counts[week_key][sentiment] += 1
-            
-            # Build sentiment summary
-            sentiment_summary = "\nSENTIMENT TRENDS BY WEEK:\n"
-            sentiment_summary += "Week       | Articles | Positive | Neutral | Negative | Sentiment Score\n"
-            sentiment_summary += "-----------|----------|----------|---------|----------|--------------\n"
-            
-            for week_key in sorted(weekly_sentiment_counts.keys(), reverse=True):
-                counts = weekly_sentiment_counts[week_key]
-                total = counts["positive"] + counts["neutral"] + counts["negative"]
-                if total == 0:
-                    score = 0
-                else:
-                    score = (counts["positive"] - counts["negative"]) / total
-                
-                sentiment_summary += f"{week_key} | {total:8d} | {counts['positive']:8d} | {counts['neutral']:7d} | {counts['negative']:8d} | {score:+.2f}\n"
             
             # Build the prompt
             price_info = f"Current stock price: ${current_price:.2f}" if current_price else "Current stock price: Not available"
             prompt = f"""
             Analyze the sentiment and market impact of news for {symbol} from {start_date} to {end_date}.
             {price_info}
-            
-            {sentiment_summary}
             
             Recent News Articles by Week:
             """
@@ -446,7 +548,7 @@ class SentimentAgent:
             for week_key in recent_weeks:
                 prompt += f"\n{week_key} ({len(news_by_week[week_key])} articles):\n"
                 for article in news_by_week[week_key]:
-                    prompt += f"- {article['date']}: {article['title']} ({article['sentiment']})\n"
+                    prompt += f"- {article['date']}: {article['title']}\n"
                     if article['text']:
                         prompt += f"  Summary: {article['text'][:200]}...\n"
             

@@ -1,0 +1,9 @@
+Removed columns:
+cash_reserved
+total_allocation
+trades_executed
+trade_volume
+risk_assessment
+strategy_notes
+decision_source
+nav_source

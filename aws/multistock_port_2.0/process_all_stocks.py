@@ -12,10 +12,10 @@ import argparse
 from datetime import datetime, timedelta
 from typing import List
 
-# Only import ValuationAgent - other agents not needed for valuation-only generation
-# from SentimentAgent import SentimentAgent
-from ValuationAgent import ValuationAgent
-# from FundamentalAgent import FundamentalAgent
+# Import only Sentiment and Fundamental agents
+from SentimentAgent import SentimentAgent
+# from ValuationAgent import ValuationAgent
+from FundamentalAgent import FundamentalAgent
 
 # List of stocks to process for backtest
 STOCKS = [
@@ -49,36 +49,64 @@ def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-0
     print(f"{'='*60}")
     
     try:
-        # Initialize only valuation agent
-        valuation_agent = ValuationAgent(data_dir=data_dir)
+        # Initialize sentiment and fundamental agents
+        # Prefer historical+fundamental dataset if available, otherwise fall back
+        candidate_files = [
+            os.path.join(data_dir, "raw_multidata", "stock_data_20251009_163317.json"),
+            os.path.join(os.path.dirname(os.path.abspath(data_dir)), "multistock_port", "raw_multidata", "stock_data_20251009_163317.json"),
+            os.path.join(data_dir, "stock_data.json"),
+        ]
+        stock_data_file = next((path for path in candidate_files if os.path.exists(path)), None)
+        
+        if not stock_data_file:
+            print("❌ No stock data file found in expected locations:")
+            for path in candidate_files:
+                print(f"   - {path}")
+            return False
+        
+        print(f"📄 Using stock data from {stock_data_file}")
+        
+        sentiment_agent = SentimentAgent(data_dir=data_dir, stock_data_path=stock_data_file)
+        fundamental_agent = FundamentalAgent(data_dir=data_dir, stock_data_path=stock_data_file)
         
         # Get all trading days
         trading_days = get_trading_days(start_date, end_date)
-        print(f"📅 Generating valuation analyses for {len(trading_days)} trading days: {start_date} to {end_date}")
-        print(f"  ⏭️  Skipping sentiment and fundamental analysis (valuation only)")
+        print(f"📅 Generating analyses for {len(trading_days)} trading days: {start_date} to {end_date}")
+        print(f"  ✅ Running sentiment and fundamental analyses (skipping valuation)")
         
         # Generate analyses for each trading day
-        successful_valuations = 0
+        successful_fundamentals = 0
+        successful_sentiments = 0
         
         for i, current_date in enumerate(trading_days, 1):
-            if i % 10 == 0 or i == 1:
+            if i % 5 == 0 or i == 1:
                 print(f"\n📅 Processing date {i}/{len(trading_days)}: {current_date}")
             
-            # Run valuation analysis only
+            # Run fundamental analysis
             try:
-                valuation = valuation_agent.analyze_valuation(symbol, current_date)
-                if valuation:
-                    successful_valuations += 1
+                fundamental = fundamental_agent.analyze_fundamentals(symbol, current_date)
+                if fundamental:
+                    successful_fundamentals += 1
             except Exception as e:
-                print(f"  ❌ Valuation error for {current_date}: {e}")
+                print(f"  ❌ Fundamental error for {current_date}: {e}")
+                
+            # Run sentiment analysis
+            try:
+                sentiment = sentiment_agent.analyze_sentiment(symbol, current_date)
+                if sentiment:
+                    successful_sentiments += 1
+            except Exception as e:
+                print(f"  ❌ Sentiment error for {current_date}: {e}")
         
         print(f"\n✅ Completed processing {symbol}:")
-        print(f"   Valuation: {successful_valuations}/{len(trading_days)} analyses")
+        print(f"   Fundamental: {successful_fundamentals}/{len(trading_days)} analyses")
+        print(f"   Sentiment: {successful_sentiments}/{len(trading_days)} analyses")
         
-        if successful_valuations > 0:
+        # Consider successful if at least one type of analysis worked
+        if successful_fundamentals > 0 or successful_sentiments > 0:
             return True
         else:
-            print(f"⚠️  Valuation analyses failed for {symbol}")
+            print(f"⚠️  All analyses failed for {symbol}")
             return False
             
     except Exception as e:

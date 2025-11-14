@@ -15,9 +15,10 @@ from anthropic import Anthropic
 import numpy as np
 import glob
 
-# Load environment variables from .env file in the same directory as this script
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-load_dotenv(dotenv_path=env_path)
+# Load environment variables, prefer global ~/.env then local .env
+home_env_path = os.path.expanduser('~/.env')
+if os.path.exists(home_env_path):
+    load_dotenv(dotenv_path=home_env_path)
 
 # Load default API key - use dedicated fundamental key first, fallback to general key
 default_anthropic_api_key = os.getenv('FUNDAMENTAL_CLAUDE_API_KEY') 
@@ -248,26 +249,24 @@ class FundamentalAgent:
         
         # Calculate and update PE/PB ratios
         latest_eps = self._get_latest_eps(stock_data)
-        if latest_eps and latest_eps > 0 and current_price > 0:
+        if current_price is not None and latest_eps and latest_eps > 0:
             pe_ratio = current_price / latest_eps
             cached_analysis['pe_ratio'] = pe_ratio
         
         # Calculate PB ratio if available
         latest_book_value_per_share = self._get_latest_book_value_per_share(stock_data)
-        if latest_book_value_per_share and latest_book_value_per_share > 0 and current_price > 0:
+        if current_price is not None and latest_book_value_per_share and latest_book_value_per_share > 0:
             pb_ratio = current_price / latest_book_value_per_share
             cached_analysis['pb_ratio'] = pb_ratio
         
         return cached_analysis
     
-    def _get_current_price(self, current_date: str, stock_data: Dict) -> float:
+    def _get_current_price(self, current_date: str, stock_data: Dict) -> Optional[float]:
         """Extract current price from data for the given date"""
-        # Extract current price from historical prices for the target date
-        current_price = 0
+        current_price: Optional[float] = None
         historical_prices = stock_data.get('historical_prices', [])
         
         if historical_prices and current_date:
-            # Find price for the target date or closest previous date
             target_date_obj = datetime.strptime(current_date, "%Y-%m-%d")
             sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
             
@@ -277,19 +276,12 @@ class FundamentalAgent:
                     try:
                         price_date = datetime.strptime(price_date_str, '%Y-%m-%d')
                         if price_date <= target_date_obj:
-                            current_price = price_entry.get('close', 0)
-                            if current_price:
+                            price_value = price_entry.get('close')
+                            if isinstance(price_value, (int, float)):
+                                current_price = float(price_value)
                                 break
                     except ValueError:
                         continue
-            
-            # If no exact date found, use most recent price
-            if not current_price and sorted_prices:
-                current_price = sorted_prices[0].get('close', 0)
-        
-        # Fallback to other price sources
-        if not current_price:
-            current_price = stock_data.get('price', 0) or stock_data.get('current_price', 0)
         
         return current_price
     
@@ -436,13 +428,13 @@ class FundamentalAgent:
         # Calculate PE ratio
         latest_eps = self._get_latest_eps(stock_data)
         pe_ratio = None
-        if latest_eps and latest_eps > 0 and current_price > 0:
+        if current_price is not None and latest_eps and latest_eps > 0:
             pe_ratio = current_price / latest_eps
             
         # Calculate PB ratio
         latest_book_value = self._get_latest_book_value_per_share(stock_data)
         pb_ratio = None
-        if latest_book_value and latest_book_value > 0 and current_price > 0:
+        if current_price is not None and latest_book_value and latest_book_value > 0:
             pb_ratio = current_price / latest_book_value
             
         # Update ratios with calculated values
@@ -452,9 +444,10 @@ class FundamentalAgent:
         if pb_ratio:
             updated_ratios['pb_ratio'] = pb_ratio
         
-        # Format ratio strings for display
-        pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio else "N/A"
-        pb_ratio_str = f"{pb_ratio:.2f}" if pb_ratio else "N/A"
+        # Calculate ratio strings for display
+        pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio is not None else "N/A"
+        pb_ratio_str = f"{pb_ratio:.2f}" if pb_ratio is not None else "N/A"
+        current_price_str = f"${current_price:.2f}" if current_price is not None else "Not available"
         
         # Create prompt with filtered data - limit to 6 quarters for sliding window
         prompt = f"""
@@ -478,7 +471,7 @@ CASH FLOW STATEMENTS (filtered to {current_date}, last 6 quarters):
 {json.dumps(filtered_cash_flow[:6], indent=2) if filtered_cash_flow else "[]"}
 
 CURRENT PRICE AND KEY RATIOS:
-- Current Price: ${current_price:.2f}
+- Current Price: {current_price_str}
 - P/E Ratio: {pe_ratio_str}
 - P/B Ratio: {pb_ratio_str}
 
@@ -545,14 +538,16 @@ Make sure your recommendation is consistent with the overall analysis. If the da
             
             # Calculate PE and PB ratios
             latest_eps = self._get_latest_eps(stock_data)
-            pe_ratio = None
-            if latest_eps and latest_eps > 0 and current_price > 0:
+            if current_price is not None and latest_eps and latest_eps > 0:
                 pe_ratio = current_price / latest_eps
-                
+            else:
+                pe_ratio = None
+            
             latest_book_value = self._get_latest_book_value_per_share(stock_data)
-            pb_ratio = None
-            if latest_book_value and latest_book_value > 0 and current_price > 0:
+            if current_price is not None and latest_book_value and latest_book_value > 0:
                 pb_ratio = current_price / latest_book_value
+            else:
+                pb_ratio = None
             
             result = {
                 'symbol': symbol,

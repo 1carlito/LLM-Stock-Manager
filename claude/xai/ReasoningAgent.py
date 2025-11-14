@@ -58,9 +58,7 @@ class ReasoningAgent:
             print(f"📞 Calling Grok API for {symbol}...")
             
             response = self._call_grok_api(prompt)
-                
-            print(f"✅ Got Grok response for {symbol}")
-            
+                       print(f"✅ Got Grok response for {symbol}")
             decision_result = self._parse_response(response, symbol, current_date)
             self._save_decision(decision_result)
             return decision_result

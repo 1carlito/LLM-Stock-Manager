@@ -7,17 +7,11 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-from xai_sdk import Client as XAIClient
-from xai_sdk.chat import user as xai_user, system as xai_system
+import anthropic
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
-
-DEFAULT_PORTFOLIO_TOKEN = (
-    os.getenv("PORTFOLIO_XAI_API_KEY")
-)
-
 
 class PortfolioManagerAgent:
     """
@@ -31,18 +25,20 @@ class PortfolioManagerAgent:
     
     def __init__(self, data_dir=".", api_key=None):
         self.data_dir = data_dir
-        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_Grok")
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_Claude")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
-        self.api_key = api_key or DEFAULT_PORTFOLIO_TOKEN
+        self.api_key = api_key
         if not self.api_key:
-            raise ValueError(
-                "No xAI API token found. Pass api_key or set PORTFOLIO_XAI_API_KEY / XAI_API_KEY_1 in the environment."
-            )
+            self.api_key = os.getenv("PORTFOLIO_CLAUDE_API_KEY")
         
-        self.client = XAIClient(api_key=self.api_key)
-        self.model_name = os.getenv("XAI_PORTFOLIO_MODEL", "grok-4-0709")
+        if not self.api_key:
+            raise ValueError("PORTFOLIO_CLAUDE_API_KEY environment variable not set. Portfolio Manager needs only one API key since it runs sequentially after all stock decisions are collected.")
+        
+        # Initialize Anthropic client
+        self.client = anthropic.Anthropic(api_key=self.api_key)
+        self.model_name = "claude-haiku-4-5-20251001"
         
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
     
@@ -66,12 +62,12 @@ class PortfolioManagerAgent:
             # Build prompt with all stock decisions and portfolio context
             prompt = self._build_portfolio_prompt(stock_decisions, portfolio_state, current_date, previous_portfolio_decisions)
             
-            print(f"📊 Calling Grok API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
+            print(f"📊 Calling Claude API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
             
-            # Call Grok API
-            response_text = self._call_grok_api(prompt)
+            # Call Claude API
+            response_text = self._call_claude_api(prompt)
             
-            print(f"✅ Got Grok Portfolio response")
+            print(f"✅ Got Claude Portfolio response")
             
             # Parse response into portfolio decisions
             try:
@@ -84,36 +80,31 @@ class PortfolioManagerAgent:
                 print(f"❌ Error parsing portfolio response: {parse_error}")
                 return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
         except Exception as e:
-            print(f"❌ Grok API Error: {e}")
+            print(f"❌ Claude API Error: {e}")
             return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
             
-    def _call_grok_api(self, prompt: str) -> str:
-        """Make call to xAI Grok API"""
-        chat = self.client.chat.create(model=self.model_name, temperature=0)
-        chat.append(
-            xai_system(
-                "You are the best portfolio manager in the world. "
-                "Respond strictly with valid JSON in the structure specified."
+    def _call_claude_api(self, prompt: str) -> str:
+        """Make call to Claude API"""
+        try:
+            response = self.client.messages.create(
+                model=self.model_name,
+                max_tokens=4000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                system="You are the best portfolio manager in the world."
             )
-        )
-        chat.append(xai_user(prompt))
-
-        response = chat.sample()
-        content = getattr(response, "content", None)
-
-        if isinstance(content, str):
-            return content
-
-        if isinstance(content, list):
-            parts = []
-            for part in content:
-                part_text = getattr(part, "text", None)
-                if part_text:
-                    parts.append(part_text)
-            if parts:
-                return "".join(parts)
-
-        raise RuntimeError(f"Unexpected Grok response format: {response}")
+            
+            if response and response.content:
+                # Extract text content from the response
+                for content_block in response.content:
+                    if content_block.type == "text":
+                        return content_block.text
+                return ""
+            else:
+                raise Exception("Empty response from Claude API")
+        except Exception as e:
+            raise Exception(f"Claude API Error: {e}")
             
     def _save_portfolio_decision(self, portfolio_decisions):
         """Save the portfolio decision to a JSON file"""

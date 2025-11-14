@@ -351,38 +351,208 @@ Time Period: July 1, 2025 to October 1, 2025 (3 months)
 
 
 
-
-
-
-Performance summary
-Date range: July 1, 2025 to October 1, 2025
-Symbols traded: GOOGL, NVDA, PLTR, ABBV, UNH, JPM
-Initial portfolio value: $1,000,000.00
-Final portfolio value: $1,130,231.08
-Total return: $130,231.08
-Percent return: 13.02%
-Trading activity
-Decisions made: 390
-Trades executed: 78
-Final portfolio positions
-Cash: $3,262.62
-NVDA: 6,013 shares @ $187.24 (value: $1,126,014.12)
-PLTR: 6 shares @ $182.39 (value: $1,094.34)
-JPM: 0 shares (position sold)
-
-
-
-
-
-
-
-Claude 4-5 sonnet
+  actually valid Claude-haiku-4-5
+  ================================================================================
+2025-11-11 19:45:01,174 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-11 19:45:01,175 - INFO - ================================================================================
+2025-11-11 19:45:01,175 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-11 19:45:01,175 - INFO - 📊 Total decisions made: 390
+2025-11-11 19:45:01,175 - INFO - 💰 Total trades executed: 66
+2025-11-11 19:45:01,175 - INFO -
 📈 PORTFOLIO PERFORMANCE:
-2025-11-06 00:58:07,785 - INFO -   Starting value: $1,000,000.00
-2025-11-06 00:58:07,785 - INFO -   Final value: $1,220,347.73
-2025-11-06 00:58:07,785 - INFO -   Total return: $220,347.73 (22.03%)
-2025-11-06 00:58:07,785 - INFO - 
+2025-11-11 19:45:01,175 - INFO -   Starting value: $1,000,000.00
+2025-11-11 19:45:01,175 - INFO -   Final value: $1,232,834.00
+2025-11-11 19:45:01,175 - INFO -   Total return: $232,834.00 (23.28%)
+2025-11-11 19:45:01,175 - INFO -
 💼 Final positions:
-2025-11-06 00:58:07,785 - INFO -   GOOGL: 2483 shares @ $244.90 = $608,086.70 (49.8%)
-2025-11-06 00:58:07,785 - INFO -   NVDA: 3269 shares @ $187.24 = $612,087.56 (50.2%)
-2025-11-06 00:58:07,785 - INFO -   Cash: $173.47 (0.0%)
+2025-11-11 19:45:01,175 - INFO -   NVDA: 2279 shares @ $187.24 = $426,719.96 (34.6%)
+2025-11-11 19:45:01,175 - INFO -   UNH: 638 shares @ $348.30 = $222,215.40 (18.0%)
+2025-11-11 19:45:01,175 - INFO -   GOOGL: 1667 shares @ $244.90 = $408,248.30 (33.1%)
+2025-11-11 19:45:01,175 - INFO -   ABBV: 259 shares @ $244.38 = $63,294.42 (5.1%)
+2025-11-11 19:45:01,175 - INFO -   JPM: 183 shares @ $310.71 = $56,859.93 (4.6%)
+2025-11-11 19:45:01,175 - INFO -   GOOGLEL: 450 shares @ $100.00 = $45,000.00 (3.7%)
+2025-11-11 19:45:01,175 - INFO -   Cash: $10,495.99 (0.9%)
+
+✅ Test complete! Results saved to ./parallel_backtest_Claude_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+
+
+
+gemini
+
+  💼 Portfolio Value: $1,142,499.87
+2025-11-11 21:56:19,514 - INFO -
+================================================================================
+2025-11-11 21:56:19,514 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-11 21:56:19,514 - INFO - ================================================================================
+2025-11-11 21:56:19,514 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-11 21:56:19,514 - INFO - 📊 Total decisions made: 390
+2025-11-11 21:56:19,514 - INFO - 💰 Total trades executed: 109
+2025-11-11 21:56:19,514 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-11 21:56:19,514 - INFO -   Starting value: $1,000,000.00
+2025-11-11 21:56:19,514 - INFO -   Final value: $1,142,499.87
+2025-11-11 21:56:19,514 - INFO -   Total return: $142,499.87 (14.25%)
+2025-11-11 21:56:19,514 - INFO -
+💼 Final positions:
+2025-11-11 21:56:19,514 - INFO -   NVDA: 2040 shares @ $187.24 = $381,969.60 (33.4%)
+2025-11-11 21:56:19,514 - INFO -   GOOGL: 1556 shares @ $244.90 = $381,064.40 (33.4%)
+2025-11-11 21:56:19,514 - INFO -   PLTR: 2050 shares @ $184.95 = $379,147.50 (33.2%)
+2025-11-11 21:56:19,514 - INFO -   Cash: $318.37 (0.0%)
+
+✅ Test complete! Results saved to ./parallel_backtest_Gemini_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 109
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,142,499.87
+  Total return: $142,499.87 (14.25%)
+
+
+
+
+Gpt
+
+
+  2025-11-12 02:40:15,795 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-12 02:40:15,795 - INFO - ================================================================================
+2025-11-12 02:40:15,795 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-12 02:40:15,795 - INFO - 📊 Total decisions made: 390
+2025-11-12 02:40:15,795 - INFO - 💰 Total trades executed: 120
+2025-11-12 02:40:15,796 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-12 02:40:15,796 - INFO -   Starting value: $1,000,000.00
+2025-11-12 02:40:15,796 - INFO -   Final value: $1,208,463.75
+2025-11-12 02:40:15,796 - INFO -   Total return: $208,463.75 (20.85%)
+2025-11-12 02:40:15,796 - INFO -
+💼 Final positions:
+2025-11-12 02:40:15,796 - INFO -   NVDA: 4824 shares @ $187.24 = $903,245.76 (74.7%)
+2025-11-12 02:40:15,796 - INFO -   GOOGL: 832 shares @ $244.90 = $203,756.80 (16.9%)
+2025-11-12 02:40:15,796 - INFO -   UNH: 68 shares @ $348.30 = $23,684.40 (2.0%)
+2025-11-12 02:40:15,796 - INFO -   Cash: $77,776.79 (6.4%)
+
+✅ Test complete! Results saved to ./parallel_backtest_GPT_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 120
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,208,463.75
+  Total return: $208,463.75 (20.85%)
+
+
+
+
+
+  deepseek 
+
+  2025-11-12 09:57:33,298 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-12 09:57:33,298 - INFO - ================================================================================
+2025-11-12 09:57:33,298 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-12 09:57:33,298 - INFO - 📊 Total decisions made: 390
+2025-11-12 09:57:33,299 - INFO - 💰 Total trades executed: 64
+2025-11-12 09:57:33,299 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-12 09:57:33,299 - INFO -   Starting value: $1,000,000.00
+2025-11-12 09:57:33,299 - INFO -   Final value: $1,222,341.23
+2025-11-12 09:57:33,299 - INFO -   Total return: $222,341.23 (22.23%)
+2025-11-12 09:57:33,299 - INFO -
+💼 Final positions:
+2025-11-12 09:57:33,299 - INFO -   NVDA: 4780 shares @ $187.24 = $895,007.20 (73.2%)
+2025-11-12 09:57:33,299 - INFO -   JPM: 981 shares @ $310.71 = $304,806.51 (24.9%)
+2025-11-12 09:57:33,299 - INFO -   PLTR: 121 shares @ $184.95 = $22,378.95 (1.8%)
+2025-11-12 09:57:33,299 - INFO -   Cash: $148.57 (0.0%)
+
+✅ Test complete! Results saved to ./parallel_backtest_Deepseek_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 64
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,222,341.23
+  Total return: $222,341.23 (22.23%)
+
+
+
+Qwen3
+2025-11-12 11:54:05,436 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-12 11:54:05,436 - INFO - ================================================================================
+2025-11-12 11:54:05,436 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-12 11:54:05,436 - INFO - 📊 Total decisions made: 390
+2025-11-12 11:54:05,436 - INFO - 💰 Total trades executed: 7
+2025-11-12 11:54:05,436 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-12 11:54:05,436 - INFO -   Starting value: $1,000,000.00
+2025-11-12 11:54:05,437 - INFO -   Final value: $1,212,159.10
+2025-11-12 11:54:05,437 - INFO -   Total return: $212,159.10 (21.22%)
+2025-11-12 11:54:05,437 - INFO -
+💼 Final positions:
+2025-11-12 11:54:05,437 - INFO -   NVDA: 3549 shares @ $187.24 = $664,514.76 (54.8%)
+2025-11-12 11:54:05,437 - INFO -   JPM: 516 shares @ $310.71 = $160,326.36 (13.2%)
+2025-11-12 11:54:05,437 - INFO -   PLTR: 765 shares @ $184.95 = $141,486.75 (11.7%)
+2025-11-12 11:54:05,437 - INFO -   UNH: 306 shares @ $348.30 = $106,579.80 (8.8%)
+2025-11-12 11:54:05,437 - INFO -   GOOGL: 568 shares @ $244.90 = $139,103.20 (11.5%)
+2025-11-12 11:54:05,437 - INFO -   Cash: $148.23 (0.0%)
+
+✅ Test complete! Results saved to ./parallel_backtest_Qwen3_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 7
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,212,159.10
+  Total return: $212,159.10 (21.22%)
+
+
+
+
+
+
+Grok
+================================================================================
+2025-11-12 12:11:00,715 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-12 12:11:00,715 - INFO - ================================================================================
+2025-11-12 12:11:00,715 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-12 12:11:00,715 - INFO - 📊 Total decisions made: 390
+2025-11-12 12:11:00,715 - INFO - 💰 Total trades executed: 259
+2025-11-12 12:11:00,715 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-12 12:11:00,715 - INFO -   Starting value: $1,000,000.00
+2025-11-12 12:11:00,715 - INFO -   Final value: $1,234,772.06
+2025-11-12 12:11:00,715 - INFO -   Total return: $234,772.06 (23.48%)
+2025-11-12 12:11:00,715 - INFO -
+💼 Final positions:
+2025-11-12 12:11:00,715 - INFO -   PLTR: 1487 shares @ $184.95 = $275,020.65 (22.3%)
+2025-11-12 12:11:00,715 - INFO -   NVDA: 1457 shares @ $187.24 = $272,808.68 (22.1%)
+2025-11-12 12:11:00,715 - INFO -   GOOGL: 1133 shares @ $244.90 = $277,471.70 (22.5%)
+2025-11-12 12:11:00,715 - INFO -   UNH: 595 shares @ $348.30 = $207,238.50 (16.8%)
+2025-11-12 12:11:00,715 - INFO -   JPM: 650 shares @ $310.71 = $201,961.50 (16.4%)
+2025-11-12 12:11:00,715 - INFO -   Cash: $271.03 (0.0%)
+
+✅ Test complete! Results saved to ./parallel_backtest_Grok_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 259
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,234,772.06
+  Total return: $234,772.06 (23.48%)
