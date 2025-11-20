@@ -53,9 +53,11 @@ class FundamentalAgent:
         # Store historical price data file path (for PE/PB calculations)
         self.historical_price_file = stock_data_path
         
-        # Set data range
-        self.start_date = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.strptime("2025-09-16", "%Y-%m-%d")
-        self.cutoff_date = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.strptime("2025-09-18", "%Y-%m-%d")
+        # Set data range (dates should be provided by caller, no defaults)
+        if not start_date or not end_date:
+            raise ValueError("start_date and end_date must be provided to FundamentalAgent")
+        self.start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        self.cutoff_date = datetime.strptime(end_date, "%Y-%m-%d")
 
         # Use override API key if provided, otherwise use dedicated fundamental key
         api_key = api_key_override or default_anthropic_api_key
@@ -166,7 +168,7 @@ class FundamentalAgent:
                     prompt += "\n\nConsider these previous analyses for consistency, but update based on new data."
     
                 # Call OpenAI API
-                print(f"Calling OpenAI API for {symbol} fundamental analysis...")
+                print(f"Calling Claude API for {symbol} fundamental analysis...")
                 analysis_result = self._call_llm_api(prompt)
                 
                 # Parse the response
@@ -687,26 +689,62 @@ Make sure your recommendation is consistent with the overall analysis. If the da
             }
             
     def _find_stock_data(self, symbol: str) -> Optional[Dict]:
-        """Find stock data in JSON files"""
+        """Find stock data in JSON files - uses same data source as ValuationAgent"""
         try:
-            # Only search for exact filename stock_data.json
-            file_path = os.path.join(self.data_dir, "stock_data.json")
+            import glob
             
-            if not os.path.exists(file_path):
-                return None
-
-            # Load the file and check if symbol exists
-            try:
-                with open(file_path, 'r') as f:
-                    data = json.load(f)
-                
-                # Check if symbol exists in this file
-                if symbol in data:
-                    return data[symbol]
-            except Exception as e:
-                print(f"❌ Error loading stock_data.json: {e}")
-                return None
+            # Primary file: quant_data/mid_cap_stock_data_*.json (same as ValuationAgent)
+            quant_data_dir = os.path.join(self.data_dir, "quant_data")
+            primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
+            
+            # Try the primary file first
+            if os.path.exists(primary_file):
+                try:
+                    with open(primary_file, 'r') as f:
+                        data = json.load(f)
                     
+                    # Check if symbol exists in this file
+                    if isinstance(data, dict):
+                        if symbol in data:
+                            print(f"✅ Found {symbol} in {primary_file}")
+                            return data[symbol]
+                        else:
+                            print(f"⚠️ Symbol {symbol} not found in {primary_file}")
+                except Exception as e:
+                    print(f"⚠️ Error reading {primary_file}: {e}")
+            
+            # Fallback: Try to find any mid_cap_stock_data file in quant_data directory
+            if os.path.exists(quant_data_dir):
+                mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
+                if mid_cap_files:
+                    # Sort by modification time (newest first)
+                    mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                    
+                    for file_path in mid_cap_files:
+                        try:
+                            with open(file_path, 'r') as f:
+                                data = json.load(f)
+                            
+                            if isinstance(data, dict) and symbol in data:
+                                print(f"✅ Found {symbol} in {file_path}")
+                                return data[symbol]
+                        except Exception:
+                            continue
+            
+            # Fallback: Try stock_data.json (legacy)
+            file_path = os.path.join(self.data_dir, "stock_data.json")
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                    
+                    if isinstance(data, dict) and symbol in data:
+                        print(f"✅ Found {symbol} in {file_path}")
+                        return data[symbol]
+                except Exception as e:
+                    print(f"⚠️ Error loading stock_data.json: {e}")
+            
+            print(f"❌ Could not find stock data for {symbol}")
             return None
             
         except Exception as e:

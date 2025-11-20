@@ -104,43 +104,45 @@ class ParallelBacktest:
         self.logger.info(f"Parallel Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
         self.logger.info(f"- Data directory: {data_dir}")
-        self.logger.info(f"- DashScope API keys available: {len(self.api_keys)}")
+        self.logger.info(f"- xAI tokens available: {len(self.api_keys)}")
         self.logger.info(f"- Max parallel workers: {self.max_workers}")
         self.logger.info(f"- Lookback window: {lookback_window} days")
         self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API keys from environment variables for ReasoningAgent (Qwen3/DashScope)."""
+        """Load API tokens from environment variables for ReasoningAgent (xAI Grok)."""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered keys (QWEN_API_KEY_1 through QWEN_API_KEY_6)
-        for i in range(1, 7):  # Support up to 6 API keys
-            key = os.getenv(f"QWEN_API_KEY_{i}")
-            if key:
-                keys.append(key)
+        # Try to load numbered tokens (supporting multiple naming conventions)
+        for i in range(1, 7):  # Support up to 6 API tokens
+            candidate_names = [
+                f"XAI_API_KEY_{i}"     
+            ]
+            token = next((os.getenv(name) for name in candidate_names if os.getenv(name)), None)
+            if token:
+                keys.append(token)
         
-        # If still no keys, try the shared defaults
+        # If still no tokens, try the shared defaults
         if not keys:
             for fallback_name in (
-                "QWEN_API_KEY_1",
-                "DASHSCOPE_API_KEY",
-                "PORTFOLIO_QWEN3_API_KEY"
+                "XAI_API_KEY_1",
+                "PORTFOLIO_XAI_API_KEY"
             ):
-                default_key = os.getenv(fallback_name)
-                if default_key:
-                    keys.append(default_key)
+                default_token = os.getenv(fallback_name)
+                if default_token:
+                    keys.append(default_token)
                     break
         
         if not keys:
             raise ValueError(
-                "No DashScope API keys found. Set QWEN_API_KEY_1 through QWEN_API_KEY_6 (or related variants) in the environment."
+                "No xAI API tokens found. Set XAI_API_KEY_1 / XAI_API_KEY (or related variants) in the environment."
             )
         
         # Note: Logger not available yet during initialization, will log later
-        print(f"Loaded {len(keys)} DashScope API key(s) for ReasoningAgent")
+        print(f"Loaded {len(keys)} xAI token(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
@@ -213,7 +215,7 @@ class ParallelBacktest:
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Grok')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -257,7 +259,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Grok')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -301,7 +303,7 @@ class ParallelBacktest:
     def _save_portfolio_decision(self, portfolio_decisions, current_date):
         """Save portfolio decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Grok')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name
@@ -396,9 +398,9 @@ class ParallelBacktest:
             # Create a ReasoningAgent with the assigned API key
             reasoning_agent = ReasoningAgent(data_dir=self.data_dir, api_key_override=api_key)
             
-            # Call reasoning agent with valuation and fundamental (not sentiment)
+            # Call reasoning agent
             decision_result = reasoning_agent.make_decision(
-                symbol, current_date, valuation_data=valuation_data, fundamental_data=fundamental_data,
+                symbol, current_date, valuation_data, fundamental_data, sentiment_data,
                 previous_decisions=previous_decisions
             )
             
@@ -428,7 +430,7 @@ class ParallelBacktest:
     def _save_decision(self, symbol, decision_record):
         """Save a decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Grok')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name

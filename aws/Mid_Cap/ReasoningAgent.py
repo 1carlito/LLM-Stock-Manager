@@ -7,41 +7,51 @@ import json
 import re
 from datetime import datetime
 from dotenv import load_dotenv
-from openai import OpenAI
+import anthropic
 
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Gather default API token (parallel orchestrator typically overrides this)
-DEFAULT_API_TOKEN = (
-    os.getenv("QWEN_API_KEY_1")
-    or os.getenv("DASHSCOPE_API_KEY")
-)
+# Load Claude API key - fallback only (should be passed via api_key_override in parallel mode)
+# In parallel mode, ParallelOrchestrator passes API keys directly to each ReasoningAgent instance
+api_key = None
+# Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+for i in range(1, 7):
+    key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+    if key:
+        api_key = key
+        break
 
-MODEL_NAME = os.getenv("QWEN_REASONING_MODEL", "qwen3-max")
+# Only raise error if no keys found at all (for non-parallel usage)
+# In parallel mode, api_key_override will always be provided
 
+MODEL_NAME = "claude-3-5-haiku-20241022"  # Using Claude Haiku 4.5 API
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
-        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Qwen3_val_fun")
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Claude")
         self.model = MODEL_NAME
         
-        # Use override API token if provided (parallel mode), otherwise fallback to env
-        self.api_key = api_key_override or DEFAULT_API_TOKEN
+        # Use override API key if provided (always used in parallel mode)
+        # Fallback to STOCK_*_CLAUDE_API_KEY for non-parallel usage
+        self.api_key = api_key_override
         if not self.api_key:
-            raise ValueError(
-                "No DashScope API key provided. Pass api_key_override or set QWEN_API_KEY_1 / DASHSCOPE_API_KEY in the environment."
-            )
+            # Try STOCK_*_CLAUDE_API_KEY keys first (used by ParallelOrchestrator)
+            for i in range(1, 7):
+                key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
+                if key:
+                    self.api_key = key
+                    break
+        if not self.api_key:
+            raise ValueError("No API key provided. In parallel mode, ParallelOrchestrator passes keys via api_key_override. For standalone usage, set STOCK_1_CLAUDE_API_KEY through STOCK_6_CLAUDE_API_KEY in .env")
         
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-        )
+        # Initialize Anthropic client
+        self.client = anthropic.Anthropic(api_key=self.api_key)
         print(f"✅ ReasoningAgent initialized with {self.model}")
 
-    def make_decision(self, symbol, current_date=None, valuation_data=None, fundamental_data=None, previous_decisions=None):
+    def make_decision(self, symbol="NVO", current_date=None, valuation_data=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
         """
         Make a trading decision based on the provided analysis data from all agents and previous decisions.
         
@@ -50,21 +60,23 @@ class ReasoningAgent:
             current_date: Current trading date
             valuation_data: Data from ValuationAgent
             fundamental_data: Data from FundamentalAgent
+            sentiment_data: Data from SentimentAgent
             previous_decisions: List of previous trading decisions for this symbol (optional)
         """
         try:
             # Format the prompt with analysis data and previous decisions
-            prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, previous_decisions)
+            prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Qwen3 API for {symbol}...")
+            print(f"📞 Calling Claude API for {symbol}...")
             
-            response = self._call_qwen_api(prompt)
-            print(f"✅ Got Qwen3 response for {symbol}")
+            response = self._call_claude_api(prompt)
+            
+            print(f"✅ Got Claude response for {symbol}")
             decision_result = self._parse_response(response, symbol, current_date)
             self._save_decision(decision_result)
             return decision_result
         except Exception as e:
-            print(f"❌ Qwen3 API Error for {symbol}: {e}")
+            print(f"❌ Claude API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
@@ -102,43 +114,53 @@ class ReasoningAgent:
             print(f"❌ Error saving decision: {e}")
             # Don't raise exception - this is non-critical functionality
 
-    def _call_qwen_api(self, prompt: str) -> str:
-        """Call the Qwen3 API and return the assistant response text."""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {'role': 'system', 'content': 'You are the best trading advisor in the world.'},
-                {'role': 'user', 'content': prompt}
-            ],
-            max_tokens=4000
-        )
-        
-        return response.choices[0].message.content
+    def _call_claude_api(self, prompt: str) -> str:
+        """Call Claude API with the given prompt"""
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                system="You are the best trading advisor in the world."
+            )
+            
+            if response and response.content:
+                # Extract text content from the response
+                for content_block in response.content:
+                    if content_block.type == "text":
+                        return content_block.text
+                return ""
+            else:
+                raise Exception("Empty response from Claude API")
+                
+        except Exception as e:
+            print(f"❌ Error calling Claude API: {e}")
+            raise e
 
-    def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, previous_decisions=None):
-        """Build a prompt that integrates valuation and fundamental analyses for decision making"""
+    def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, sentiment_data, previous_decisions=None):
+        """Build a prompt that integrates sentiment and valuation analyses for decision making"""
         
         # Format date if it's a datetime object
         date_str = current_date
         if hasattr(current_date, 'strftime'):
             date_str = current_date.strftime('%Y-%m-%d')
         
-        # Build the base prompt - only include sections where data exists
+        # Build the base prompt with both sentiment and valuation analyses
         prompt = f"""
 You are a professional trading agent analyzing {symbol} on {date_str}.
-"""
-        
-        # Valuation analysis
-        if valuation_data:
-            prompt += f"""
+
+SENTIMENT ANALYSIS:
+{json.dumps(sentiment_data, indent=2) if sentiment_data else "No sentiment data available"}
+
 VALUATION ANALYSIS:
-{json.dumps(valuation_data, indent=2)}
+{json.dumps(valuation_data, indent=2) if valuation_data else "No valuation data available"}
 """
         
-        # Fundamental analysis
         if fundamental_data:
             prompt += f"""
-FUNDAMENTAL ANALYSIS:
+FUNDAMENTAL ANALYSIS (if available):
 {json.dumps(fundamental_data, indent=2)}
 """
         
@@ -152,15 +174,12 @@ PREVIOUS TRADING DECISIONS:
 Consider these previous decisions in your analysis. Look for trends, consistency, and any changes in market conditions since these decisions were made.
 """
         
-        # Modify instructions to support short decisions
-        prompt += "\nMAKE DECISION BASED ON:'BUY', 'SELL', 'HOLD', 'SHORT'\n"
-
-        # Instructions mentioning valuation and fundamental analyses
+        # Add final instructions for integrating sentiment and valuation analyses
         prompt += f"""
 
-You are the highest level market trader in existence, you constantly make extremely good returns. Your task is to make a trading decision based on the analysis provided above.
+You are the highest level market trader in existence, you constantly make extremely good returns. Your task is to make a trading decision based on the sentiment analysis, fundamental analysis and valuation analysis given.
 
-1. Analyze the valuation analysis signals and fundamental analysis signals.
+1. Analyze the sentiment analysis signals, fundamental analysis signals, and valuation analysis signals.
 2. Evaluate the strength and reliability of the analysis signals.
 3. Consider how this decision fits with the previous trading history (if provided).
 4. Be more decisive when the analysis signals are strong.
@@ -182,7 +201,7 @@ REASONING: [Brief explanation of your decision, key factors considered, and risk
             reasoning = "Unable to parse response"
             
             # Extract decision
-            decision_match = re.search(r'DECISION:\s*([A-Z]+)', response_text, re.DOTALL)
+            decision_match = re.search(r'DECISION:\s*([A-Z]+)', response_text, re.IGNORECASE)
             if decision_match:
                 decision = decision_match.group(1).upper()
             

@@ -634,9 +634,10 @@ def main():
     
     # Check if symbols are provided
     if not args.symbols:
-        print("❌ No stock symbols provided")
-        print("Usage: python StockData_FmpApi.py --symbols AAPL MSFT GOOGL")
-        return
+        # Default to requested tickers if none provided
+        args.symbols = ["ETR:HAG", "AKAM"]
+        print("ℹ️  No stock symbols provided on the command line.")
+        print("   Defaulting to: ETR:HAG, AKAM")
     
     # Fetch stock data
     print(f"🔍 Fetching stock data for {len(args.symbols)} symbols...")

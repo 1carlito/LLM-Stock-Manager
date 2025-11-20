@@ -556,3 +556,506 @@ Grok
   Starting value: $1,000,000.00
   Final value: $1,234,772.06
   Total return: $234,772.06 (23.48%)
+
+
+
+
+
+
+
+
+
+
+Ablations 
+
+
+Grok Sentiment Valuation
+
+================================================================================
+2025-11-18 00:35:51,602 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 00:35:51,602 - INFO - ================================================================================
+2025-11-18 00:35:51,602 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 00:35:51,602 - INFO - 📊 Total decisions made: 390
+2025-11-18 00:35:51,602 - INFO - 💰 Total trades executed: 57
+2025-11-18 00:35:51,602 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 00:35:51,602 - INFO -   Starting value: $1,000,000.00
+2025-11-18 00:35:51,602 - INFO -   Final value: $1,282,567.85
+2025-11-18 00:35:51,603 - INFO -   Total return: $282,567.85 (28.26%)
+2025-11-18 00:35:51,603 - INFO -
+💼 Final positions:
+2025-11-18 00:35:51,603 - INFO -   NVDA: 1956 shares @ $187.24 = $366,241.44 (28.6%)
+2025-11-18 00:35:51,603 - INFO -   UNH: 526 shares @ $348.30 = $183,205.80 (14.3%)
+2025-11-18 00:35:51,603 - INFO -   PLTR: 2126 shares @ $184.95 = $393,203.70 (30.7%)
+2025-11-18 00:35:51,603 - INFO -   GOOGL: 1322 shares @ $244.90 = $323,757.80 (25.2%)
+2025-11-18 00:35:51,603 - INFO -   JPM: 52 shares @ $310.71 = $16,156.92 (1.3%)
+2025-11-18 00:35:51,603 - INFO -   Cash: $2.19 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 57
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,282,567.85
+  Total return: $282,567.85 (28.26%)
+
+
+
+
+
+
+
+
+
+Valuation Fundamental
+
+
+
+2025-11-18 21:00:39,909 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 21:00:39,910 - INFO - ================================================================================
+2025-11-18 21:00:39,910 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 21:00:39,910 - INFO - 📊 Total decisions made: 390
+2025-11-18 21:00:39,910 - INFO - 💰 Total trades executed: 256
+2025-11-18 21:00:39,910 - INFO - 
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 21:00:39,910 - INFO -   Starting value: $1,000,000.00
+2025-11-18 21:00:39,910 - INFO -   Final value: $1,231,435.92
+2025-11-18 21:00:39,910 - INFO -   Total return: $231,435.92 (23.14%)
+2025-11-18 21:00:39,910 - INFO - 
+💼 Final positions:
+2025-11-18 21:00:39,911 - INFO -   PLTR: 1268 shares @ $184.95 = $234,516.60 (19.0%)
+2025-11-18 21:00:39,911 - INFO -   NVDA: 1409 shares @ $187.24 = $263,821.16 (21.4%)
+2025-11-18 21:00:39,911 - INFO -   JPM: 755 shares @ $310.71 = $234,586.05 (19.0%)
+2025-11-18 21:00:39,911 - INFO -   Cash: $498,512.11 (40.5%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 256
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,231,435.92
+  Total return: $231,435.92 (23.14%)
+
+
+
+
+
+
+
+
+
+
+
+
+  Dseek Sentiment Valuation
+
+  2025-11-18 00:22:54,105 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 00:22:54,105 - INFO - ================================================================================
+2025-11-18 00:22:54,105 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 00:22:54,105 - INFO - 📊 Total decisions made: 390
+2025-11-18 00:22:54,105 - INFO - 💰 Total trades executed: 46
+2025-11-18 00:22:54,105 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 00:22:54,105 - INFO -   Starting value: $1,000,000.00
+2025-11-18 00:22:54,105 - INFO -   Final value: $1,363,397.42
+2025-11-18 00:22:54,105 - INFO -   Total return: $363,397.42 (36.34%)
+2025-11-18 00:22:54,105 - INFO -
+💼 Final positions:
+2025-11-18 00:22:54,105 - INFO -   NVDA: 398 shares @ $187.24 = $74,521.52 (5.5%)
+2025-11-18 00:22:54,105 - INFO -   PLTR: 2 shares @ $184.95 = $369.90 (0.0%)
+2025-11-18 00:22:54,105 - INFO -   GOOGL: 2678 shares @ $244.90 = $655,842.20 (48.1%)
+2025-11-18 00:22:54,105 - INFO -   UNH: 1106 shares @ $348.30 = $385,219.80 (28.3%)
+2025-11-18 00:22:54,105 - INFO -   JPM: 226 shares @ $310.71 = $70,220.46 (5.2%)
+2025-11-18 00:22:54,105 - INFO -   ABBV: 725 shares @ $244.38 = $177,175.50 (13.0%)
+2025-11-18 00:22:54,105 - INFO -   Cash: $48.04 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 46
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,363,397.42
+  Total return: $363,397.42 (36.34%)
+
+
+
+
+
+
+
+
+
+
+
+Dseek Sentiment Fundamental
+
+
+
+
+  2025-11-18 00:35:36,769 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 00:35:36,769 - INFO - ================================================================================
+2025-11-18 00:35:36,769 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 00:35:36,769 - INFO - 📊 Total decisions made: 390
+2025-11-18 00:35:36,769 - INFO - 💰 Total trades executed: 60
+2025-11-18 00:35:36,769 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 00:35:36,769 - INFO -   Starting value: $1,000,000.00
+2025-11-18 00:35:36,769 - INFO -   Final value: $1,224,286.01
+2025-11-18 00:35:36,769 - INFO -   Total return: $224,286.01 (22.43%)
+2025-11-18 00:35:36,770 - INFO -
+💼 Final positions:
+2025-11-18 00:35:36,770 - INFO -   NVDA: 4204 shares @ $187.24 = $787,156.96 (64.3%)
+2025-11-18 00:35:36,770 - INFO -   JPM: 697 shares @ $310.71 = $216,564.87 (17.7%)
+2025-11-18 00:35:36,770 - INFO -   UNH: 633 shares @ $348.30 = $220,473.90 (18.0%)
+2025-11-18 00:35:36,770 - INFO -   Cash: $90.28 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 60
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,224,286.01
+  Total return: $224,286.01 (22.43%)
+
+
+
+
+
+
+  Dseek Valuation Fundamental 
+  2025-11-18 00:42:13,551 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 00:42:13,551 - INFO - ================================================================================
+2025-11-18 00:42:13,552 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 00:42:13,552 - INFO - 📊 Total decisions made: 390
+2025-11-18 00:42:13,552 - INFO - 💰 Total trades executed: 65
+2025-11-18 00:42:13,552 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 00:42:13,552 - INFO -   Starting value: $1,000,000.00
+2025-11-18 00:42:13,552 - INFO -   Final value: $1,328,491.41
+2025-11-18 00:42:13,552 - INFO -   Total return: $328,491.41 (32.85%)
+2025-11-18 00:42:13,552 - INFO -
+💼 Final positions:
+2025-11-18 00:42:13,552 - INFO -   NVDA: 2537 shares @ $187.24 = $475,027.88 (35.8%)
+2025-11-18 00:42:13,552 - INFO -   GOOGL: 1986 shares @ $244.90 = $486,371.40 (36.6%)
+2025-11-18 00:42:13,552 - INFO -   PLTR: 1984 shares @ $184.95 = $366,940.80 (27.6%)
+2025-11-18 00:42:13,552 - INFO -   Cash: $151.33 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 65
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,328,491.41
+  Total return: $328,491.41 (32.85%)
+
+
+
+
+
+
+
+Geminin  sentiment fundamental 
+
+
+  2025-11-18 11:50:24,264 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 11:50:24,264 - INFO - ================================================================================
+2025-11-18 11:50:24,264 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 11:50:24,264 - INFO - 📊 Total decisions made: 390
+2025-11-18 11:50:24,264 - INFO - 💰 Total trades executed: 79
+2025-11-18 11:50:24,264 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 11:50:24,264 - INFO -   Starting value: $1,000,000.00
+2025-11-18 11:50:24,264 - INFO -   Final value: $1,295,566.60
+2025-11-18 11:50:24,264 - INFO -   Total return: $295,566.60 (29.56%)
+2025-11-18 11:50:24,265 - INFO -
+💼 Final positions:
+2025-11-18 11:50:24,265 - INFO -   GOOGL: 2549 shares @ $244.90 = $624,250.10 (48.2%)
+2025-11-18 11:50:24,265 - INFO -   NVDA: 3585 shares @ $187.24 = $671,255.40 (51.8%)
+2025-11-18 11:50:24,265 - INFO -   Cash: $61.10 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 79
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,295,566.60
+  Total return: $295,566.60 (29.56%)
+
+
+
+
+
+Sentiment Valuation 
+
+  2025-11-18 11:49:34,703 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 11:49:34,703 - INFO - ===============================================================================
+=
+2025-11-18 11:49:34,703 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 11:49:34,703 - INFO - 📊 Total decisions made: 390
+2025-11-18 11:49:34,703 - INFO - 💰 Total trades executed: 90
+2025-11-18 11:49:34,703 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 11:49:34,703 - INFO -   Starting value: $1,000,000.00
+2025-11-18 11:49:34,703 - INFO -   Final value: $1,261,170.38
+2025-11-18 11:49:34,703 - INFO -   Total return: $261,170.38 (26.12%)
+2025-11-18 11:49:34,703 - INFO -
+💼 Final positions:
+2025-11-18 11:49:34,703 - INFO -   NVDA: 1683 shares @ $187.24 = $315,124.92 (25.0%)
+2025-11-18 11:49:34,703 - INFO -   GOOGL: 2059 shares @ $244.90 = $504,249.10 (40.0%)
+2025-11-18 11:49:34,704 - INFO -   PLTR: 895 shares @ $184.95 = $165,530.25 (13.1%)
+2025-11-18 11:49:34,704 - INFO -   JPM: 592 shares @ $310.71 = $183,940.32 (14.6%)
+2025-11-18 11:49:34,704 - INFO -   ABBV: 375 shares @ $244.38 = $91,642.50 (7.3%)
+2025-11-18 11:49:34,704 - INFO -   Cash: $683.29 (0.1%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 90
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,261,170.38
+  Total return: $261,170.38 (26.12%)
+
+
+
+GPT Valuation Fundamental
+
+2025-11-18 14:22:54,723 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 14:22:54,723 - INFO - ================================================================================
+2025-11-18 14:22:54,723 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 14:22:54,723 - INFO - 📊 Total decisions made: 390
+2025-11-18 14:22:54,723 - INFO - 💰 Total trades executed: 59
+2025-11-18 14:22:54,723 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 14:22:54,723 - INFO -   Starting value: $1,000,000.00
+2025-11-18 14:22:54,723 - INFO -   Final value: $1,302,810.34
+2025-11-18 14:22:54,723 - INFO -   Total return: $302,810.34 (30.28%)
+2025-11-18 14:22:54,723 - INFO -
+💼 Final positions:
+2025-11-18 14:22:54,723 - INFO -   NVDA: 3346 shares @ $187.24 = $626,505.04 (48.1%)
+2025-11-18 14:22:54,723 - INFO -   PLTR: 2991 shares @ $184.95 = $553,185.45 (42.5%)
+2025-11-18 14:22:54,724 - INFO -   ABBV: 503 shares @ $244.38 = $122,923.14 (9.4%)
+2025-11-18 14:22:54,724 - INFO -   Cash: $196.71 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 59
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,302,810.34
+  Total return: $302,810.34 (30.28%)
+
+
+
+
+
+Sentiment Vlauation
+
+
+2025-11-18 17:32:40,533 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 17:32:40,533 - INFO - ================================================================================
+2025-11-18 17:32:40,533 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 17:32:40,533 - INFO - 📊 Total decisions made: 390
+2025-11-18 17:32:40,533 - INFO - 💰 Total trades executed: 46
+2025-11-18 17:32:40,533 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 17:32:40,533 - INFO -   Starting value: $1,000,000.00
+2025-11-18 17:32:40,533 - INFO -   Final value: $1,278,802.37
+2025-11-18 17:32:40,533 - INFO -   Total return: $278,802.37 (27.88%)
+2025-11-18 17:32:40,533 - INFO -
+💼 Final positions:
+2025-11-18 17:32:40,533 - INFO -   NVDA: 2118 shares @ $187.24 = $396,574.32 (31.0%)
+2025-11-18 17:32:40,533 - INFO -   JPM: 337 shares @ $310.71 = $104,709.27 (8.2%)
+2025-11-18 17:32:40,533 - INFO -   ABBV: 1536 shares @ $244.38 = $375,367.68 (29.4%)
+2025-11-18 17:32:40,533 - INFO -   GOOGL: 1642 shares @ $244.90 = $402,125.80 (31.4%)
+2025-11-18 17:32:40,533 - INFO -   Cash: $25.30 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 46
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,278,802.37
+  Total return: $278,802.37 (27.88%)
+
+
+
+
+  Sentiment Fundamental 
+
+  2025-11-18 14:35:51,741 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 14:35:51,741 - INFO - ================================================================================
+2025-11-18 14:35:51,741 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 14:35:51,741 - INFO - 📊 Total decisions made: 390
+2025-11-18 14:35:51,741 - INFO - 💰 Total trades executed: 96
+2025-11-18 14:35:51,741 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 14:35:51,741 - INFO -   Starting value: $1,000,000.00
+2025-11-18 14:35:51,741 - INFO -   Final value: $1,225,215.38
+2025-11-18 14:35:51,741 - INFO -   Total return: $225,215.38 (22.52%)
+2025-11-18 14:35:51,741 - INFO -
+💼 Final positions:
+2025-11-18 14:35:51,741 - INFO -   NVDA: 4355 shares @ $187.24 = $815,430.20 (66.6%)
+2025-11-18 14:35:51,741 - INFO -   GOOGL: 1306 shares @ $244.90 = $319,839.40 (26.1%)
+2025-11-18 14:35:51,742 - INFO -   UNH: 152 shares @ $348.30 = $52,941.60 (4.3%)
+2025-11-18 14:35:51,742 - INFO -   ABBV: 151 shares @ $244.38 = $36,901.38 (3.0%)
+2025-11-18 14:35:51,742 - INFO -   Cash: $102.80 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 96
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,225,215.38
+  Total return: $225,215.38 (22.52%)
+
+
+
+
+
+
+
+
+  Qwen sentiment valuation 
+
+2025-11-18 14:15:43,769 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 14:15:43,769 - INFO - ================================================================================
+2025-11-18 14:15:43,769 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 14:15:43,769 - INFO - 📊 Total decisions made: 390
+2025-11-18 14:15:43,769 - INFO - 💰 Total trades executed: 35
+2025-11-18 14:15:43,769 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 14:15:43,769 - INFO -   Starting value: $1,000,000.00
+2025-11-18 14:15:43,769 - INFO -   Final value: $1,197,221.28
+2025-11-18 14:15:43,769 - INFO -   Total return: $197,221.28 (19.72%)
+2025-11-18 14:15:43,769 - INFO -
+💼 Final positions:
+2025-11-18 14:15:43,769 - INFO -   NVDA: 3484 shares @ $187.24 = $652,344.16 (54.5%)
+2025-11-18 14:15:43,769 - INFO -   UNH: 294 shares @ $348.30 = $102,400.20 (8.6%)
+2025-11-18 14:15:43,769 - INFO -   PLTR: 334 shares @ $184.95 = $61,773.30 (5.2%)
+2025-11-18 14:15:43,770 - INFO -   ABBV: 323 shares @ $244.38 = $78,934.74 (6.6%)
+2025-11-18 14:15:43,770 - INFO -   JPM: 971 shares @ $310.71 = $301,699.41 (25.2%)
+2025-11-18 14:15:43,770 - INFO -   Cash: $69.47 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 35
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,197,221.28
+  Total return: $197,221.28 (19.72%)
+
+
+
+
+  Sentiment Fundamental 
+
+  2025-11-18 16:11:18,349 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 16:11:18,349 - INFO - ================================================================================
+2025-11-18 16:11:18,349 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 16:11:18,349 - INFO - 📊 Total decisions made: 390
+2025-11-18 16:11:18,349 - INFO - 💰 Total trades executed: 59
+2025-11-18 16:11:18,349 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 16:11:18,349 - INFO -   Starting value: $1,000,000.00
+2025-11-18 16:11:18,349 - INFO -   Final value: $1,354,455.61
+2025-11-18 16:11:18,349 - INFO -   Total return: $354,455.61 (35.45%)
+2025-11-18 16:11:18,349 - INFO -
+💼 Final positions:
+2025-11-18 16:11:18,349 - INFO -   GOOGL: 2769 shares @ $244.90 = $678,128.10 (50.1%)
+2025-11-18 16:11:18,349 - INFO -   NVDA: 3612 shares @ $187.24 = $676,310.88 (49.9%)
+2025-11-18 16:11:18,349 - INFO -   Cash: $16.63 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 59
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,354,455.61
+  Total return: $354,455.61 (35.45%)
+
+
+
+
+Valuation fundamental 
+
+
+  2025-11-18 16:19:26,161 - INFO - 🎉 PARALLEL BACKTEST COMPLETE!
+2025-11-18 16:19:26,161 - INFO - ================================================================================
+2025-11-18 16:19:26,161 - INFO - 📅 Date range: 2025-07-01 to 2025-10-01
+2025-11-18 16:19:26,162 - INFO - 📊 Total decisions made: 390
+2025-11-18 16:19:26,162 - INFO - 💰 Total trades executed: 20
+2025-11-18 16:19:26,162 - INFO -
+📈 PORTFOLIO PERFORMANCE:
+2025-11-18 16:19:26,162 - INFO -   Starting value: $1,000,000.00
+2025-11-18 16:19:26,162 - INFO -   Final value: $1,283,395.92
+2025-11-18 16:19:26,162 - INFO -   Total return: $283,395.92 (28.34%)
+2025-11-18 16:19:26,162 - INFO -
+💼 Final positions:
+2025-11-18 16:19:26,162 - INFO -   NVDA: 5413 shares @ $187.24 = $1,013,530.12 (79.0%)
+2025-11-18 16:19:26,162 - INFO -   GOOGL: 650 shares @ $244.90 = $159,185.00 (12.4%)
+2025-11-18 16:19:26,162 - INFO -   PLTR: 598 shares @ $184.95 = $110,600.10 (8.6%)
+2025-11-18 16:19:26,162 - INFO -   Cash: $80.70 (0.0%)
+
+✅ Test complete! Results saved to /home/ubuntu/multistock_port_2.0/parallel_backtest_parallel_results.json
+
+📊 FINAL SUMMARY:
+  Date range: 2025-07-01 to 2025-10-01
+  Decisions made: 390
+  Trades executed: 20
+
+💰 PORTFOLIO PERFORMANCE:
+  Starting value: $1,000,000.00
+  Final value: $1,283,395.92
+  Total return: $283,395.92 (28.34%)
+
+
+
+

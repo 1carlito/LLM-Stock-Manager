@@ -104,43 +104,35 @@ class ParallelBacktest:
         self.logger.info(f"Parallel Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
         self.logger.info(f"- Data directory: {data_dir}")
-        self.logger.info(f"- DashScope API keys available: {len(self.api_keys)}")
+        self.logger.info(f"- Claude API keys available: {len(self.api_keys)}")
         self.logger.info(f"- Max parallel workers: {self.max_workers}")
         self.logger.info(f"- Lookback window: {lookback_window} days")
         self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API keys from environment variables for ReasoningAgent (Qwen3/DashScope)."""
+        """Load API keys from environment variables for ReasoningAgent (Claude API keys)"""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered keys (QWEN_API_KEY_1 through QWEN_API_KEY_6)
+        # Try to load numbered Claude API keys (STOCK_*_CLAUDE_API_KEY)
         for i in range(1, 7):  # Support up to 6 API keys
-            key = os.getenv(f"QWEN_API_KEY_{i}")
+            key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
             if key:
                 keys.append(key)
         
-        # If still no keys, try the shared defaults
+        # If still no keys, try the default Claude API key
         if not keys:
-            for fallback_name in (
-                "QWEN_API_KEY_1",
-                "DASHSCOPE_API_KEY",
-                "PORTFOLIO_QWEN3_API_KEY"
-            ):
-                default_key = os.getenv(fallback_name)
-                if default_key:
-                    keys.append(default_key)
-                    break
+            default_key = os.getenv("ANTHROPIC_API_KEY")
+            if default_key:
+                keys.append(default_key)
         
         if not keys:
-            raise ValueError(
-                "No DashScope API keys found. Set QWEN_API_KEY_1 through QWEN_API_KEY_6 (or related variants) in the environment."
-            )
+            raise ValueError("No Claude API keys found. Set STOCK_1_CLAUDE_API_KEY through STOCK_6_CLAUDE_API_KEY in .env")
         
         # Note: Logger not available yet during initialization, will log later
-        print(f"Loaded {len(keys)} DashScope API key(s) for ReasoningAgent")
+        print(f"Loaded {len(keys)} Claude API key(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
@@ -213,7 +205,7 @@ class ParallelBacktest:
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -257,7 +249,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -282,16 +274,26 @@ class ParallelBacktest:
                     with open(file, 'r') as f:
                         decision = json.load(f)
                     
+                    # Skip decisions without a date field
+                    decision_date_str = decision.get('date')
+                    if not decision_date_str:
+                        continue
+                    
                     # Check if decision is before current date
-                    decision_date = datetime.strptime(decision.get('date', '1900-01-01'), '%Y-%m-%d')
-                    if decision_date < current_date_obj:
-                        previous_portfolio_decisions.append(decision)
+                    try:
+                        decision_date = datetime.strptime(decision_date_str, '%Y-%m-%d')
+                        if decision_date < current_date_obj:
+                            previous_portfolio_decisions.append(decision)
+                    except ValueError:
+                        # Skip if date format is invalid
+                        continue
                         
                 except Exception:
                     continue
             
             # Sort by date and return the most recent ones (up to 4)
-            previous_portfolio_decisions.sort(key=lambda x: x.get('date', '1900-01-01'))
+            # Only sort decisions that have valid dates
+            previous_portfolio_decisions.sort(key=lambda x: x.get('date', ''))
             return previous_portfolio_decisions[-4:]
             
         except Exception as e:
@@ -301,7 +303,7 @@ class ParallelBacktest:
     def _save_portfolio_decision(self, portfolio_decisions, current_date):
         """Save portfolio decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name
@@ -396,9 +398,9 @@ class ParallelBacktest:
             # Create a ReasoningAgent with the assigned API key
             reasoning_agent = ReasoningAgent(data_dir=self.data_dir, api_key_override=api_key)
             
-            # Call reasoning agent with valuation and fundamental (not sentiment)
+            # Call reasoning agent
             decision_result = reasoning_agent.make_decision(
-                symbol, current_date, valuation_data=valuation_data, fundamental_data=fundamental_data,
+                symbol, current_date, valuation_data, fundamental_data, sentiment_data,
                 previous_decisions=previous_decisions
             )
             
@@ -428,7 +430,7 @@ class ParallelBacktest:
     def _save_decision(self, symbol, decision_record):
         """Save a decision record to file for future context"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Qwen3_val_fun')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
             os.makedirs(decisions_dir, exist_ok=True)
             
             # Create filename with date and backtest name

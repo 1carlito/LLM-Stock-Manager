@@ -14,9 +14,8 @@ env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
 DEFAULT_PORTFOLIO_TOKEN = (
-    os.getenv("PORTFOLIO_QWEN3_API_KEY")
-    or os.getenv("QWEN_API_KEY_1")
-    or os.getenv("DASHSCOPE_API_KEY")
+    os.getenv("PORTFOLIO_OPENAI_API_KEY")
+    or os.getenv("OPENAI_API_KEY")
 )
 
 
@@ -32,21 +31,18 @@ class PortfolioManagerAgent:
     
     def __init__(self, data_dir=".", api_key=None):
         self.data_dir = data_dir
-        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_with_shorts")
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_GPT5_sen_fun")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
         self.api_key = api_key or DEFAULT_PORTFOLIO_TOKEN
         if not self.api_key:
             raise ValueError(
-                "No DashScope API key found. Pass api_key or set PORTFOLIO_QWEN3_API_KEY / QWEN_API_KEY_1 in the environment."
+                "No OpenAI API key found. Pass api_key or set PORTFOLIO_OPENAI_API_KEY / OPENAI_API_KEY in the environment."
             )
         
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-        )
-        self.model_name = os.getenv("QWEN_PORTFOLIO_MODEL", "qwen3-max")
+        self.client = OpenAI(api_key=self.api_key)
+        self.model_name = os.getenv("OPENAI_PORTFOLIO_MODEL", "gpt-5")
         
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
     
@@ -70,12 +66,12 @@ class PortfolioManagerAgent:
             # Build prompt with all stock decisions and portfolio context
             prompt = self._build_portfolio_prompt(stock_decisions, portfolio_state, current_date, previous_portfolio_decisions)
             
-            print(f"📊 Calling Qwen3 API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
+            print(f"📊 Calling OpenAI API for portfolio allocation covering {len(stock_decisions)} stock decisions...")
             
-            # Call Qwen3 API
-            response_text = self._call_qwen_api(prompt)
+            # Call OpenAI API
+            response_text = self._call_openai_api(prompt)
             
-            print(f"✅ Got Qwen3 Portfolio response")
+            print(f"✅ Got OpenAI Portfolio response")
             
             # Parse response into portfolio decisions
             try:
@@ -88,21 +84,21 @@ class PortfolioManagerAgent:
                 print(f"❌ Error parsing portfolio response: {parse_error}")
                 return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
         except Exception as e:
-            print(f"❌ Qwen3 API Error: {e}")
+            print(f"❌ OpenAI API Error: {e}")
             return self._fallback_allocation(stock_decisions, portfolio_state, current_date)
             
-    def _call_qwen_api(self, prompt: str) -> str:
-        """Make call to Qwen3 API"""
-        response = self.client.chat.completions.create(
+    def _call_openai_api(self, prompt: str) -> str:
+        """Make call to OpenAI API"""
+        # Combine system message and user prompt into single input
+        full_input = "You are the best portfolio manager in the world. Respond strictly with valid JSON in the structure specified.\n\n" + prompt
+        
+        response = self.client.responses.create(
             model=self.model_name,
-            messages=[
-                {'role': 'system', 'content': 'You are the best portfolio manager in the world. Respond strictly with valid JSON in the structure specified.'},
-                {'role': 'user', 'content': prompt}
-            ],
-            max_tokens=4000
+            input=full_input,
+            max_output_tokens=4000
         )
         
-        return response.choices[0].message.content
+        return response.output_text
             
     def _save_portfolio_decision(self, portfolio_decisions):
         """Save the portfolio decision to a JSON file"""
@@ -180,10 +176,6 @@ CURRENT PORTFOLIO PERFORMANCE:
 
 CURRENT POSITIONS:
 {json.dumps(position_values, indent=2) if position_values else "No current positions"}
-
-CURRENT SHORT POSITIONS: {json.dumps(portfolio_state.get('short_positions', {}), indent=2)}
-
-SHORT SELLING GUIDELINES: Maximum short allocation 25% of portfolio value
 
 INDIVIDUAL STOCK DECISIONS:
 {json.dumps(stock_decisions, indent=2)}

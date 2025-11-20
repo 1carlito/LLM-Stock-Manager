@@ -15,56 +15,53 @@ load_dotenv(dotenv_path=env_path)
 
 # Gather default API token (parallel orchestrator typically overrides this)
 DEFAULT_API_TOKEN = (
-    os.getenv("QWEN_API_KEY_1")
-    or os.getenv("DASHSCOPE_API_KEY")
+    os.getenv("OPENAI_API_KEY")
+    or os.getenv("OPENAI_API_KEY_1")
 )
 
-MODEL_NAME = os.getenv("QWEN_REASONING_MODEL", "qwen3-max")
+MODEL_NAME = os.getenv("OPENAI_REASONING_MODEL", "gpt-5")
 
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
-        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_Qwen3_val_fun")
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_GPT5_sen_fun")
         self.model = MODEL_NAME
         
         # Use override API token if provided (parallel mode), otherwise fallback to env
         self.api_key = api_key_override or DEFAULT_API_TOKEN
         if not self.api_key:
             raise ValueError(
-                "No DashScope API key provided. Pass api_key_override or set QWEN_API_KEY_1 / DASHSCOPE_API_KEY in the environment."
+                "No OpenAI API key provided. Pass api_key_override or set OPENAI_API_KEY / OPENAI_API_KEY_1 in the environment."
             )
         
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-        )
+        self.client = OpenAI(api_key=self.api_key)
         print(f"✅ ReasoningAgent initialized with {self.model}")
 
-    def make_decision(self, symbol, current_date=None, valuation_data=None, fundamental_data=None, previous_decisions=None):
+    def make_decision(self, symbol, current_date=None, fundamental_data=None, sentiment_data=None, previous_decisions=None):
         """
         Make a trading decision based on the provided analysis data from all agents and previous decisions.
         
         Args:
             symbol: Stock ticker symbol
             current_date: Current trading date
-            valuation_data: Data from ValuationAgent
             fundamental_data: Data from FundamentalAgent
+            sentiment_data: Data from SentimentAgent
             previous_decisions: List of previous trading decisions for this symbol (optional)
         """
         try:
             # Format the prompt with analysis data and previous decisions
-            prompt = self._build_decision_prompt(symbol, current_date, valuation_data, fundamental_data, previous_decisions)
+            prompt = self._build_decision_prompt(symbol, current_date, fundamental_data, sentiment_data, previous_decisions)
                 
-            print(f"📞 Calling Qwen3 API for {symbol}...")
+            print(f"📞 Calling OpenAI API for {symbol}...")
             
-            response = self._call_qwen_api(prompt)
-            print(f"✅ Got Qwen3 response for {symbol}")
+            response = self._call_openai_api(prompt)
+            print(f"✅ Got OpenAI response for {symbol}")
             decision_result = self._parse_response(response, symbol, current_date)
             self._save_decision(decision_result)
             return decision_result
         except Exception as e:
-            print(f"❌ Qwen3 API Error for {symbol}: {e}")
+            print(f"❌ OpenAI API Error for {symbol}: {e}")
             return {
                 "symbol": symbol,
                 "date": current_date,
@@ -102,21 +99,21 @@ class ReasoningAgent:
             print(f"❌ Error saving decision: {e}")
             # Don't raise exception - this is non-critical functionality
 
-    def _call_qwen_api(self, prompt: str) -> str:
-        """Call the Qwen3 API and return the assistant response text."""
-        response = self.client.chat.completions.create(
+    def _call_openai_api(self, prompt: str) -> str:
+        """Call the OpenAI API and return the assistant response text."""
+        # Combine system message and user prompt into single input
+        full_input = "You are the best trading advisor in the world.\n\n" + prompt
+        
+        response = self.client.responses.create(
             model=self.model,
-            messages=[
-                {'role': 'system', 'content': 'You are the best trading advisor in the world.'},
-                {'role': 'user', 'content': prompt}
-            ],
-            max_tokens=4000
+            input=full_input,
+            max_output_tokens=4000
         )
         
-        return response.choices[0].message.content
+        return response.output_text
 
-    def _build_decision_prompt(self, symbol, current_date, valuation_data, fundamental_data, previous_decisions=None):
-        """Build a prompt that integrates valuation and fundamental analyses for decision making"""
+    def _build_decision_prompt(self, symbol, current_date, fundamental_data, sentiment_data, previous_decisions=None):
+        """Build a prompt that integrates fundamental and sentiment analyses for decision making"""
         
         # Format date if it's a datetime object
         date_str = current_date
@@ -128,11 +125,11 @@ class ReasoningAgent:
 You are a professional trading agent analyzing {symbol} on {date_str}.
 """
         
-        # Valuation analysis
-        if valuation_data:
+        # Sentiment analysis
+        if sentiment_data:
             prompt += f"""
-VALUATION ANALYSIS:
-{json.dumps(valuation_data, indent=2)}
+SENTIMENT ANALYSIS:
+{json.dumps(sentiment_data, indent=2)}
 """
         
         # Fundamental analysis
@@ -152,15 +149,12 @@ PREVIOUS TRADING DECISIONS:
 Consider these previous decisions in your analysis. Look for trends, consistency, and any changes in market conditions since these decisions were made.
 """
         
-        # Modify instructions to support short decisions
-        prompt += "\nMAKE DECISION BASED ON:'BUY', 'SELL', 'HOLD', 'SHORT'\n"
-
-        # Instructions mentioning valuation and fundamental analyses
+        # Instructions mentioning sentiment and fundamental analyses
         prompt += f"""
 
 You are the highest level market trader in existence, you constantly make extremely good returns. Your task is to make a trading decision based on the analysis provided above.
 
-1. Analyze the valuation analysis signals and fundamental analysis signals.
+1. Analyze the sentiment analysis signals and fundamental analysis signals.
 2. Evaluate the strength and reliability of the analysis signals.
 3. Consider how this decision fits with the previous trading history (if provided).
 4. Be more decisive when the analysis signals are strong.
@@ -182,7 +176,7 @@ REASONING: [Brief explanation of your decision, key factors considered, and risk
             reasoning = "Unable to parse response"
             
             # Extract decision
-            decision_match = re.search(r'DECISION:\s*([A-Z]+)', response_text, re.DOTALL)
+            decision_match = re.search(r'DECISION:\s*([A-Z]+)', response_text, re.IGNORECASE)
             if decision_match:
                 decision = decision_match.group(1).upper()
             
