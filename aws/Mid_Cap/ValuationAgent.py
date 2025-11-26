@@ -10,7 +10,6 @@ import json
 import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from anthropic import Anthropic
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
@@ -19,6 +18,10 @@ import glob
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
+
+# DeepSeek API configuration
+MODEL_NAME = 'deepseek-ai/DeepSeek-V3.1'
+CHUTES_API_URL = os.getenv("CHUTES_API_URL", "https://llm.chutes.ai/v1/chat/completions")
 
 class ValuationAgent:
     def __init__(self, data_dir: str = ".", api_key_override: str = None):
@@ -33,17 +36,14 @@ class ValuationAgent:
         self.output_dir = os.path.join(data_dir, "valuation_reports")
         os.makedirs(self.output_dir, exist_ok=True)
         
-       
+        # Initialize DeepSeek API - use override if provided, otherwise use DEEPSEEK_API_KEY_1
+        self.api_key = api_key_override or os.getenv("DEEPSEEK_API_KEY_1")
         
-        # Initialize Anthropic API - use override if provided, otherwise use VALUATION_CLAUDE_API_KEY
-        api_key = api_key_override or os.getenv("VALUATION_CLAUDE_API_KEY")
+        if not self.api_key:
+            raise ValueError("DEEPSEEK_API_KEY_1 environment variable not set and no override provided")
         
-        if not api_key:
-            raise ValueError("VALUATION_CLAUDE_API_KEY environment variable not set and no override provided")
-        
-        self.client = Anthropic(api_key=api_key)
-        self.model = "claude-3-5-haiku-20241022"
-        print(f"✅ Anthropic ValuationAgent initialized with {self.model}")
+        self.model = MODEL_NAME
+        print(f"✅ DeepSeek ValuationAgent initialized with {self.model}")
     
     def _find_stock_data(self, symbol: str) -> Dict:
         """Find the latest stock data for a symbol"""
@@ -362,7 +362,6 @@ class ValuationAgent:
                 profile = {
                     'sector': stock_data.get('sector', 'Unknown'),
                     'industry': stock_data.get('industry', 'Unknown'),
-                    'beta': stock_data.get('beta', 'Unknown'),
                     'companyName': company_name
                 }
             
@@ -388,18 +387,6 @@ class ValuationAgent:
                 # If no exact date found, use most recent price
                 if not current_price and sorted_prices:
                     current_price = sorted_prices[0].get('close', 0)
-            
-            # Fallback to price_data if historical prices not available
-            if not current_price:
-                current_price = price_data.get('current', 0) if isinstance(price_data, dict) else 0
-            
-            # Additional fallback - check new format's current_price field
-            if not current_price:
-                current_price = stock_data.get('current_price', 0)
-            
-            # Additional fallback
-            if not current_price and 'price' in stock_data:
-                current_price = stock_data['price']
             
             # Create prompt
             prompt = self._create_valuation_prompt(symbol, company_name, current_price, stock_data, current_date)
@@ -436,23 +423,39 @@ class ValuationAgent:
             }
 
     def _call_llm_api(self, prompt: str) -> str:
-        """Call LLM API with the given prompt"""
+        """Call DeepSeek API via Chutes with the given prompt"""
+        body = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "You are a professional stock analyst specializing in valuation analysis."},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "max_tokens": 4000,
+            "temperature": 0.2,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
         try:
-            response = self.client.messages.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=4000
+            response = requests.post(
+                CHUTES_API_URL,
+                headers=headers,
+                json=body,
+                timeout=120,
             )
-            
-            if response and response.content and len(response.content) > 0:
-                return response.content[0].text
-            else:
-                raise Exception("Empty response from Anthropic API")
-                
-        except Exception as e:
-            print(f"❌ Error calling Anthropic API: {e}")
-            raise e
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Chutes API request failed: {exc}") from exc
+
+        data = response.json()
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"Unexpected Chutes response format: {data}") from exc
 
     def _create_valuation_prompt(self, symbol: str, company_name: str, current_price: float, stock_data: Dict, current_date: str = None) -> str:
         """Create a prompt for valuation analysis"""
@@ -467,20 +470,14 @@ class ValuationAgent:
             profile = {
                 'sector': stock_data.get('sector', 'Unknown'),
                 'industry': stock_data.get('industry', 'Unknown'),
-                'beta': stock_data.get('beta', 'Unknown'),
                 'companyName': stock_data.get('company_name', company_name)
             }
         
         if not metrics:
-            metrics = {
-                'peRatio': stock_data.get('pe_ratio'),
-                'eps': stock_data.get('eps'),
-                'marketCap': stock_data.get('market_cap')
-            }
+            metrics = {}  # ValuationAgent focuses on technical indicators only
         
         sector = profile.get('sector', 'Unknown')
         industry = profile.get('industry', 'Unknown')
-        beta = profile.get('beta', 'Unknown')
         
         # Note: P/E, EPS, and Market Cap are fundamental metrics handled by FundamentalAgent
         # ValuationAgent focuses on technical indicators only
@@ -611,7 +608,6 @@ COMPANY INFORMATION:
 - Name: {company_name}
 - Sector: {sector}
 - Industry: {industry}
-- Beta: {beta}
 - Current Price: ${current_price}
 
 TECHNICAL INDICATORS:
@@ -635,10 +631,7 @@ VOLUME METRICS:
 VWAP (Volume Weighted Average Price):
 - {technical_indicators.get('VWAP', 'N/A')}
 
-ADDITIONAL DATA (if available):
-{json.dumps({k: v for k, v in {'price_data': price_data, 'metrics': metrics, 'ratios': ratios}.items() if v}, indent=2) if any([price_data, metrics, ratios]) else "All key metrics are provided in COMPANY INFORMATION section above. Technical indicators calculated from historical_prices."}
-
-NOTE: The above data sections may be empty - this is normal. All essential data for technical valuation analysis is provided in the TECHNICAL INDICATORS, VOLUME METRICS, and VWAP sections above. Fundamental metrics (P/E, EPS, Market Cap) are handled by the FundamentalAgent.
+NOTE: This is a technical analysis focused on price action, momentum, and volume patterns. Fundamental metrics (P/E, EPS, Market Cap) are handled by the FundamentalAgent and are not included in this analysis.
 
 TASK: Perform a comprehensive technical analysis of {symbol}. Analyze the stock's price action, technical indicators, volume patterns, and momentum.
 

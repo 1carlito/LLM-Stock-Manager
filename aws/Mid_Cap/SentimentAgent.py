@@ -620,8 +620,8 @@ class SentimentAgent:
             Recent News Articles by Week:
             """
             
-            # Add the most recent 3 weeks of news
-            recent_weeks = sorted(news_by_week.keys(), reverse=True)[:3]
+            # Add the most recent 5 weeks of news
+            recent_weeks = sorted(news_by_week.keys(), reverse=True)[:5]
             for week_key in recent_weeks:
                 prompt += f"\n{week_key} ({len(news_by_week[week_key])} articles):\n"
                 for article in news_by_week[week_key]:

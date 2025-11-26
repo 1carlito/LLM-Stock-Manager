@@ -11,18 +11,19 @@ import re
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from anthropic import Anthropic
 import numpy as np
 import glob
+import requests
 
 # Load environment variables, prefer global ~/.env then local .env
 home_env_path = os.path.expanduser('~/.env')
 if os.path.exists(home_env_path):
     load_dotenv(dotenv_path=home_env_path)
 
-# Load default API key - use dedicated fundamental key first, fallback to general key
-default_anthropic_api_key = os.getenv('FUNDAMENTAL_CLAUDE_API_KEY') 
-MODEL_NAME = 'claude-3-5-haiku-20241022'
+# Load default API key - use DeepSeek via Chutes
+default_api_key = os.getenv('DEEPSEEK_API_KEY_2') 
+MODEL_NAME = 'deepseek-ai/DeepSeek-V3.1'
+CHUTES_API_URL = os.getenv("CHUTES_API_URL", "https://llm.chutes.ai/v1/chat/completions")
 
 class FundamentalAgent:
     """
@@ -32,7 +33,7 @@ class FundamentalAgent:
     # Class-level cache for analysis results
     _analysis_cache = {}  # Format: {symbol: {date: analysis_result}}
     _last_earnings_date = {}  # Format: {symbol: latest_earnings_date}
-    _regenerate_cycle = 5  # Regenerate analysis every 5 days
+    _regenerate_cycle = 1  # Regenerate analysis every day for P/E and P/B updates
 
     def __init__(self, data_dir: str = ".", start_date: str = None, end_date: str = None, api_key_override: str = None, stock_data_path: str = None):
         """Initialize the Fundamental Agent
@@ -59,19 +60,16 @@ class FundamentalAgent:
         self.start_date = datetime.strptime(start_date, "%Y-%m-%d")
         self.cutoff_date = datetime.strptime(end_date, "%Y-%m-%d")
 
-        # Use override API key if provided, otherwise use dedicated fundamental key
-        api_key = api_key_override or default_anthropic_api_key
-        if not api_key:
-            raise ValueError("FUNDAMENTAL_CLAUDE_API_KEY environment variable not set and no override provided")
-        
-        # Configure Anthropic client with the specific API key
-        self.client = Anthropic(api_key=api_key)
+        # Use override API key if provided, otherwise use default DeepSeek key
+        self.api_key = api_key_override or default_api_key
+        if not self.api_key:
+            raise ValueError("DEEPSEEK_API_KEY_2 environment variable not set and no override provided")
         
         self.model = MODEL_NAME
         if self.historical_price_file:
-            print(f"✅ Anthropic FundamentalAgent initialized with {MODEL_NAME} (historical prices from: {self.historical_price_file})")
+            print(f"✅ DeepSeek FundamentalAgent initialized with {MODEL_NAME} (historical prices from: {self.historical_price_file})")
         else:
-            print(f"✅ Anthropic FundamentalAgent initialized with {MODEL_NAME}")
+            print(f"✅ DeepSeek FundamentalAgent initialized with {MODEL_NAME}")
 
     def _get_previous_analyses(self, symbol: str, current_date: str = None, days: int = 4) -> List[Dict]:
         """Get the previous N days of analyses for this symbol"""
@@ -217,7 +215,7 @@ class FundamentalAgent:
                 latest_date != self._last_earnings_date[symbol]):
                 return True
         
-        # Case 3: Every 5th day for PE/PB recalculation
+        # Case 3: Every day for PE/PB recalculation
         if symbol in self._analysis_cache and current_date in self._analysis_cache[symbol]:
             cached_analysis = self._analysis_cache[symbol][current_date]
             analysis_date = cached_analysis.get('analysis_date')
@@ -226,7 +224,7 @@ class FundamentalAgent:
                     date_obj = datetime.strptime(analysis_date, "%Y-%m-%d")
                     current_date_obj = datetime.strptime(current_date, "%Y-%m-%d")
                     days_diff = (current_date_obj - date_obj).days
-                    if days_diff % self._regenerate_cycle == 0 and days_diff > 0:
+                    if days_diff >= self._regenerate_cycle and days_diff > 0:
                         return True
                 except ValueError:
                     pass
@@ -234,13 +232,13 @@ class FundamentalAgent:
         return False
     
     def _get_latest_statement(self, statements: List[Dict]) -> Optional[Dict]:
-        """Get the most recent financial statement"""
+        """Get the most recent financial statement BY FILING DATE (not statement date)"""
         if not statements:
             return None
             
         sorted_statements = sorted(
             statements, 
-            key=lambda x: datetime.strptime(x.get('date', '1900-01-01'), "%Y-%m-%d"), 
+            key=lambda x: (x.get('fillingDate') or x.get('date', '1900-01-01')).split()[0], 
             reverse=True
         )
         return sorted_statements[0] if sorted_statements else None
@@ -259,7 +257,7 @@ class FundamentalAgent:
         
         # Calculate and update PE/PB ratios
         latest_eps = self._get_latest_eps(stock_data)
-        if current_price is not None and latest_eps and latest_eps > 0:
+        if current_price is not None and latest_eps and latest_eps != 0:
             pe_ratio = current_price / latest_eps
             cached_analysis['pe_ratio'] = pe_ratio
         
@@ -314,25 +312,44 @@ class FundamentalAgent:
         return current_price
     
     def _get_latest_eps(self, stock_data: Dict) -> Optional[float]:
-        """Get the latest EPS value"""
-        # Try from financial_data
-        financial_data = stock_data.get('financial_data', {})
-        eps_array = financial_data.get('eps', [])
-        if eps_array and len(eps_array) > 0:
-            return eps_array[0]  # Latest EPS
-            
-        # Try from income statement
+        """Get TTM (Trailing Twelve Months) EPS from income statements"""
+        # Get from income statement (most reliable and time-filtered source)
         income_statements = stock_data.get('income_statement', [])
-        if income_statements:
-            latest_stmt = self._get_latest_statement(income_statements)
-            if latest_stmt and 'eps' in latest_stmt:
-                return latest_stmt['eps']
+        if not income_statements:
+            return None
         
-        # Try from metrics
-        metrics = stock_data.get('metrics', {})
-        if metrics and 'eps' in metrics:
-            return metrics['eps']
+        # Sort by filing date to get most recent statements
+        sorted_statements = sorted(
+            income_statements,
+            key=lambda x: (x.get('fillingDate') or x.get('date', '1900-01-01')).split()[0],
+            reverse=True
+        )
+        
+        # Sum last 4 quarters to get TTM EPS (if quarterly data)
+        # or use annual EPS if available
+        ttm_eps = 0
+        quarters_found = 0
+        
+        for stmt in sorted_statements[:4]:  # Look at up to 4 most recent statements
+            eps = stmt.get('eps', 0)
+            period = stmt.get('period', '')
             
+            # If it's annual data, use it directly
+            if period == 'FY':
+                return eps
+            
+            # Otherwise sum quarterly EPS
+            if eps and period.startswith('Q'):
+                ttm_eps += eps
+                quarters_found += 1
+        
+        # Return TTM EPS if we found at least 4 quarters
+        if quarters_found >= 4:
+            return ttm_eps
+        elif quarters_found > 0:
+            # If less than 4 quarters, still return what we have (better than nothing)
+            return ttm_eps
+        
         return None
     
     def _get_latest_book_value_per_share(self, stock_data: Dict) -> Optional[float]:
@@ -350,10 +367,9 @@ class FundamentalAgent:
         if not total_equity or total_equity <= 0:
             return None
         
-        # Get shares outstanding - try multiple sources
+        # Get shares outstanding from income statement (most reliable source)
         shares_outstanding = None
         
-        # 1. Try from income statement (most reliable)
         income_statements = stock_data.get('income_statement', [])
         if income_statements:
             latest_income = self._get_latest_statement(income_statements)
@@ -364,50 +380,45 @@ class FundamentalAgent:
                     None
                 )
         
-        # 2. Calculate from market cap and current price if available
-        if not shares_outstanding:
-            # Try to get current price from stock_data
-            current_price = stock_data.get('current_price', 0)
-            # Or get latest historical price
-            if not current_price or current_price <= 0:
-                historical_prices = stock_data.get('historical_prices', [])
-                if historical_prices:
-                    sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''), reverse=True)
-                    if sorted_prices:
-                        current_price = sorted_prices[0].get('close', 0)
-            
-            market_cap = stock_data.get('market_cap', 0)
-            if current_price and current_price > 0 and market_cap and market_cap > 0:
-                shares_outstanding = market_cap / current_price
-        
-        # 3. Try from stock_data directly
-        if not shares_outstanding:
-            shares_outstanding = stock_data.get('shares_outstanding', 0)
-        
         if shares_outstanding and shares_outstanding > 0:
             return total_equity / shares_outstanding
             
         return None
         
     def _call_llm_api(self, prompt: str) -> str:
-        """Call LLM API with the given prompt"""
+        """Call DeepSeek API via Chutes with the given prompt"""
+        body = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "You are a professional fundamental analyst."},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "max_tokens": 4000,
+            "temperature": 0.2,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
         try:
-            # Call Anthropic API
-            response = self.client.messages.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=4000
+            response = requests.post(
+                CHUTES_API_URL,
+                headers=headers,
+                json=body,
+                timeout=120,
             )
-            
-            if response and response.content and len(response.content) > 0:
-                return response.content[0].text
-            else:
-                raise Exception("Empty response from Anthropic API")
-            
-        except Exception as e:
-            print(f"❌ Error calling Anthropic API: {e}")
-            raise e
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Chutes API request failed: {exc}") from exc
+
+        data = response.json()
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"Unexpected Chutes response format: {data}") from exc
 
     def _create_fundamental_prompt(self, symbol: str, stock_data: Dict, current_date: str = None) -> str:
         """Create a prompt for fundamental analysis with date filtering to prevent look-ahead bias"""
@@ -418,41 +429,48 @@ class FundamentalAgent:
             target_date = datetime.now()
             current_date = target_date.strftime("%Y-%m-%d")
         
-        # Filter income statements - only use those on or before analysis date
+        # Filter income statements - only use those filed on or before analysis date
+        # Use fillingDate (when filed with SEC) instead of date (statement period end) to avoid look-ahead bias
         income_statements = stock_data.get('income_statement', [])
         filtered_income = []
         for stmt in income_statements:
-            stmt_date_str = stmt.get('date', '')
-            if stmt_date_str:
+            # Try fillingDate first (when actually filed), fallback to date if not available
+            filing_date_str = stmt.get('fillingDate', '') or stmt.get('date', '')
+            if filing_date_str:
                 try:
-                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
-                    if stmt_date <= target_date:
+                    # Handle both full datetime format and date-only format
+                    filing_date = datetime.strptime(filing_date_str.split()[0], '%Y-%m-%d')
+                    if filing_date <= target_date:
                         filtered_income.append(stmt)
                 except ValueError:
                     continue
         
-        # Filter balance sheets
+        # Filter balance sheets - use filing date to avoid look-ahead bias
         balance_sheets = stock_data.get('balance_sheet', [])
         filtered_balance = []
         for stmt in balance_sheets:
-            stmt_date_str = stmt.get('date', '')
-            if stmt_date_str:
+            # Try fillingDate first (when actually filed), fallback to date if not available
+            filing_date_str = stmt.get('fillingDate', '') or stmt.get('date', '')
+            if filing_date_str:
                 try:
-                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
-                    if stmt_date <= target_date:
+                    # Handle both full datetime format and date-only format
+                    filing_date = datetime.strptime(filing_date_str.split()[0], '%Y-%m-%d')
+                    if filing_date <= target_date:
                         filtered_balance.append(stmt)
                 except ValueError:
                     continue
         
-        # Filter cash flow statements
+        # Filter cash flow statements - use filing date to avoid look-ahead bias
         cash_flows = stock_data.get('cash_flow', [])
         filtered_cash_flow = []
         for stmt in cash_flows:
-            stmt_date_str = stmt.get('date', '')
-            if stmt_date_str:
+            # Try fillingDate first (when actually filed), fallback to date if not available
+            filing_date_str = stmt.get('fillingDate', '') or stmt.get('date', '')
+            if filing_date_str:
                 try:
-                    stmt_date = datetime.strptime(stmt_date_str, '%Y-%m-%d')
-                    if stmt_date <= target_date:
+                    # Handle both full datetime format and date-only format
+                    filing_date = datetime.strptime(filing_date_str.split()[0], '%Y-%m-%d')
+                    if filing_date <= target_date:
                         filtered_cash_flow.append(stmt)
                 except ValueError:
                     continue
@@ -471,8 +489,6 @@ class FundamentalAgent:
         
         # Extract other data
         profile = stock_data.get('profile', {})
-        metrics = stock_data.get('metrics', {})
-        ratios = stock_data.get('ratios', {})
         
         company_name = profile.get('companyName', symbol)
         sector = profile.get('sector', 'Unknown')
@@ -493,13 +509,6 @@ class FundamentalAgent:
         pb_ratio = None
         if current_price is not None and latest_book_value and latest_book_value > 0:
             pb_ratio = current_price / latest_book_value
-            
-        # Update ratios with calculated values
-        updated_ratios = ratios.copy()
-        if pe_ratio:
-            updated_ratios['pe_ratio'] = pe_ratio
-        if pb_ratio:
-            updated_ratios['pb_ratio'] = pb_ratio
         
         # Calculate ratio strings for display
         pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio is not None else "N/A"
@@ -531,12 +540,6 @@ CURRENT PRICE AND KEY RATIOS:
 - Current Price: {current_price_str}
 - P/E Ratio: {pe_ratio_str}
 - P/B Ratio: {pb_ratio_str}
-
-RATIOS:
-{json.dumps(updated_ratios, indent=2)}
-
-METRICS:
-{json.dumps(metrics, indent=2)}
 
 TASK: Perform a comprehensive fundamental analysis of {symbol}. Analyze the company's financials, growth trajectory, market position, and overall health.
 
@@ -576,9 +579,6 @@ WEAKNESSES:
 
 FINANCIAL HEALTH:
 [Assessment of financial health with metrics]
-
-VALUATION:
-[Valuation assessment with metrics]
 
 CONCLUSION:
 [Paragraph that justifies the recommendation and confidence level]

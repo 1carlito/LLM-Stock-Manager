@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Parallel Orchestrator - Runs stock analysis in parallel with separate API keys
 and uses Portfolio Manager for final allocation decisions.
@@ -15,6 +14,7 @@ import pandas_market_calendars as mcal
 import logging
 from collections import defaultdict
 from typing import List, Dict, Any
+import math
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -25,15 +25,28 @@ from FundamentalAgent import FundamentalAgent
 from PortfolioManagerAgent import PortfolioManagerAgent
 
 
+SHORT_SELLING_CONFIG = {
+    'enabled': True,
+    'max_short_allocation_pct': 25,
+    'margin_requirement_pct': 50,
+    'default_holding_period_days': 7, 
+    'max_holding_period_days': 90, 
+    'max_short_per_stock_pct': 25,
+    'auto_close_enabled': True,
+    'stop_loss_pct': None,
+    'take_profit_pct': None,
+    'overnight_fee_rate': 0.02
+}
+
+
 class ParallelBacktest:
     """
     Run a backtest with parallel stock analysis and portfolio-level decision making.
-    Each stock gets its own API key to avoid rate limiting.
     """
     
     def __init__(self, data_dir='.', start_date=None, end_date=None, lookback_window=4,
                  use_sentiment=True, use_valuation=True, use_fundamental=True,
-                 backtest_name="parallel", api_keys=None, max_workers=None):
+                 backtest_name=None, api_keys=None, max_workers=None):
         self.data_dir = data_dir
         self.start_date = start_date
         self.end_date = end_date
@@ -41,11 +54,11 @@ class ParallelBacktest:
         self.use_sentiment = use_sentiment
         self.use_valuation = use_valuation
         self.use_fundamental = use_fundamental
-        self.backtest_name = backtest_name
+        self.backtest_name = backtest_name or 'backtest'
         
         # API key configuration
         self.api_keys = api_keys or self._load_api_keys()
-        self.max_workers = max_workers or min(len(self.api_keys), 10)
+        self.max_workers = max_workers or min(len(self.api_keys), 20)  # Support up to 20 parallel workers
         
         # Set up logging
         log_dir = os.path.join(data_dir, 'logs')
@@ -63,99 +76,112 @@ class ParallelBacktest:
         
         # Initialize portfolio
         self.portfolio = {
-            'cash': 1000000,  # $1M starting cash
-            'positions': {},
+            'cash': 100000,  # $100k starting capital 
+            'positions': {}, # Long positions: {symbol: {'shares': X, 'avg_price': Y}}
             'last_prices': {},
-            'theoretical_trades': []
+            'theoretical_trades': [],
+            'short_positions': {}, # Short positions: {symbol: {'shares': X, 'avg_price': Y}}
+            'market_caps': {}
         }
         
         # Track previous decisions for each symbol
         self.previous_decisions = defaultdict(list)
         
-        # Initialize Portfolio Manager (uses separate API key)
+        # Initialize Portfolio Manager
         self.portfolio_manager = PortfolioManagerAgent(data_dir=data_dir)
         
-        # Initialize shared analysis agents (sentiment, valuation, fundamental)
-        # These are shared across all stocks since they don't have rate limits typically
-        if use_sentiment:
-            self.sentiment_agent = SentimentAgent(data_dir=data_dir)
-            self.logger.info("Sentiment Agent initialized")
-        else:
-            self.sentiment_agent = None
-            
-        if use_valuation:
-            self.valuation_agent = ValuationAgent(data_dir=data_dir)
-            self.logger.info("Valuation Agent initialized")
-        else:
-            self.valuation_agent = None
-            
-        if use_fundamental:
-            self.fundamental_agent = FundamentalAgent(data_dir=data_dir)
-            self.logger.info("Fundamental Agent initialized")
-        else:
-            self.fundamental_agent = None
-        
-        # Log configuration
-        agent_config = []
-        if use_sentiment: agent_config.append("Sentiment")
-        if use_valuation: agent_config.append("Valuation")
-        if use_fundamental: agent_config.append("Fundamental")
+        # Initialize shared analysis agents 
+        self.sentiment_agent = None
+        self.valuation_agent = None
+        self.fundamental_agent = None
         
         self.logger.info(f"Parallel Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
-        self.logger.info(f"- Data directory: {data_dir}")
-        self.logger.info(f"- Claude API keys available: {len(self.api_keys)}")
-        self.logger.info(f"- Max parallel workers: {self.max_workers}")
-        self.logger.info(f"- Lookback window: {lookback_window} days")
-        self.logger.info(f"- Agent configuration: {' + '.join(agent_config)}")
     
     def _load_api_keys(self):
-        """Load API keys from environment variables for ReasoningAgent (Claude API keys)"""
+        """Load API tokens from environment variables for ReasoningAgent (Chutes/DeepSeek)."""
         from dotenv import load_dotenv
         load_dotenv()
         
         keys = []
         
-        # Try to load numbered Claude API keys (STOCK_*_CLAUDE_API_KEY)
-        for i in range(1, 7):  # Support up to 6 API keys
-            key = os.getenv(f"STOCK_{i}_CLAUDE_API_KEY")
-            if key:
-                keys.append(key)
+        # Try to load numbered tokens (supporting multiple naming conventions)
+        for i in range(1, 21):  # Support up to 20 API tokens
+            candidate_names = [
+                f"DEEPSEEK_API_KEY_{i}" # legacy fallback
+            ]
+            token = next((os.getenv(name) for name in candidate_names if os.getenv(name)), None)
+            if token:
+                keys.append(token)
         
-        # If still no keys, try the default Claude API key
+        # If still no tokens, try the shared defaults
         if not keys:
-            default_key = os.getenv("ANTHROPIC_API_KEY")
-            if default_key:
-                keys.append(default_key)
+            for fallback_name in (
+                "PORTFOLIO_CHUTES_DEEPSEEK_API_KEY"
+            ):
+                default_token = os.getenv(fallback_name)
+                if default_token:
+                    keys.append(default_token)
+                    break
         
         if not keys:
-            raise ValueError("No Claude API keys found. Set STOCK_1_CLAUDE_API_KEY through STOCK_6_CLAUDE_API_KEY in .env")
+            raise ValueError(
+                "No Chutes/DeepSeek API tokens found. Set DEEPSEEK_API_KEY_1 (or related variants) in the environment."
+            )
         
-        # Note: Logger not available yet during initialization, will log later
-        print(f"Loaded {len(keys)} Claude API key(s) for ReasoningAgent")
+        print(f"Loaded {len(keys)} Chutes token(s) for ReasoningAgent")
         return keys
     
     def _get_latest_analysis(self, symbol, analysis_type, current_date):
         """Get the latest analysis file for a symbol and type before or on the current date."""
         # Map analysis types to directory names
+        # Paths are relative to aws/Mid_Cap/ directory
         dir_mapping = {
             'valuation': 'valuation_reports',
-            'fundamental': 'fundamental_reports',
+            'fundamental': 'fundamental_test_reports',
             'sentiment': 'sentiment_data'
         }
         
         if analysis_type not in dir_mapping:
             return None
-            
+        
+        # Ensure we use the correct path relative to data_dir (which should be aws/Mid_Cap/)
         analysis_dir = os.path.join(self.data_dir, dir_mapping[analysis_type])
+        # Convert to absolute path to ensure we're looking in the right place
+        analysis_dir = os.path.abspath(analysis_dir)
+        
+        # Log the path being checked for debugging
         if not os.path.exists(analysis_dir):
-            return None
+            self.logger.warning(f"[{symbol}] Analysis directory not found: {analysis_dir}")
+            # Try parent directory as fallback (aws/valuation_reports, aws/fundamental_reports, etc.)
+            parent_dir = os.path.dirname(self.data_dir)
+            fallback_dir = os.path.join(parent_dir, dir_mapping[analysis_type])
+            fallback_dir = os.path.abspath(fallback_dir)
+            if os.path.exists(fallback_dir):
+                self.logger.info(f"[{symbol}] Using fallback directory: {fallback_dir}")
+                analysis_dir = fallback_dir
+            else:
+                return None
+        
+        self.logger.debug(f"[{symbol}] Looking for {analysis_type} analysis in: {analysis_dir}")
             
-        # Find files for this symbol
-        pattern = os.path.join(analysis_dir, f"{symbol}_*analysis*.json")
-        files = glob.glob(pattern)
+        # Find files for this symbol - pattern matches: {symbol}_*analysis*.json or {symbol}.EXCHANGE_*analysis*.json
+        # e.g., VKTX_fundamental_analysis_20251119_215808.json or HAG.DE_fundamental_analysis_20251119.json
+        # Note: Date filtering is done by reading the date from INSIDE the JSON, not from filename
+        # Try both with and without exchange suffix (e.g., HAG and HAG.DE)
+        patterns = [
+            os.path.join(analysis_dir, f"{symbol}_*analysis*.json"),  # Standard: HAG_*analysis*.json
+            os.path.join(analysis_dir, f"{symbol}.*_*analysis*.json"),  # With exchange: HAG.DE_*analysis*.json
+        ]
+        
+        files = []
+        for pattern in patterns:
+            files = glob.glob(pattern)
+            if files:
+                break
         
         if not files:
+            self.logger.debug(f"[{symbol}] No {analysis_type} files found in {analysis_dir} with pattern: {pattern}")
             return None
         
         current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
@@ -201,11 +227,11 @@ class ParallelBacktest:
         # Get the file with the most recent analysis_date that's still <= current_date
         latest_valid = max(valid_files, key=lambda x: x[1])
         return latest_valid[2]
-    
+        
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_DSeek')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -249,7 +275,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Kimi')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -300,126 +326,48 @@ class ParallelBacktest:
             self.logger.error(f"Error loading previous portfolio decisions: {e}")
             return []
 
-    def _save_portfolio_decision(self, portfolio_decisions, current_date):
-        """Save portfolio decision record to file for future context"""
-        try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Claude')
-            os.makedirs(decisions_dir, exist_ok=True)
-            
-            # Create filename with date and backtest name
-            filename = f"portfolio_decision_{current_date}_{self.backtest_name}.json"
-            filepath = os.path.join(decisions_dir, filename)
-            
-            with open(filepath, 'w') as f:
-                json.dump(portfolio_decisions, f, indent=2, default=str)
-                
-        except Exception as e:
-            self.logger.error(f"Error saving portfolio decision: {e}")
-    
     def _analyze_single_stock(self, symbol, current_date, api_key):
         """
-        Analyze a single stock and make a decision using the assigned API key.
-        This function is designed to run in parallel.
+        Analyze a single stock. Returns the decision AND the price found in the analysis.
         """
         try:
-            self.logger.info(f"[{symbol}] Starting analysis...")
+            # Load Data
+            sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date) if self.use_sentiment else None
+            valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date) if self.use_valuation else None
+            fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date) if self.use_fundamental else None
             
-            # Initialize data containers
-            sentiment_data = None
-            valuation_data = None
-            fundamental_data = None
-            price_data = None
+            # Extract Price (Priority: Sentiment -> Valuation -> Fundamental)
+            price = None
+            if sentiment_data: price = sentiment_data.get('current_price')
+            if not price and valuation_data: price = valuation_data.get('current_price')
+            if not price and fundamental_data: price = fundamental_data.get('current_price')
             
-            # Load sentiment analysis if enabled
-            if self.use_sentiment:
-                sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date)
-                
-                # If sentiment data is missing, try to generate it
-                if not sentiment_data and self.sentiment_agent:
-                    try:
-                        sentiment_data = self.sentiment_agent.analyze_sentiment(symbol, current_date)
-                    except Exception as e:
-                        self.logger.error(f"[{symbol}] Error generating sentiment: {e}")
-                
-                # Store price data from sentiment analysis if available
-                if sentiment_data and 'current_price' in sentiment_data:
-                    price_data = sentiment_data
-            
-            # Load valuation analysis if enabled
-            if self.use_valuation:
-                valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date)
-                
-                # If valuation data is missing, try to generate it
-                if not valuation_data and self.valuation_agent:
-                    try:
-                        valuation_data = self.valuation_agent.analyze_valuation(symbol, current_date)
-                    except Exception as e:
-                        self.logger.error(f"[{symbol}] Error generating valuation: {e}")
-                
-                # Store price data from valuation analysis if available
-                if valuation_data and 'current_price' in valuation_data and not price_data:
-                    price_data = valuation_data
-            
-            # Load fundamental analysis if enabled
-            if self.use_fundamental:
-                fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date)
-                
-                # If fundamental data is missing, try to generate it
-                if not fundamental_data and self.fundamental_agent:
-                    try:
-                        fundamental_data = self.fundamental_agent.analyze_fundamentals(symbol, current_date)
-                    except Exception as e:
-                        self.logger.error(f"[{symbol}] Error generating fundamental: {e}")
-                
-                # Store price data from fundamental analysis if available
-                if fundamental_data and 'current_price' in fundamental_data and not price_data:
-                    price_data = fundamental_data
-            
-            # Check if we have all required data
-            required_data_present = True
-            if self.use_sentiment and not sentiment_data:
-                self.logger.warning(f"[{symbol}] Missing sentiment analysis")
-                required_data_present = False
-            
-            if self.use_valuation and not valuation_data:
-                self.logger.warning(f"[{symbol}] Missing valuation analysis")
-                required_data_present = False
-            
-            if self.use_fundamental and not fundamental_data:
-                self.logger.warning(f"[{symbol}] Missing fundamental analysis")
-                required_data_present = False
-            
-            if not required_data_present:
-                return None
-            
-            # Get previous decisions for context
+            # Default to last known if completely missing
+            if not price:
+                price = self.portfolio.get('last_prices', {}).get(symbol, 100.0)
+
+            # --- MARKET CAP LOGIC ---
+            # (Preserved from original)
+            try:
+                data_sources = [x for x in [sentiment_data, valuation_data, fundamental_data] if x]
+                for data in data_sources:
+                    mc = data.get('market_cap') or data.get('marketCap') or data.get('market_cap_bil')
+                    if mc:
+                        market_cap_bil = (mc / 1_000_000_000.0) if mc > 1e6 else mc
+                        self.portfolio.setdefault('market_caps', {})[symbol] = float(market_cap_bil)
+                        break
+            except: pass
+
             previous_decisions = self._load_previous_decisions(symbol, current_date)
-            
-            # Create a ReasoningAgent with the assigned API key
             reasoning_agent = ReasoningAgent(data_dir=self.data_dir, api_key_override=api_key)
             
-            # Call reasoning agent
             decision_result = reasoning_agent.make_decision(
                 symbol, current_date, valuation_data, fundamental_data, sentiment_data,
                 previous_decisions=previous_decisions
             )
             
-            # Add price data to decision
-            if price_data and 'current_price' in price_data:
-                decision_result['current_price'] = price_data['current_price']
-            else:
-                decision_result['current_price'] = self.portfolio.get('last_prices', {}).get(symbol, 100.0)
-            
-            # Add analysis data to decision
-            if sentiment_data:
-                decision_result['sentiment_data'] = sentiment_data.get('sentiment', 'Unknown')
-            if valuation_data:
-                decision_result['valuation_data'] = valuation_data.get('recommendation', 'Unknown')
-            if fundamental_data:
-                decision_result['fundamental_data'] = fundamental_data.get('recommendation', 'Unknown')
-            
-            self.logger.info(f"[{symbol}] ✅ Decision: {decision_result.get('decision')} "
-                           f"(confidence: {decision_result.get('confidence', 0):.2f})")
+            # Attach the price we found to the decision object
+            decision_result['current_price'] = price
             
             return decision_result
             
@@ -427,254 +375,397 @@ class ParallelBacktest:
             self.logger.error(f"[{symbol}] ❌ Error in analysis: {e}")
             return None
     
-    def _save_decision(self, symbol, decision_record):
-        """Save a decision record to file for future context"""
-        try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_Claude')
-            os.makedirs(decisions_dir, exist_ok=True)
-            
-            # Create filename with date and backtest name
-            date_str = decision_record['date']
-            filename = f"{symbol}_decision_{date_str}_{self.backtest_name}.json"
-            filepath = os.path.join(decisions_dir, filename)
-            
-            with open(filepath, 'w') as f:
-                json.dump(decision_record, f, indent=2, default=str)
+    def _calculate_portfolio_value(self):
+        """
+        Calculate total portfolio value: Cash + Long Positions Value + Short Notional + Short P&L
+        CFD Model (No Leverage): Short notional is tied-up collateral, so it counts toward portfolio value.
+        Uses current day's prices from last_prices, falling back to avg_price if not available.
+        """
+        total_value = self.portfolio['cash']
+        
+        # Add long positions value
+        for symbol, pos in self.portfolio['positions'].items():
+            if pos.get('shares', 0) > 0:
+                current_price = self.portfolio['last_prices'].get(symbol, pos.get('avg_price', 0))
+                if current_price <= 0:
+                    # Fallback to avg_price if no current price available
+                    current_price = pos.get('avg_price', 0)
+                position_value = pos['shares'] * current_price
+                total_value += position_value
+        
+        # Add short positions notional + P&L (CFD model: notional is tied-up collateral)
+        for symbol, short_pos in self.portfolio.get('short_positions', {}).items():
+            if short_pos.get('shares', 0) > 0:
+                current_price = self.portfolio['last_prices'].get(symbol, short_pos.get('avg_price', 0))
+                if current_price <= 0:
+                    # Fallback to avg_price if no current price available
+                    current_price = short_pos.get('avg_price', 0)
+                entry_price = short_pos.get('avg_price', current_price)
                 
-        except Exception as e:
-            self.logger.error(f"Error saving decision for {symbol}: {e}")
-    
-    def _execute_portfolio_trades(self, portfolio_decisions, current_date):
-        """Execute trades based on Portfolio Manager decisions"""
+                # Short Notional: The collateral tied up in this position (entry price - what you originally locked up)
+                short_notional = short_pos['shares'] * entry_price
+                
+                # Short P&L: profit when price goes DOWN (entry_price > current_price)
+                # P&L = (Entry Price - Current Price) * Shares
+                short_pnl = (entry_price - current_price) * short_pos['shares']
+                
+                # Add notional (tied-up collateral at entry) + P&L (unrealized gain/loss)
+                total_value += short_notional + short_pnl
+        
+        return total_value
+
+    def _get_short_spread_rate(self, symbol):
+        # [Preserve original]
+        base = 0.001
+        mc_bil = self.portfolio.get('market_caps', {}).get(symbol)
+        if mc_bil and mc_bil > 0:
+            return base + (1.0 / math.sqrt(mc_bil))
+        return base
+
+    def _execute_portfolio_trades(self, portfolio_decisions_list, current_date):
+        """
+        Executes the trades proposed by the Portfolio Manager after waterfall allocation.
+        It must map the PM's simple decisions (BUY, SHORT, CLOSE) to the trading actions
+        (BUY, SHORT, SELL, COVER) and apply real-time price updates.
+        """
         trades_executed = 0
         
-        for decision in portfolio_decisions.get('portfolio_decisions', []):
+        # The Portfolio Manager returns a list of dictionaries with 'decision' and 'amount_usd'
+        decisions = portfolio_decisions_list # This is now the list directly
+        
+        # We must re-prioritize CLOSES first for execution, then SHORTS, then BUYS
+        # We map PM's decision ('CLOSE') to execution actions ('SELL'/'COVER')
+        action_priority = {'CLOSE': 1, 'SHORT': 2, 'BUY': 3, 'MAINTAIN': 4, 'NEUTRAL': 5}
+        sorted_decisions = sorted(decisions, key=lambda x: action_priority.get((x.get('action') or x.get('decision') or '').upper(), 99))
+        
+        available_cash = self.portfolio['cash']
+        
+        self.logger.info(f"🔧 Executing {len(sorted_decisions)} portfolio decisions...")
+        for decision in sorted_decisions:
             symbol = decision.get('symbol')
-            action = decision.get('action')
+            pm_decision = (decision.get('action') or decision.get('decision') or '').upper() # This is key
             amount_usd = decision.get('amount_usd', 0)
             reasoning = decision.get('reasoning', '')
             
-            if action == 'BUY' and amount_usd > 0:
-                # Get current price
-                current_price = self.portfolio['last_prices'].get(symbol, 100.0)
-                
-                # Calculate shares to buy
-                shares = int(amount_usd / current_price)
-                cost = shares * current_price
-                
-                if cost <= self.portfolio['cash']:
-                    # Update portfolio
-                    if symbol not in self.portfolio['positions']:
-                        self.portfolio['positions'][symbol] = {'shares': 0, 'avg_price': 0}
-                    
-                    # Calculate new average price
-                    old_shares = self.portfolio['positions'][symbol]['shares']
-                    old_avg = self.portfolio['positions'][symbol].get('avg_price', 0)
-                    new_shares = old_shares + shares
-                    new_avg = ((old_shares * old_avg) + (shares * current_price)) / new_shares if new_shares > 0 else current_price
-                    
-                    self.portfolio['positions'][symbol]['shares'] = new_shares
-                    self.portfolio['positions'][symbol]['avg_price'] = new_avg
-                    self.portfolio['cash'] -= cost
-                    
-                    # Record trade
-                    trade_record = {
-                        'date': current_date,
-                        'symbol': symbol,
-                        'action': 'BUY',
-                        'shares': shares,
-                        'price': current_price,
-                        'cost': cost,
-                        'reasoning': reasoning,
-                        'portfolio_value': self._calculate_portfolio_value()
-                    }
-                    self.portfolio['theoretical_trades'].append(trade_record)
-                    trades_executed += 1
-                    
-                    self.logger.info(f"✅ BUY {symbol}: {shares} shares @ ${current_price:.2f} = ${cost:,.2f}")
-                else:
-                    self.logger.warning(f"❌ BUY {symbol}: Insufficient cash (need ${cost:,.2f}, have ${self.portfolio['cash']:,.2f})")
+            self.logger.debug(f"   Processing: {symbol} - {pm_decision} - ${amount_usd:,.2f}")
             
-            elif action == 'SELL':
+            # --- Trade Parameters ---
+            current_price = self.portfolio['last_prices'].get(symbol, 0)
+            if current_price <= 0:
+                self.logger.warning(f"Skipping trade for {symbol}: price is ${current_price:,.2f}")
+                continue
+                
+            shares_requested = int(amount_usd / current_price)
+            cost_or_value = shares_requested * current_price # Actual transaction size (rounded)
+            
+            # --- 1. CLOSE/COVER/SELL (High Priority: Must resolve to SELL or COVER) ---
+            # Note: CLOSE/COVER/SELL can have amount_usd = 0 (means close full position)
+            if pm_decision in ('CLOSE', 'COVER', 'SELL'):
+                # For CLOSE/COVER/SELL, amount_usd can be 0 (means close full position)
+                # Check for Long Position to SELL
                 if symbol in self.portfolio['positions'] and self.portfolio['positions'][symbol]['shares'] > 0:
-                    shares = self.portfolio['positions'][symbol]['shares']
-                    current_price = self.portfolio['last_prices'].get(symbol, self.portfolio['positions'][symbol].get('avg_price', 0))
-                    proceeds = shares * current_price
+                    shares_to_close = self.portfolio['positions'][symbol]['shares']
                     
-                    self.portfolio['cash'] += proceeds
-                    self.portfolio['positions'][symbol]['shares'] = 0
+                    self.portfolio['cash'] += shares_to_close * current_price
+                    del self.portfolio['positions'][symbol]
                     
-                    # Record trade
-                    trade_record = {
-                        'date': current_date,
-                        'symbol': symbol,
-                        'action': 'SELL',
-                        'shares': shares,
-                        'price': current_price,
-                        'proceeds': proceeds,
-                        'reasoning': reasoning,
-                        'portfolio_value': self._calculate_portfolio_value()
-                    }
-                    self.portfolio['theoretical_trades'].append(trade_record)
+                    self.logger.info(f"✅ SELL/CLOSE LONG {symbol}: {shares_to_close} shares @ ${current_price:,.2f} (Value: ${shares_to_close*current_price:,.2f}) - {reasoning}")
+                    trades_executed += 1
+                
+                # Check for Short Position to COVER
+                elif symbol in self.portfolio.get('short_positions', {}) and self.portfolio['short_positions'][symbol]['shares'] > 0:
+                    short_pos = self.portfolio['short_positions'][symbol]
+                    shares_to_cover = short_pos['shares']
+                    entry_date = short_pos.get('entry_date', current_date)
+                    
+                    # Calculate days held for overnight fees
+                    try:
+                        entry_date_obj = datetime.strptime(entry_date, '%Y-%m-%d')
+                        current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+                        days_held = (current_date_obj - entry_date_obj).days
+                        if days_held < 0:
+                            days_held = 0
+                    except:
+                        days_held = 0
+                    
+                    # CFD Model: Calculate fees and P&L
+                    entry_notional = short_pos['shares'] * short_pos['avg_price']  # Original notional we deducted
+                    
+                    # Calculate exit spread fee
+                    spread_rate = self._get_short_spread_rate(symbol)
+                    exit_spread_fee = (shares_to_cover * current_price) * spread_rate
+                    
+                    # Calculate overnight fees (2% annual rate, prorated by days held)
+                    overnight_fee_rate = SHORT_SELLING_CONFIG.get('overnight_fee_rate', 0.02)
+                    overnight_fee = entry_notional * overnight_fee_rate * (days_held / 365.0) if days_held > 0 else 0
+                    
+                    # Profit/Loss from the short position
+                    pnl = (short_pos['avg_price'] - current_price) * shares_to_cover
+                    
+                    # Cash update for CFD: Add back entry notional + P&L, subtract exit spread fee and overnight fees
+                    # When we opened the short, we deducted entry_notional, so we add it back here
+                    # P&L adjusts for price movement (loss reduces what we get back, gain increases it)
+                    self.portfolio['cash'] += entry_notional + pnl - exit_spread_fee - overnight_fee
+                    del self.portfolio['short_positions'][symbol]
+
+                    self.logger.info(f"✅ COVER/CLOSE SHORT {symbol}: {shares_to_cover} shares @ ${current_price:,.2f}. P/L: ${pnl:,.2f}, Exit Spread: ${exit_spread_fee:,.2f}, Overnight Fee ({days_held}d): ${overnight_fee:,.2f} - {reasoning}")
                     trades_executed += 1
                     
-                    self.logger.info(f"✅ SELL {symbol}: {shares} shares @ ${current_price:.2f} = ${proceeds:,.2f}")
                 else:
-                    self.logger.warning(f"❌ SELL {symbol}: No position to sell")
+                    self.logger.info(f"⏭️ NEUTRAL {symbol}: CLOSE proposed but no position found. - {reasoning}")
+            
+            # --- 2. SHORT (CFD Model: Deduct Notional Value + Spread Fee) ---
+            elif pm_decision == 'SHORT' and amount_usd > 0 and shares_requested > 0:
+                # Calculate entry spread fee
+                spread_rate = self._get_short_spread_rate(symbol)
+                entry_spread_fee = cost_or_value * spread_rate
+                
+                # For CFD shorts: Deduct the notional value (executed trade value) + spread fee from cash
+                # Example: Short $30k → Cash decreases by $30k + spread fee
+                self.portfolio['cash'] -= (cost_or_value + entry_spread_fee)
+
+                # Update/Create Short Position
+                current_short = self.portfolio['short_positions'].get(symbol, {'shares': 0, 'avg_price': 0})
+                
+                # Calculate new average price (shares are always positive in the position record)
+                new_total_shares = current_short['shares'] + shares_requested
+                new_total_value = (current_short['shares'] * current_short['avg_price']) + (shares_requested * current_price)
+                new_avg_price = new_total_value / new_total_shares if new_total_shares > 0 else 0
+                
+                # Use existing entry_date if position already exists, otherwise use current date
+                entry_date = current_short.get('entry_date', current_date)
+                
+                self.portfolio['short_positions'][symbol] = {
+                    'shares': new_total_shares,
+                    'avg_price': new_avg_price,
+                    'entry_date': entry_date,  # Keep original entry date for overnight fee calculation
+                    'short_date': current_date  # Track when this addition was made
+                }
+                
+                self.logger.info(f"✅ SHORT {symbol}: {shares_requested} shares @ ${current_price:,.2f} (Notional: ${cost_or_value:,.2f}, Spread Fee: ${entry_spread_fee:,.2f}, Cash Deducted: ${cost_or_value + entry_spread_fee:,.2f}) - {reasoning}")
+                trades_executed += 1
+            
+            # --- 3. BUY (Uses Cash) ---
+            elif pm_decision == 'BUY' and amount_usd > 0 and shares_requested > 0:
+                # The PM's waterfall logic already constrained the allocation, so we assume
+                # the cash needed for the 'amount_usd' is within the available cash.
+                
+                # Update cash
+                self.portfolio['cash'] -= cost_or_value
+
+                # Update/Create Long Position
+                current_long = self.portfolio['positions'].get(symbol, {'shares': 0, 'avg_price': 0})
+                
+                # Calculate new average price
+                new_total_shares = current_long['shares'] + shares_requested
+                new_total_value = (current_long['shares'] * current_long['avg_price']) + (shares_requested * current_price)
+                new_avg_price = new_total_value / new_total_shares if new_total_shares > 0 else 0
+
+                self.portfolio['positions'][symbol] = {
+                    'shares': new_total_shares,
+                    'avg_price': new_avg_price,
+                    'buy_date': current_date # Assume first buy date is current date for simplicity
+                }
+                
+                self.logger.info(f"✅ BUY {symbol}: {shares_requested} shares @ ${current_price:,.2f} (Cost: ${cost_or_value:,.2f}) - {reasoning}")
+                trades_executed += 1
+
+            # --- 4. NEUTRAL / MAINTAIN ---
+            elif pm_decision in ['NEUTRAL', 'MAINTAIN']:
+                self.logger.info(f"⏭️ {pm_decision} {symbol} - {reasoning}")
+            
+            else:
+                 # Catch-all for non-actionable or zero-amount entries
+                pass
         
         return trades_executed
     
-    def _calculate_portfolio_value(self):
-        """Calculate total portfolio value"""
-        total_value = self.portfolio['cash']
-        for symbol, pos in self.portfolio['positions'].items():
-            if pos['shares'] > 0:
-                current_price = self.portfolio['last_prices'].get(symbol, pos.get('avg_price', 0))
-                total_value += pos['shares'] * current_price
-        return total_value
-    
-    def run_backtest(self, symbols=['PLTR', 'NVDA', 'GOOGL']):
-        """Run the parallel backtest for the specified date range."""
-        self.logger.info(f"\n🚀 Starting PARALLEL backtest from {self.start_date} to {self.end_date}")
-        self.logger.info(f"📊 Analyzing {len(symbols)} stocks in parallel")
+    def _update_short_positions(self, current_date):
+        """
+        Update short positions daily: charge overnight fees for open positions.
+        CFD Model: Overnight fees accrue daily and reduce cash.
+        """
+        if not self.portfolio.get('short_positions'):
+            return
         
-        # Get trading calendar
+        overnight_fee_rate = SHORT_SELLING_CONFIG.get('overnight_fee_rate', 0.02)  # 2% annual
+        
+        for symbol, short_pos in self.portfolio['short_positions'].items():
+            if short_pos.get('shares', 0) <= 0:
+                continue
+            
+            # Get entry date
+            entry_date = short_pos.get('entry_date', current_date)
+            
+            try:
+                entry_date_obj = datetime.strptime(entry_date, '%Y-%m-%d')
+                current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+                
+                # Only charge fee if position is held overnight (entry date < current date)
+                # and we haven't charged for today yet
+                if current_date_obj > entry_date_obj:
+                    # Check if we've already charged for today
+                    last_fee_date = short_pos.get('last_fee_date', '')
+                    if last_fee_date != current_date:
+                        # Calculate overnight fee for this day (1 day worth of 2% annual rate)
+                        entry_value = short_pos['shares'] * short_pos.get('avg_price', 0)
+                        daily_overnight_fee = entry_value * overnight_fee_rate / 365.0
+                        
+                        # Deduct daily overnight fee from cash
+                        self.portfolio['cash'] -= daily_overnight_fee
+                        
+                        # Update last fee date to prevent double-charging on same day
+                        short_pos['last_fee_date'] = current_date
+                        
+                        self.logger.debug(f"💰 Charged overnight fee for {symbol}: ${daily_overnight_fee:,.2f} (${entry_value:,.2f} notional)")
+                        
+            except (ValueError, TypeError) as e:
+                # Skip if date parsing fails
+                continue 
+    
+    def run_backtest(self, symbols):
+        self.logger.info(f"\n🚀 Starting PARALLEL backtest")
         nyse = mcal.get_calendar('NYSE')
         trading_days = nyse.schedule(start_date=self.start_date, end_date=self.end_date)
         
-        self.logger.info(f"📅 Found {len(trading_days)} trading days")
+        total_trades = 0
         
-        total_decisions_made = 0
-        total_trades_executed = 0
-        
-        # Process each trading day
         for trading_date in trading_days.index:
             current_date = trading_date.strftime('%Y-%m-%d')
-            self.logger.info(f"\n{'='*80}")
-            self.logger.info(f"📅 TRADING DAY: {current_date}")
-            self.logger.info(f"{'='*80}")
+            self.logger.info(f"\n{'='*80}\n📅 TRADING DAY: {current_date}\n{'='*80}")
             
-            # Run stock analysis in parallel
+            # 1. ANALYZE STOCKS (Parallel)
             stock_decisions = []
+            today_prices = {} # Temp store for audit
             
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                # Submit all stock analysis tasks
                 future_to_symbol = {}
                 for idx, symbol in enumerate(symbols):
-                    # Assign API key in round-robin fashion
                     api_key = self.api_keys[idx % len(self.api_keys)]
+                    # Small stagger to avoid simultaneous burst (0.1s per request)
+                    # This helps prevent hitting global rate limits even with different API keys
+                    import time
+                    if idx > 0:
+                        time.sleep(0.1 * idx)  # Stagger: 0s, 0.1s, 0.2s, 0.3s...
                     future = executor.submit(self._analyze_single_stock, symbol, current_date, api_key)
                     future_to_symbol[future] = symbol
                 
-                # Collect results as they complete
                 for future in as_completed(future_to_symbol):
-                    symbol = future_to_symbol[future]
-                    try:
-                        decision_result = future.result()
-                        if decision_result:
-                            stock_decisions.append(decision_result)
-                            
-                            # Save decision for future context
-                            self._save_decision(symbol, decision_result)
-                            
-                            # Update last known price
-                            if 'current_price' in decision_result:
-                                self.portfolio['last_prices'][symbol] = decision_result['current_price']
-                    except Exception as e:
-                        self.logger.error(f"[{symbol}] Exception in parallel execution: {e}")
+                    res = future.result()
+                    if res:
+                        stock_decisions.append(res)
+                        if 'current_price' in res:
+                            today_prices[res['symbol']] = res['current_price']
             
-            # Log all decisions
-            self.logger.info(f"\n📊 Collected {len(stock_decisions)} stock decisions:")
-            for decision in stock_decisions:
-                self.logger.info(f"  {decision['symbol']}: {decision['decision']} "
-                              f"(confidence: {decision.get('confidence', 0):.2f})")
+            # 2. AUDIT: PRINT PRICES (Strict Requirement)
+            self.logger.info("\n🔍 ==== DAILY PRICE AUDIT ====")
+            for sym in sorted(today_prices.keys()):
+                price = today_prices[sym]
+                self.logger.info(f"   {sym:<6} : ${price:,.2f}")
+                # UPDATE SOURCE OF TRUTH HERE
+                self.portfolio['last_prices'][sym] = price
+            self.logger.info("==============================\n")
+
+            # 3. UPDATE SHORT POSITIONS (Charge daily overnight fees)
+            self._update_short_positions(current_date)
             
-            total_decisions_made += len(stock_decisions)
-            
-            # Call Portfolio Manager to make allocation decisions
+            # 4. PORTFOLIO ALLOCATION (Single Threaded Waterfall)
+            self.logger.info(f"📊 Collected {len(stock_decisions)} stock decisions for portfolio allocation")
             if stock_decisions:
-                self.logger.info(f"\n💼 Calling Portfolio Manager for allocation decisions...")
+                self.logger.info(f"   Symbols: {[d.get('symbol') for d in stock_decisions]}")
                 
-                # Calculate current portfolio state
-                portfolio_state = {
-                    'cash': self.portfolio['cash'],
-                    'positions': self.portfolio['positions'],
-                    'last_prices': self.portfolio['last_prices'],
-                    'total_value': self._calculate_portfolio_value()
-                }
+                # Calculate portfolio value BEFORE trades (for PMA decision making)
+                portfolio_value = self._calculate_portfolio_value()
                 
-                # Get previous portfolio decisions for context
-                previous_portfolio_decisions = self._load_previous_portfolio_decisions(current_date)
-                
-                # Get portfolio-level decisions
-                portfolio_decisions = self.portfolio_manager.make_portfolio_decisions(
-                    stock_decisions, portfolio_state, current_date, previous_portfolio_decisions
+                # Log portfolio value breakdown for debugging
+                cash = self.portfolio['cash']
+                long_value = sum(
+                    pos['shares'] * self.portfolio['last_prices'].get(sym, pos.get('avg_price', 0))
+                    for sym, pos in self.portfolio['positions'].items()
+                    if pos.get('shares', 0) > 0
+                )
+                short_pnl = sum(
+                    (short_pos.get('avg_price', 0) - self.portfolio['last_prices'].get(sym, short_pos.get('avg_price', 0))) * short_pos['shares']
+                    for sym, short_pos in self.portfolio.get('short_positions', {}).items()
+                    if short_pos.get('shares', 0) > 0
                 )
                 
-                # Log portfolio manager decisions
-                self.logger.info(f"\n💰 Portfolio Manager Decisions:")
-                for pd in portfolio_decisions.get('portfolio_decisions', []):
-                    self.logger.info(f"  {pd['symbol']}: {pd['action']} ${pd.get('amount_usd', 0):,.0f} "
-                                   f"(target: {pd.get('portfolio_weight_target', 0):.1f}%)")
+                self.logger.info(f"💰 Portfolio Value Breakdown (before trades):")
+                self.logger.info(f"   Cash: ${cash:,.2f}")
+                self.logger.info(f"   Long Positions Value: ${long_value:,.2f}")
+                self.logger.info(f"   Short P&L: ${short_pnl:,.2f}")
+                self.logger.info(f"   Total Portfolio Value: ${portfolio_value:,.2f}")
                 
-                summary = portfolio_decisions.get('portfolio_summary', {})
-                self.logger.info(f"\n📈 Portfolio Summary:")
-                self.logger.info(f"  Total Allocation: ${summary.get('total_allocation', 0):,.2f}")
-                self.logger.info(f"  Cash Reserved: ${summary.get('cash_reserved', 0):,.2f}")
-                self.logger.info(f"  Risk Assessment: {summary.get('risk_assessment', 'N/A')}")
+                # --- Prepare PM Agent Arguments ---
+                current_cash = self.portfolio['cash']
                 
-                # Execute trades based on portfolio manager decisions
-                trades_executed = self._execute_portfolio_trades(portfolio_decisions, current_date)
-                total_trades_executed += trades_executed
+                # Build full portfolio_state dictionary with all required fields
+                portfolio_state = {
+                    'cash': current_cash,
+                    'total_value': portfolio_value,
+                    'initial_value': 100000,  # $100k starting capital
+                    'positions': self.portfolio['positions'].copy(),
+                    'short_positions': self.portfolio.get('short_positions', {}).copy(),
+                    'last_prices': self.portfolio['last_prices'].copy(),
+                    'market_caps': self.portfolio.get('market_caps', {}).copy(),  # Include market caps for spread calculation
+                    'max_short_per_stock_pct': SHORT_SELLING_CONFIG.get('max_short_per_stock_pct', 25)
+                }
                 
-                # Save portfolio decision for future context
-                self._save_portfolio_decision(portfolio_decisions, current_date)
+                # CALL PM (Now returns a strictly calculated list)
+                portfolio_decisions_list = self.portfolio_manager.get_portfolio_decisions(
+                    stock_decisions,
+                    portfolio_state=portfolio_state,
+                    current_date=current_date,
+                    previous_portfolio_decisions=self._load_previous_portfolio_decisions(current_date)
+                )
                 
-                # Log portfolio value
-                portfolio_value = self._calculate_portfolio_value()
-                self.logger.info(f"\n💼 Portfolio Value: ${portfolio_value:,.2f}")
-        
-        # Calculate final portfolio value and performance
-        final_value = self._calculate_portfolio_value()
-        initial_value = 1000000
-        total_return = final_value - initial_value
-        percent_return = (total_return / initial_value) * 100
-        
-        # Final results
-        self.logger.info(f"\n{'='*80}")
-        self.logger.info(f"🎉 PARALLEL BACKTEST COMPLETE!")
-        self.logger.info(f"{'='*80}")
-        self.logger.info(f"📅 Date range: {self.start_date} to {self.end_date}")
-        self.logger.info(f"📊 Total decisions made: {total_decisions_made}")
-        self.logger.info(f"💰 Total trades executed: {total_trades_executed}")
-        self.logger.info(f"\n📈 PORTFOLIO PERFORMANCE:")
-        self.logger.info(f"  Starting value: ${initial_value:,.2f}")
-        self.logger.info(f"  Final value: ${final_value:,.2f}")
-        self.logger.info(f"  Total return: ${total_return:,.2f} ({percent_return:.2f}%)")
-        self.logger.info(f"\n💼 Final positions:")
-        for symbol, position in self.portfolio['positions'].items():
-            if position['shares'] > 0:
-                current_price = self.portfolio['last_prices'].get(symbol, position.get('avg_price', 0))
-                value = position['shares'] * current_price
-                pct = (value / final_value * 100) if final_value > 0 else 0
-                self.logger.info(f"  {symbol}: {position['shares']} shares @ ${current_price:.2f} "
-                              f"= ${value:,.2f} ({pct:.1f}%)")
-        self.logger.info(f"  Cash: ${self.portfolio['cash']:,.2f} "
-                        f"({self.portfolio['cash']/final_value*100:.1f}%)")
-        
-        return {
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'decisions_made': total_decisions_made,
-            'trades_executed': total_trades_executed,
-            'portfolio': self.portfolio,
-            'performance': {
-                'initial_value': initial_value,
-                'final_value': final_value,
-                'total_return': total_return,
-                'percent_return': percent_return
-            }
-        }
+                # 4. EXECUTE TRADES (Pass the list directly)
+                portfolio_decisions = portfolio_decisions_list.get('portfolio_decisions', [])
+                self.logger.info(f"📋 Received {len(portfolio_decisions)} portfolio decisions from PMA")
+                if portfolio_decisions:
+                    self.logger.info(f"   Decisions: {[(d.get('symbol'), d.get('action') or d.get('decision'), d.get('amount_usd', 0)) for d in portfolio_decisions[:10]]}")
+                
+                trades = self._execute_portfolio_trades(portfolio_decisions, current_date)
+                total_trades += trades
+                self.logger.info(f"✅ Executed {trades} trades this day")
+
+                # 5. END OF DAY LOGGING
+                final_val = self._calculate_portfolio_value()
+                
+                # Log detailed breakdown
+                final_cash = self.portfolio['cash']
+                final_long_value = sum(
+                    pos['shares'] * self.portfolio['last_prices'].get(sym, pos.get('avg_price', 0))
+                    for sym, pos in self.portfolio['positions'].items()
+                    if pos.get('shares', 0) > 0
+                )
+                final_short_pnl = sum(
+                    (short_pos.get('avg_price', 0) - self.portfolio['last_prices'].get(sym, short_pos.get('avg_price', 0))) * short_pos['shares']
+                    for sym, short_pos in self.portfolio.get('short_positions', {}).items()
+                    if short_pos.get('shares', 0) > 0
+                )
+                final_short_notional = sum(
+                    short_pos['shares'] * short_pos.get('avg_price', 0)  # Use entry price (avg_price) for notional
+                    for sym, short_pos in self.portfolio.get('short_positions', {}).items()
+                    if short_pos.get('shares', 0) > 0
+                )
+                
+                self.logger.info(f"\n🏁 EOD SUMMARY {current_date}")
+                self.logger.info(f"   Cash: ${final_cash:,.2f}")
+                self.logger.info(f"   Long Positions Value: ${final_long_value:,.2f}")
+                self.logger.info(f"   Short Notional Exposure: ${final_short_notional:,.2f}")
+                self.logger.info(f"   Short P&L: ${final_short_pnl:,.2f}")
+                self.logger.info(f"   Total Value: ${final_val:,.2f}")
+                
+                # Validation: Total should equal cash + longs + short notional + short P&L (CFD model: notional is collateral)
+                calculated_total = final_cash + final_long_value + final_short_notional + final_short_pnl
+                if abs(final_val - calculated_total) > 0.01:
+                    self.logger.warning(f"⚠️ Portfolio value mismatch! Calculated: ${calculated_total:,.2f}, Reported: ${final_val:,.2f}")
+                
+        return {'status': 'completed', 'total_trades': total_trades, 'start_date': self.start_date, 'end_date': self.end_date,
+                'decisions_made': len(trading_days.index) * len(symbols), 'trades_executed': total_trades,
+                'performance': {'initial_value': 100000, 'final_value': final_val, 'total_return': final_val - 100000,
+                                'percent_return': (final_val / 100000.0 - 1) * 100}}
 
 
 def main():
@@ -683,12 +774,12 @@ def main():
                       help='Data directory (defaults to script directory)')
     parser.add_argument('--start-date', required=True, help='Start date (YYYY-MM-DD)')
     parser.add_argument('--end-date', required=True, help='End date (YYYY-MM-DD)')
-    parser.add_argument('--symbols', default='PLTR,NVDA,GOOGL', 
+    parser.add_argument('--symbols', required=True,
                       help='Comma-separated list of symbols to test')
     parser.add_argument('--lookback', type=int, default=4, 
                       help='Number of previous decisions to include as context')
-    parser.add_argument('--backtest-name', default='parallel', 
-                      help='Name for this backtest run')
+    parser.add_argument('--backtest-name', required=True,
+                      help='Name for this backtest run (required)')
     parser.add_argument('--max-workers', type=int, default=None,
                       help='Maximum number of parallel workers (defaults to number of API keys)')
     
@@ -739,6 +830,11 @@ def main():
     
     # Save results to file
     results_file = os.path.join(args.data_dir, f'parallel_backtest_{args.backtest_name}_results.json')
+    
+    # Add start/end dates for final logging (moved from run_backtest)
+    results['start_date'] = args.start_date
+    results['end_date'] = args.end_date
+    
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2, default=str)
     
@@ -756,4 +852,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

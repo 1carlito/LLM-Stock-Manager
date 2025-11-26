@@ -12,8 +12,7 @@ import argparse
 from datetime import datetime, timedelta
 from typing import List
 
-# Import all 3 agents
-# from SentimentAgent import SentimentAgent
+# Import agents
 from FundamentalAgent import FundamentalAgent
 from ValuationAgent import ValuationAgent
 import glob
@@ -63,15 +62,14 @@ def get_trading_days(start_date: str, end_date: str) -> List[str]:
     
     return trading_days
 
-def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-01", end_date: str = "2025-08-01"):
-    """Process a single stock through all 3 agents (Sentiment, Fundamental, Valuation) for all trading days."""
+def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-08-02", end_date: str = "2025-11-14"):
+    """Process a single stock through Fundamental and Valuation agents for all trading days."""
     print(f"\n{'='*60}")
     print(f"Processing {symbol}")
     print(f"{'='*60}")
     
     try:
-        # Initialize all 3 agents with date range from process_all_stocks.py
-        # sentiment_agent = SentimentAgent(data_dir=data_dir)
+        # Initialize agents with date range
         fundamental_agent = FundamentalAgent(data_dir=data_dir, start_date=start_date, end_date=end_date)
         valuation_agent = ValuationAgent(data_dir=data_dir)
         
@@ -81,21 +79,12 @@ def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-0
         print(f"  ✅ Running fundamental and valuation analysis")
         
         # Generate analyses for each trading day
-        # successful_sentiment = 0
         successful_fundamentals = 0
         successful_valuations = 0
         
         for i, current_date in enumerate(trading_days, 1):
             if i % 5 == 0 or i == 1:
                 print(f"\n📅 Processing date {i}/{len(trading_days)}: {current_date}")
-            
-            # Run sentiment analysis
-            # try:
-            #     sentiment = sentiment_agent.analyze_sentiment(symbol, current_date)
-            #     if sentiment:
-            #         successful_sentiment += 1
-            # except Exception as e:
-            #     print(f"  ❌ Sentiment error for {current_date}: {e}")
             
             # Run fundamental analysis
             try:
@@ -114,7 +103,6 @@ def process_stock(symbol: str, data_dir: str = ".", start_date: str = "2025-07-0
                 print(f"  ❌ Valuation error for {current_date}: {e}")
         
         print(f"\n✅ Completed processing {symbol}:")
-        # print(f"   Sentiment: {successful_sentiment}/{len(trading_days)} analyses")
         print(f"   Fundamental: {successful_fundamentals}/{len(trading_days)} analyses")
         print(f"   Valuation: {successful_valuations}/{len(trading_days)} analyses")
         
@@ -136,8 +124,8 @@ def main():
     parser = argparse.ArgumentParser(description="Process stock data through analysis agents")
     parser.add_argument("--symbol", help="Process a single stock symbol")
     parser.add_argument("--data-dir", default=".", help="Data directory (defaults to current directory)")
-    parser.add_argument("--start-date", default="2025-07-01", help="Start date for analysis (YYYY-MM-DD)")
-    parser.add_argument("--end-date", default="2025-08-01", help="End date for analysis (YYYY-MM-DD)")
+    parser.add_argument("--start-date", default="2025-08-02", help="Start date for analysis (YYYY-MM-DD)")
+    parser.add_argument("--end-date", default="2025-11-14", help="End date for analysis (YYYY-MM-DD)")
     args = parser.parse_args()
     
     print(f"\n{'='*60}")

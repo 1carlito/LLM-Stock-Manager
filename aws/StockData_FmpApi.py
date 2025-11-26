@@ -361,6 +361,27 @@ class StockDataFmpApi:
         }
         return self._make_request(endpoint, params)
 
+    def get_market_capitalization(self, symbol: str, limit: int = None) -> List[Dict]:
+        """
+        Get historical market capitalization data for a specific company
+        
+        Uses the FMP Historical Market Capitalization API endpoint:
+        https://financialmodelingprep.com/api/v3/historical-market-capitalization/{symbol}
+        
+        Args:
+            symbol: Stock ticker symbol
+            limit: Number of data points to return (optional)
+            
+        Returns:
+            List of market capitalization data with date and marketCap
+            Example: [{"date": "2025-11-22", "marketCap": 3005779833320}, ...]
+        """
+        endpoint = f"historical-market-capitalization/{symbol}"
+        params = {}
+        if limit:
+            params['limit'] = limit
+        return self._make_request(endpoint, params)
+    
     def fetch_financial_statements(self, symbol: str, period: str = 'quarter', limit: int = 4) -> Dict[str, List[Dict]]:
         """
         Fetch all financial statements (income, balance sheet, cash flow)
