@@ -28,7 +28,7 @@ class PortfolioManagerAgent:
     
     def __init__(self, data_dir=".", api_key=None):
         self.data_dir = data_dir
-        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_Kimi")
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_DSeek")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
@@ -42,7 +42,7 @@ class PortfolioManagerAgent:
         
         os.makedirs(self.portfolio_save_dir, exist_ok=True)
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
-
+    
     def _build_portfolio_prompt(self, stock_decisions, portfolio_state, current_date, previous_portfolio_decisions=None):
         """Build prompt for portfolio-level decision making"""
         
@@ -63,10 +63,23 @@ class PortfolioManagerAgent:
         
         for symbol, pos in positions.items():
             if pos.get('shares', 0) > 0:
-                current_price = last_prices.get(symbol, pos.get('avg_price', 0))
+                # Get current price from last_prices (should be updated daily)
+                # If not available, skip P&L calculation (price not updated)
+                current_price = last_prices.get(symbol, 0)
+                if current_price <= 0:
+                    # Fallback to avg_price only for position_value display, but P&L will be 0
+                    current_price = pos.get('avg_price', 0)
+                
                 position_value = pos['shares'] * current_price
-                cost_basis = pos['shares'] * pos.get('avg_price', current_price)
-                unrealized_pnl = position_value - cost_basis
+                cost_basis = pos['shares'] * pos.get('avg_price', 0)
+                
+                # Only calculate P&L if we have a current price that's different from avg_price
+                # (indicates price was updated)
+                if current_price > 0 and current_price != pos.get('avg_price', 0):
+                    unrealized_pnl = position_value - cost_basis
+                else:
+                    unrealized_pnl = 0  # Price not updated, can't calculate P&L
+                
                 total_unrealized_pnl += unrealized_pnl
                 
                 position_values[symbol] = {
@@ -80,22 +93,47 @@ class PortfolioManagerAgent:
                 }
         
         # Calculate short position details
+        # IMPORTANT: For CFD model, short notional is the collateral tied up at ENTRY price
+        # The current price only affects P&L, not the notional amount locked up
         short_position_values = {}
         total_short_unrealized_pnl = 0
+        total_short_notional_locked = 0  # Track total notional locked as collateral
         for symbol, short_pos in short_positions.items():
             if short_pos.get('shares', 0) > 0:
-                current_price = last_prices.get(symbol, short_pos.get('avg_price', 0))
-                entry_price = short_pos.get('avg_price', current_price)
-                notional_value = short_pos['shares'] * current_price
-                # Short P&L = (Entry Price - Current Price) * Shares
-                short_pnl = (entry_price - current_price) * short_pos['shares']
+                # Get current price from last_prices (should be updated daily)
+                current_price = last_prices.get(symbol, 0)
+                
+                # Entry price is the avg_price at which the short was entered
+                entry_price = short_pos.get('avg_price', 0)
+                
+                # If no current price in last_prices, fallback to avg_price for P&L calculation
+                if current_price <= 0:
+                    current_price = entry_price
+                
+                # NOTIONAL: The collateral locked up at entry (this is what was deducted from cash)
+                # For CFD model, this is based on ENTRY price, not current price
+                notional_value_at_entry = short_pos['shares'] * entry_price
+                total_short_notional_locked += notional_value_at_entry
+                
+                # Current notional exposure (for display purposes, based on current market price)
+                current_notional_exposure = short_pos['shares'] * current_price
+                
+                # Calculate P&L: profit when price goes DOWN (entry_price > current_price)
+                if entry_price > 0 and current_price > 0:
+                    # Short P&L = (Entry Price - Current Price) * Shares
+                    short_pnl = (entry_price - current_price) * short_pos['shares']
+                else:
+                    # Can't calculate P&L if prices are missing
+                    short_pnl = 0
+                
                 total_short_unrealized_pnl += short_pnl
                 
                 short_position_values[symbol] = {
                     'shares': short_pos['shares'],
                     'entry_price': entry_price,
                     'current_price': current_price,
-                    'notional_exposure': notional_value,
+                    'notional_at_entry': notional_value_at_entry,  # Collateral locked up
+                    'current_notional_exposure': current_notional_exposure,  # Current market exposure
                     'unrealized_pnl': short_pnl
                 }
         
@@ -116,6 +154,13 @@ CURRENT PORTFOLIO PERFORMANCE:
 - Cash Percentage: {(cash/total_value*100) if total_value > 0 else 0:.1f}%
 - Total Unrealized PnL (Long): ${total_unrealized_pnl:,.2f}
 - Total Unrealized PnL (Short): ${total_short_unrealized_pnl:,.2f}
+- Short Notional Locked (Collateral at Entry): ${total_short_notional_locked:,.2f}
+
+IMPORTANT CASH ACCOUNTING:
+- Cash = Initial Capital - Long Positions Cost Basis - Short Notional Locked - Spread Fees Paid - Overnight Fees Paid
+- Short Notional represents collateral tied up at ENTRY prices (based on avg_price in short_positions)
+- Unrealized PnL on shorts affects portfolio value but doesn't change cash until position is closed
+- When allocating for SHORT actions, remember that cash will be deducted: Notional Amount + Entry Spread Fee
 
 {current_prices_section}
 
@@ -241,7 +286,7 @@ IMPORTANT:
 """
         
         return prompt
-
+    
     def _call_chutes_api(self, prompt: str, user_prompt: str) -> str:
         """Make call to Chutes DeepSeek API"""
         body = {
@@ -698,7 +743,7 @@ IMPORTANT:
             for d in decisions_list:
                 if d.get('action') and not d.get('decision'):
                     d['decision'] = d['action']
-
+            
             result = {
                 'date': current_date,
                 'portfolio_decisions': decisions_list,  # Ensure both fields present
@@ -798,7 +843,10 @@ IMPORTANT:
                     except Exception:
                         pass
 
-                spread_rate = 0.0006 + (1.0 / math.sqrt(market_cap_bil)) + 0.0010
+                # Calculate spread rate matching orchestrator formula
+                # Formula: 0.0006 + 0.0010 + (1.0 / sqrt(market_cap_bil))
+                base_rate = 0.0006 + 0.0010
+                spread_rate = base_rate + (1.0 / math.sqrt(market_cap_bil))
                 spread_fee = final_amount * spread_rate
                 # If trade would cause overspend, reduce or skip
                 if final_amount + spread_fee > remaining_cash:

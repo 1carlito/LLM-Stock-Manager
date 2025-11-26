@@ -227,7 +227,7 @@ class ParallelBacktest:
         # Get the file with the most recent analysis_date that's still <= current_date
         latest_valid = max(valid_files, key=lambda x: x[1])
         return latest_valid[2]
-        
+    
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
@@ -275,7 +275,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_Kimi')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_DSeek')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -330,28 +330,85 @@ class ParallelBacktest:
         """
         Get current price for a symbol without full analysis.
         Used to update prices for positions that aren't in the daily analysis list.
+        Tries historical stock data file first (most reliable), then cached analysis files.
         """
         try:
-            # Try to get price from existing analysis files (same priority as _analyze_single_stock)
-            sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date) if self.use_sentiment else None
-            valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date) if self.use_valuation else None
-            fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date) if self.use_fundamental else None
+            # First try: Get price directly from historical stock data file (most reliable)
+            price = self._get_price_from_stock_data(symbol, current_date)
             
-            # Extract Price (Priority: Sentiment -> Valuation -> Fundamental)
-            price = None
-            if sentiment_data: price = sentiment_data.get('current_price')
-            if not price and valuation_data: price = valuation_data.get('current_price')
-            if not price and fundamental_data: price = fundamental_data.get('current_price')
-            
-            # Fallback to last known price
+            # Second try: Get price from existing analysis files (fallback)
             if not price:
-                price = self.portfolio.get('last_prices', {}).get(symbol, None)
+                sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date) if self.use_sentiment else None
+                valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date) if self.use_valuation else None
+                fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date) if self.use_fundamental else None
+                
+                # Extract Price (Priority: Sentiment -> Valuation -> Fundamental)
+                if sentiment_data: price = sentiment_data.get('current_price')
+                if not price and valuation_data: price = valuation_data.get('current_price')
+                if not price and fundamental_data: price = fundamental_data.get('current_price')
             
             return price
         except Exception as e:
             self.logger.debug(f"[{symbol}] Could not fetch price: {e}")
             return None
     
+    def _get_price_from_stock_data(self, symbol, current_date):
+        """Get price directly from historical stock data file (quant_data)"""
+        try:
+            import glob
+            from datetime import datetime
+            
+            # Find stock data file (same pattern as other agents)
+            quant_data_dir = os.path.join(self.data_dir, "quant_data")
+            primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
+            
+            if not os.path.exists(primary_file):
+                # Try to find any mid_cap_stock_data file
+                mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
+                if mid_cap_files:
+                    mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                    primary_file = mid_cap_files[0]
+            
+            if not os.path.exists(primary_file):
+                return None
+            
+            # Load stock data
+            with open(primary_file, 'r') as f:
+                stock_data = json.load(f)
+            
+            if symbol not in stock_data:
+                return None
+            
+            # Get historical prices for this symbol
+            historical_prices = stock_data[symbol].get('historical_prices', [])
+            if not historical_prices:
+                return None
+            
+            # Find price for current_date (or latest before it)
+            target_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+            sorted_prices = sorted(historical_prices, key=lambda x: x.get('date', ''))
+            valid_prices = []
+            
+            for price_data in sorted_prices:
+                price_date_str = price_data.get('date', '')
+                if price_date_str:
+                    try:
+                        price_date = datetime.strptime(price_date_str, '%Y-%m-%d')
+                        if price_date <= target_date_obj:
+                            valid_prices.append(price_data)
+                    except ValueError:
+                        continue
+            
+            if valid_prices:
+                latest_price = valid_prices[-1].get('close')
+                if isinstance(latest_price, (int, float)):
+                    return float(latest_price)
+            
+            return None
+        except Exception as e:
+            self.logger.debug(f"[{symbol}] Error getting price from stock data: {e}")
+            return None
+            
     def _analyze_single_stock(self, symbol, current_date, api_key):
         """
         Analyze a single stock. Returns the decision AND the price found in the analysis.
@@ -441,12 +498,16 @@ class ParallelBacktest:
         return total_value
 
     def _get_short_spread_rate(self, symbol):
-        # [Preserve original]
-        base = 0.001
+        """
+        Calculate spread rate for short positions.
+        Formula: 0.0006 + (1.0 / sqrt(market_cap_bil)) + 0.0010
+        This matches the formula used in PortfolioManagerAgent waterfall allocation.
+        """
+        base_rate = 0.0006 + 0.0010  # Base spread components
         mc_bil = self.portfolio.get('market_caps', {}).get(symbol)
         if mc_bil and mc_bil > 0:
-            return base + (1.0 / math.sqrt(mc_bil))
-        return base
+            return base_rate + (1.0 / math.sqrt(mc_bil))
+        return base_rate
 
     def _execute_portfolio_trades(self, portfolio_decisions_list, current_date):
         """
@@ -497,7 +558,7 @@ class ParallelBacktest:
                     
                     self.logger.info(f"✅ SELL/CLOSE LONG {symbol}: {shares_to_close} shares @ ${current_price:,.2f} (Value: ${shares_to_close*current_price:,.2f}) - {reasoning}")
                     trades_executed += 1
-                
+                    
                 # Check for Short Position to COVER
                 elif symbol in self.portfolio.get('short_positions', {}) and self.portfolio['short_positions'][symbol]['shares'] > 0:
                     short_pos = self.portfolio['short_positions'][symbol]
@@ -521,20 +582,20 @@ class ParallelBacktest:
                     spread_rate = self._get_short_spread_rate(symbol)
                     exit_spread_fee = (shares_to_cover * current_price) * spread_rate
                     
-                    # Calculate overnight fees (2% annual rate, prorated by days held)
-                    overnight_fee_rate = SHORT_SELLING_CONFIG.get('overnight_fee_rate', 0.02)
-                    overnight_fee = entry_notional * overnight_fee_rate * (days_held / 365.0) if days_held > 0 else 0
+                    # Note: Overnight fees are already charged daily via _update_short_positions()
+                    # We do NOT charge them again on close to avoid double-counting
                     
                     # Profit/Loss from the short position
                     pnl = (short_pos['avg_price'] - current_price) * shares_to_cover
                     
-                    # Cash update for CFD: Add back entry notional + P&L, subtract exit spread fee and overnight fees
+                    # Cash update for CFD: Add back entry notional + P&L, subtract exit spread fee
+                    # Overnight fees have already been deducted daily, so we don't subtract them here
                     # When we opened the short, we deducted entry_notional, so we add it back here
                     # P&L adjusts for price movement (loss reduces what we get back, gain increases it)
-                    self.portfolio['cash'] += entry_notional + pnl - exit_spread_fee - overnight_fee
+                    self.portfolio['cash'] += entry_notional + pnl - exit_spread_fee
                     del self.portfolio['short_positions'][symbol]
 
-                    self.logger.info(f"✅ COVER/CLOSE SHORT {symbol}: {shares_to_cover} shares @ ${current_price:,.2f}. P/L: ${pnl:,.2f}, Exit Spread: ${exit_spread_fee:,.2f}, Overnight Fee ({days_held}d): ${overnight_fee:,.2f} - {reasoning}")
+                    self.logger.info(f"✅ COVER/CLOSE SHORT {symbol}: {shares_to_cover} shares @ ${current_price:,.2f}. P/L: ${pnl:,.2f}, Exit Spread: ${exit_spread_fee:,.2f} (Overnight fees already charged daily) - {reasoning}")
                     trades_executed += 1
                     
                 else:
@@ -570,7 +631,7 @@ class ParallelBacktest:
                 
                 self.logger.info(f"✅ SHORT {symbol}: {shares_requested} shares @ ${current_price:,.2f} (Notional: ${cost_or_value:,.2f}, Spread Fee: ${entry_spread_fee:,.2f}, Cash Deducted: ${cost_or_value + entry_spread_fee:,.2f}) - {reasoning}")
                 trades_executed += 1
-            
+                    
             # --- 3. BUY (Uses Cash) ---
             elif pm_decision == 'BUY' and amount_usd > 0 and shares_requested > 0:
                 # The PM's waterfall logic already constrained the allocation, so we assume
@@ -738,10 +799,16 @@ class ParallelBacktest:
                     for sym, short_pos in self.portfolio.get('short_positions', {}).items()
                     if short_pos.get('shares', 0) > 0
                 )
+                short_notional = sum(
+                    short_pos['shares'] * short_pos.get('avg_price', 0)
+                    for sym, short_pos in self.portfolio.get('short_positions', {}).items()
+                    if short_pos.get('shares', 0) > 0
+                )
                 
                 self.logger.info(f"💰 Portfolio Value Breakdown (before trades):")
                 self.logger.info(f"   Cash: ${cash:,.2f}")
                 self.logger.info(f"   Long Positions Value: ${long_value:,.2f}")
+                self.logger.info(f"   Short Notional Locked: ${short_notional:,.2f}")
                 self.logger.info(f"   Short P&L: ${short_pnl:,.2f}")
                 self.logger.info(f"   Total Portfolio Value: ${portfolio_value:,.2f}")
                 
@@ -895,8 +962,12 @@ def main():
     print(f"\n💰 PORTFOLIO PERFORMANCE:")
     print(f"  Starting value: ${results['performance']['initial_value']:,.2f}")
     print(f"  Final value: ${results['performance']['final_value']:,.2f}")
-    print(f"  Total return: ${results['performance']['total_return']:,.2f} "
-          f"({results['performance']['percent_return']:.2f}%)")
+    print(f"  True Profit (after all fees): ${results['performance']['total_return']:,.2f} ")
+    print(f"({results['performance']['percent_return']:.2f}%)")
+    print(f"\n  Note: True profit includes all costs:")
+    print(f"    - Entry spread fees (deducted on short open)")
+    print(f"    - Exit spread fees (deducted on short close)")
+    print(f"    - Overnight fees (2% annual, charged daily)")
 
 
 if __name__ == "__main__":
