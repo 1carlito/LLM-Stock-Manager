@@ -326,6 +326,32 @@ class ParallelBacktest:
             self.logger.error(f"Error loading previous portfolio decisions: {e}")
             return []
 
+    def _get_price_for_symbol(self, symbol, current_date):
+        """
+        Get current price for a symbol without full analysis.
+        Used to update prices for positions that aren't in the daily analysis list.
+        """
+        try:
+            # Try to get price from existing analysis files (same priority as _analyze_single_stock)
+            sentiment_data = self._get_latest_analysis(symbol, 'sentiment', current_date) if self.use_sentiment else None
+            valuation_data = self._get_latest_analysis(symbol, 'valuation', current_date) if self.use_valuation else None
+            fundamental_data = self._get_latest_analysis(symbol, 'fundamental', current_date) if self.use_fundamental else None
+            
+            # Extract Price (Priority: Sentiment -> Valuation -> Fundamental)
+            price = None
+            if sentiment_data: price = sentiment_data.get('current_price')
+            if not price and valuation_data: price = valuation_data.get('current_price')
+            if not price and fundamental_data: price = fundamental_data.get('current_price')
+            
+            # Fallback to last known price
+            if not price:
+                price = self.portfolio.get('last_prices', {}).get(symbol, None)
+            
+            return price
+        except Exception as e:
+            self.logger.debug(f"[{symbol}] Could not fetch price: {e}")
+            return None
+    
     def _analyze_single_stock(self, symbol, current_date, api_key):
         """
         Analyze a single stock. Returns the decision AND the price found in the analysis.
@@ -664,6 +690,29 @@ class ParallelBacktest:
                 self.logger.info(f"   {sym:<6} : ${price:,.2f}")
                 # UPDATE SOURCE OF TRUTH HERE
                 self.portfolio['last_prices'][sym] = price
+            
+            # 2b. UPDATE PRICES FOR POSITIONS NOT IN DAILY ANALYSIS
+            # This ensures short/long positions get price updates even if symbol isn't analyzed today
+            all_position_symbols = set()
+            all_position_symbols.update(self.portfolio.get('positions', {}).keys())
+            all_position_symbols.update(self.portfolio.get('short_positions', {}).keys())
+            
+            missing_price_symbols = all_position_symbols - set(today_prices.keys())
+            if missing_price_symbols:
+                self.logger.info(f"📊 Fetching prices for {len(missing_price_symbols)} positions not in daily analysis...")
+                for sym in missing_price_symbols:
+                    price = self._get_price_for_symbol(sym, current_date)
+                    if price:
+                        self.portfolio['last_prices'][sym] = price
+                        self.logger.info(f"   {sym:<6} : ${price:,.2f} (from cached analysis)")
+                    else:
+                        # Keep last known price if we can't find new one
+                        existing_price = self.portfolio.get('last_prices', {}).get(sym)
+                        if existing_price:
+                            self.logger.debug(f"   {sym:<6} : ${existing_price:,.2f} (using last known price)")
+                        else:
+                            self.logger.warning(f"   {sym:<6} : No price found, using avg_price fallback")
+            
             self.logger.info("==============================\n")
 
             # 3. UPDATE SHORT POSITIONS (Charge daily overnight fees)

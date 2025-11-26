@@ -38,7 +38,7 @@ class PortfolioManagerAgent:
                 "No Chutes API token found. Pass api_key or set PORTFOLIO_CHUTES_DEEPSEEK_API_KEY in the environment."
             )
         
-        self.model_name = "moonshotai/Kimi-K2-Instruct-0905"
+        self.model_name = "deepseek-ai/DeepSeek-V3.1"
         
         os.makedirs(self.portfolio_save_dir, exist_ok=True)
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
