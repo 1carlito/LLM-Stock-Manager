@@ -91,9 +91,9 @@ class ParallelBacktest:
         self.portfolio_manager = PortfolioManagerAgent(data_dir=data_dir)
         
         # Initialize shared analysis agents 
-        self.sentiment_agent = None
-        self.valuation_agent = None
-        self.fundamental_agent = None
+            self.sentiment_agent = None
+            self.valuation_agent = None
+            self.fundamental_agent = None
         
         self.logger.info(f"Parallel Backtest initialized:")
         self.logger.info(f"- Date range: {start_date} to {end_date}")
@@ -108,7 +108,7 @@ class ParallelBacktest:
         # Try to load numbered tokens (supporting multiple naming conventions)
         for i in range(1, 21):  # Support up to 20 API tokens
             candidate_names = [
-                f"DEEPSEEK_API_KEY_{i}" # legacy fallback
+                f"DEEPSEEK_API_KEY_{i}"
             ]
             token = next((os.getenv(name) for name in candidate_names if os.getenv(name)), None)
             if token:
@@ -144,7 +144,7 @@ class ParallelBacktest:
         
         if analysis_type not in dir_mapping:
             return None
-        
+            
         # Ensure we use the correct path relative to data_dir (which should be aws/Mid_Cap/)
         analysis_dir = os.path.join(self.data_dir, dir_mapping[analysis_type])
         # Convert to absolute path to ensure we're looking in the right place
@@ -161,8 +161,8 @@ class ParallelBacktest:
                 self.logger.info(f"[{symbol}] Using fallback directory: {fallback_dir}")
                 analysis_dir = fallback_dir
             else:
-                return None
-        
+            return None
+            
         self.logger.debug(f"[{symbol}] Looking for {analysis_type} analysis in: {analysis_dir}")
             
         # Find files for this symbol - pattern matches: {symbol}_*analysis*.json or {symbol}.EXCHANGE_*analysis*.json
@@ -176,7 +176,7 @@ class ParallelBacktest:
         
         files = []
         for pattern in patterns:
-            files = glob.glob(pattern)
+        files = glob.glob(pattern)
             if files:
                 break
         
@@ -231,7 +231,7 @@ class ParallelBacktest:
     def _load_previous_decisions(self, symbol, current_date):
         """Load previous decisions for a symbol up to the current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_DSeek')
+            decisions_dir = os.path.join(self.data_dir, 'reasoning_decisions_DSeek_2.0')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -275,7 +275,7 @@ class ParallelBacktest:
     def _load_previous_portfolio_decisions(self, current_date):
         """Load previous portfolio allocation decisions (up to 4) before current date"""
         try:
-            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_DSeek')
+            decisions_dir = os.path.join(self.data_dir, 'portfolio_decisions_DSeek_2.0')
             if not os.path.exists(decisions_dir):
                 return []
             
@@ -630,7 +630,7 @@ class ParallelBacktest:
                 }
                 
                 self.logger.info(f"✅ SHORT {symbol}: {shares_requested} shares @ ${current_price:,.2f} (Notional: ${cost_or_value:,.2f}, Spread Fee: ${entry_spread_fee:,.2f}, Cash Deducted: ${cost_or_value + entry_spread_fee:,.2f}) - {reasoning}")
-                trades_executed += 1
+                    trades_executed += 1
                     
             # --- 3. BUY (Uses Cash) ---
             elif pm_decision == 'BUY' and amount_usd > 0 and shares_requested > 0:
@@ -661,7 +661,7 @@ class ParallelBacktest:
             elif pm_decision in ['NEUTRAL', 'MAINTAIN']:
                 self.logger.info(f"⏭️ {pm_decision} {symbol} - {reasoning}")
             
-            else:
+                else:
                  # Catch-all for non-actionable or zero-amount entries
                 pass
         
@@ -729,11 +729,11 @@ class ParallelBacktest:
                 future_to_symbol = {}
                 for idx, symbol in enumerate(symbols):
                     api_key = self.api_keys[idx % len(self.api_keys)]
-                    # Small stagger to avoid simultaneous burst (0.1s per request)
+                    # Stagger to avoid simultaneous burst (0.5s per request)
                     # This helps prevent hitting global rate limits even with different API keys
                     import time
                     if idx > 0:
-                        time.sleep(0.1 * idx)  # Stagger: 0s, 0.1s, 0.2s, 0.3s...
+                        time.sleep(0.5 * idx)  # Stagger: 0s, 0.5s, 1.0s, 1.5s...
                     future = executor.submit(self._analyze_single_stock, symbol, current_date, api_key)
                     future_to_symbol[future] = symbol
                 

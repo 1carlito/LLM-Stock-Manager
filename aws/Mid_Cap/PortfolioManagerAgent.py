@@ -26,9 +26,9 @@ class PortfolioManagerAgent:
     cash constraints are strictly respected.
     """
     
-    def __init__(self, data_dir=".", api_key=None):
+    def __init__(self, data_dir=".", api_key=None): 
         self.data_dir = data_dir
-        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_DSeek")
+        self.portfolio_save_dir = os.path.join(self.data_dir, "portfolio_decisions_DSeek_2.0")
         
         # Use provided API key or load from environment
         # Portfolio Manager only needs ONE key since it runs sequentially (not in parallel)
@@ -38,7 +38,7 @@ class PortfolioManagerAgent:
                 "No Chutes API token found. Pass api_key or set PORTFOLIO_CHUTES_DEEPSEEK_API_KEY in the environment."
             )
         
-        self.model_name = "deepseek-ai/DeepSeek-V3.1"
+        self.model_name = "deepseek-ai/DeepSeek-V3.1-Terminus"
         
         os.makedirs(self.portfolio_save_dir, exist_ok=True)
         print(f"✅ PortfolioManagerAgent initialized with {self.model_name}")
@@ -296,7 +296,7 @@ IMPORTANT:
                 {"role": "user", "content": user_prompt},
             ],
             "stream": False,
-            "max_tokens": 4096,
+            "max_tokens": 3800,
             "temperature": 0.7,
         }
 
@@ -305,9 +305,10 @@ IMPORTANT:
             "Content-Type": "application/json",
         }
 
-        # Retry logic with exponential backoff for rate limiting
-        max_retries = 3
-        base_delay = 2.0  # Start with 2 second delay for portfolio manager
+        # Retry logic with exponential backoff for rate limiting (429), service unavailable (503), and timeouts
+        max_retries = 5
+        base_delay = 5.0  # Start with 5 second delay for portfolio manager
+        time.sleep(3.0)  # Initial delay before first API call
         
         for attempt in range(max_retries):
             try:
@@ -315,15 +316,16 @@ IMPORTANT:
                     CHUTES_API_URL,
                     headers=headers,
                     json=body,
-                    timeout=180,
+                    timeout=240,  # Increased timeout to 240 seconds
                 )
                 
-                # Check for rate limit (429)
-                if response.status_code == 429:
+                # Check for rate limit (429) or service unavailable (503)
+                if response.status_code in [429, 503]:
                     if attempt < max_retries - 1:
-                        # Exponential backoff: 2s, 4s, 8s
+                        # Exponential backoff: 5s, 10s, 20s, 40s, 80s
                         delay = base_delay * (2 ** attempt)
-                        print(f"⚠️ Rate limited (429) for Portfolio Manager, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                        status_msg = "rate limited (429)" if response.status_code == 429 else "service unavailable (503)"
+                        print(f"⚠️ {status_msg} for Portfolio Manager, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
                         time.sleep(delay)
                         continue
                     else:
@@ -332,10 +334,25 @@ IMPORTANT:
                     response.raise_for_status()
                     break  # Success, exit retry loop
                     
-            except requests.RequestException as exc:
-                if attempt < max_retries - 1 and hasattr(exc, 'response') and exc.response is not None and exc.response.status_code == 429:
+            except requests.Timeout as exc:
+                # Handle timeout errors
+                if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
-                    print(f"⚠️ Rate limited (429) for Portfolio Manager, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                    print(f"⚠️ Timeout for Portfolio Manager, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise RuntimeError(f"Chutes API request timed out after {max_retries} attempts: {exc}") from exc
+            except requests.RequestException as exc:
+                # Check if it's a 429 or 503 error
+                status_code = None
+                if hasattr(exc, 'response') and exc.response is not None:
+                    status_code = exc.response.status_code
+                
+                if status_code in [429, 503] and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    status_msg = "rate limited (429)" if status_code == 429 else "service unavailable (503)"
+                    print(f"⚠️ {status_msg} for Portfolio Manager, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
                     time.sleep(delay)
                     continue
                 elif attempt == max_retries - 1:
@@ -457,11 +474,10 @@ IMPORTANT:
                     # Only quote if they're not already quoted
                     def quote_property_name(match):
                         prefix = match.group(1)  # { or ,
-                        whitespace = match.group(2)  # optional whitespace
-                        prop_name = match.group(3)  # the property name
+                        prop_name = match.group(2)  # the property name
                         # Only quote if they're not already quoted and not a number
                         if not prop_name.startswith('"') and not prop_name[0].isdigit():
-                            return f'{prefix}{whitespace}"{prop_name}":'
+                            return f'{prefix}"{prop_name}":'
                         return match.group(0)  # Already quoted, leave as is
                     
                     # Match: ({ or ,) + (optional whitespace) + (word chars) + :
@@ -585,7 +601,13 @@ IMPORTANT:
             
             for decision in decisions_list:
                 symbol = decision.get('symbol')
-                action = decision.get('action', '').upper()
+                action = decision.get('action', '')
+                # If action is an int (malformed response), fallback to NEUTRAL
+                if isinstance(action, int):
+                    action = 'NEUTRAL'
+                    decision['action'] = 'NEUTRAL'
+                else:
+                    action = str(action).upper() if action else ''
                 
                 # VALIDATE: Reject invalid symbols (e.g., "NEW_OPPORTUNITY" hallucinated by LLM)
                 if not isinstance(symbol, str) or not symbol.strip():
@@ -757,7 +779,27 @@ IMPORTANT:
             
         except Exception as e:
             print(f"❌ Parse error in Portfolio Manager response: {e}")
-            raise RuntimeError("PortfolioManager waterfall allocation failed - no fallback allowed under strict mode.")
+            print(f"⚠️ Skipping day due to JSON error; proceeding with no portfolio allocations.")
+            # Fallback: Empty allocation for the day (all symbols neutral, zero allocation)
+            neutral_decisions = [
+                {
+                    "symbol": d.get("symbol"),
+                    "action": "NEUTRAL",
+                    "amount_usd": 0.0,
+                    "reasoning": "LLM output could not be parsed; passing through day with no action.",
+                    "portfolio_weight_target": 0.0,
+                    "decision": "NEUTRAL",
+                }
+                for d in stock_decisions if d.get("symbol")
+            ]
+            result = {
+                "date": current_date,
+                "portfolio_decisions": neutral_decisions,
+                "portfolio_summary": {"strategy_notes": "Skipped allocation due to parse error"},
+                "raw_response": response_text,
+                "model_used": self.model_name
+            }
+            return result
     
     def _fallback_allocation(self, stock_decisions, portfolio_state, current_date):
         """

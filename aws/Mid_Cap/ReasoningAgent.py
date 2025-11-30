@@ -5,6 +5,7 @@ ReasoningAgent.py: Final decision maker that integrates analyses from all other 
 import os
 import json
 import re
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 import requests
@@ -16,13 +17,13 @@ load_dotenv(dotenv_path=env_path)
 # Gather default API token (parallel orchestrator typically overrides this)
 DEFAULT_API_TOKEN = os.getenv("DEEPSEEK_API_KEY_1")
 
-MODEL_NAME = "deepseek-ai/DeepSeek-V3.1"
+MODEL_NAME = "deepseek-ai/DeepSeek-V3.1-Terminus"
 CHUTES_API_URL = os.getenv("CHUTES_API_URL", "https://llm.chutes.ai/v1/chat/completions")
 
 class ReasoningAgent:
     def __init__(self, data_dir=".", api_key_override=None):
         self.data_dir = data_dir
-        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_DSeek")
+        self.decision_save_dir = os.path.join(self.data_dir, "reasoning_decisions_DSeek_2.0")
         self.model = MODEL_NAME
         
         # Use override API token if provided (parallel mode), otherwise fallback to env
@@ -99,6 +100,10 @@ class ReasoningAgent:
 
     def _call_chutes_api(self, prompt: str) -> str:
         """Call the Chutes DeepSeek endpoint and return the combined text response."""
+        # Add a delay before API call to reduce rate limiting
+        # (in addition to the 0.5s stagger per request in ParallelOrchestrator)
+        time.sleep(2.0)
+        
         body = {
             "model": self.model,
             "messages": [
@@ -106,7 +111,7 @@ class ReasoningAgent:
                 {"role": "user", "content": prompt},
             ],
             "stream": False,
-            "max_tokens": 4000,
+            "max_tokens": 3300,
             "temperature": 0.7,
         }
 
@@ -115,16 +120,59 @@ class ReasoningAgent:
             "Content-Type": "application/json",
         }
 
-        try:
-            response = requests.post(
-                CHUTES_API_URL,
-                headers=headers,
-                json=body,
-                timeout=120,
-            )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Chutes API request failed: {exc}") from exc
+        # Retry logic with exponential backoff for rate limiting (429), service unavailable (503), and timeouts
+        max_retries = 5
+        base_delay = 3.0
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    CHUTES_API_URL,
+                    headers=headers,
+                    json=body,
+                    timeout=240,  # Increased timeout to 240 seconds
+                )
+                
+                # Check for rate limit (429) or service unavailable (503)
+                if response.status_code in [429, 503]:
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: 3s, 6s, 12s, 24s, 48s
+                        delay = base_delay * (2 ** attempt)
+                        status_msg = "rate limited (429)" if response.status_code == 429 else "service unavailable (503)"
+                        print(f"⚠️ {status_msg} for ReasoningAgent, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        response.raise_for_status()
+                else:
+                    response.raise_for_status()
+                    break  # Success, exit retry loop
+                    
+            except requests.Timeout as exc:
+                # Handle timeout errors
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    print(f"⚠️ Timeout for ReasoningAgent, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise RuntimeError(f"Chutes API request timed out after {max_retries} attempts: {exc}") from exc
+            except requests.RequestException as exc:
+                # Check if it's a 429 or 503 error
+                status_code = None
+                if hasattr(exc, 'response') and exc.response is not None:
+                    status_code = exc.response.status_code
+                
+                if status_code in [429, 503] and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    status_msg = "rate limited (429)" if status_code == 429 else "service unavailable (503)"
+                    print(f"⚠️ {status_msg} for ReasoningAgent, retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                elif attempt == max_retries - 1:
+                    raise RuntimeError(f"Chutes API request failed after {max_retries} attempts: {exc}") from exc
+                else:
+                    raise RuntimeError(f"Chutes API request failed: {exc}") from exc
 
         data = response.json()
         try:
