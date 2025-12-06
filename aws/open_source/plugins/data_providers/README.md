@@ -53,6 +53,55 @@ print(data['company_overview'])
 
 See `alpha_vantage_provider.py` for full API documentation.
 
+## Configuration
+
+Data fetching is configurable through `DataProviderConfig`:
+
+```python
+from plugins.data_providers import DataProviderConfig, DefaultDataProvider
+
+# Create configuration
+config = DataProviderConfig(
+    provider_name="alpha_vantage",  # or "fmp" for future providers
+    include_fundamentals=True,      # Fetch company fundamentals
+    include_financials=True,        # Fetch financial statements
+    include_historical_prices=True, # Fetch historical prices
+    include_quote=True              # Fetch real-time quote
+)
+
+# Create provider with config
+provider = config.create_provider()
+
+# Get data with config
+data_config = config.get_data_config()
+data = provider.get_data("NVDA", current_date="2025-01-15", **data_config)
+```
+
+### Default Configuration
+
+```python
+from plugins.data_providers import default_config
+
+# Use default config (Alpha Vantage, all data points enabled)
+provider = default_config.create_provider()
+data = provider.get_data("NVDA", current_date="2025-01-15", **default_config.get_data_config())
+```
+
+### Custom Configuration
+
+```python
+# Minimal config (only prices, no fundamentals)
+minimal_config = DataProviderConfig(
+    provider_name="alpha_vantage",
+    include_fundamentals=False,
+    include_financials=False,
+    include_quote=False
+)
+
+provider = minimal_config.create_provider()
+data = provider.get_data("NVDA", current_date="2025-01-15", **minimal_config.get_data_config())
+```
+
 ## Adding Custom Data Providers
 
 To add a custom data provider:
