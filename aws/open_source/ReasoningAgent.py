@@ -56,7 +56,7 @@ class ReasoningAgent:
             response = self._call_chutes_api(prompt)
             
             print(f"✅ Got DeepSeek response for {symbol}")
-            decision_result = self._parse_response(response, symbol, current_date)
+            decision_result = self._parse_response(response, symbol, current_date, fundamental_data=fundamental_data)
             self._save_decision(decision_result)
             return decision_result
         except Exception as e:
@@ -247,7 +247,7 @@ REASONING: [Brief explanation of your decision, key factors considered, risk ass
         
         return prompt
 
-    def _parse_response(self, response_text, symbol, current_date):
+    def _parse_response(self, response_text, symbol, current_date, fundamental_data=None):
         """Parse the LLM response to extract decision, confidence, and reasoning."""
         try:
             # Initialize default values
@@ -320,6 +320,18 @@ REASONING: [Brief explanation of your decision, key factors considered, risk ass
             # Add short_confidence for SELL decisions
             if decision == 'SELL' and short_confidence_normalized is not None:
                 result['short_confidence'] = short_confidence_normalized
+            
+            # Extract sector and industry from fundamental_data (if available)
+            try:
+                if fundamental_data:
+                    sector = fundamental_data.get('Sector') or fundamental_data.get('sector')
+                    industry = fundamental_data.get('Industry') or fundamental_data.get('industry')
+                    if sector:
+                        result['sector'] = sector
+                    if industry:
+                        result['industry'] = industry
+            except Exception:
+                pass  # Non-critical, continue without sector/industry
             
             print(f"✅ Parsed: {decision} (confidence: {confidence}%)")
             return result

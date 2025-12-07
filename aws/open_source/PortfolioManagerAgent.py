@@ -13,8 +13,6 @@ import re
 import math
 from typing import List, Dict, Any
 
-from waterfall_allocator import DEFAULT_SECTOR_PRIORITY
-
 # Load environment variables from .env in the same directory as this script
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
@@ -830,49 +828,13 @@ IMPORTANT:
         buy_decisions = [d for d in decisions_list if d.get('action', '').upper() == 'BUY']
         other_decisions = [d for d in decisions_list if d.get('action', '').upper() not in ('CLOSE', 'COVER', 'SELL', 'SHORT', 'BUY')]
         
-        # Build confidence/short_confidence maps and optional sector priority map
-        confidence_map = {
-            d.get('symbol'): d.get('confidence', 0.5)
-            for d in stock_decisions
-            if d.get('symbol')
-        }
-        short_confidence_map = {
-            d.get('symbol'): d.get('short_confidence', d.get('confidence', 0.5))
-            for d in stock_decisions
-            if d.get('symbol')
-        }
-
-        sector_priority_map = {}
-        if stock_decisions:
-            # Allow overriding sector priorities via portfolio_state; otherwise use defaults
-            sector_priority_config = portfolio_state.get('sector_priority') or DEFAULT_SECTOR_PRIORITY
-            default_priority = sector_priority_config.get('Unknown', 0.0)
-            for d in stock_decisions:
-                symbol = d.get('symbol')
-                if not symbol:
-                    continue
-                # Accept either 'sector' or 'Sector' keys on the decision
-                sector = d.get('sector') or d.get('Sector')
-                if not sector:
-                    sector = 'Unknown'
-                sector_priority_map[symbol] = sector_priority_config.get(sector, default_priority)
-
-        # Helper sort keys: primary = confidence, secondary = sector priority
-        def _buy_sort_key(decision: Dict[str, Any]):
-            symbol = decision.get('symbol')
-            conf = confidence_map.get(symbol, 0.5)
-            sector_pri = sector_priority_map.get(symbol, 0.0)
-            return (conf, sector_pri)
-
-        def _short_sort_key(decision: Dict[str, Any]):
-            symbol = decision.get('symbol')
-            conf = short_confidence_map.get(symbol, confidence_map.get(symbol, 0.5))
-            sector_pri = sector_priority_map.get(symbol, 0.0)
-            return (conf, sector_pri)
-
-        # Sort BUY and SHORT by (confidence, sector_priority) with higher first
-        buy_decisions.sort(key=_buy_sort_key, reverse=True)
-        short_decisions.sort(key=_short_sort_key, reverse=True)
+        # Build confidence map from stock_decisions
+        confidence_map = {d.get('symbol'): d.get('confidence', 0.5) for d in stock_decisions}
+        short_confidence_map = {d.get('symbol'): d.get('short_confidence', d.get('confidence', 0.5)) for d in stock_decisions}
+        
+        # Sort BUY and SHORT by confidence (higher first)
+        buy_decisions.sort(key=lambda x: confidence_map.get(x.get('symbol'), 0.5), reverse=True)
+        short_decisions.sort(key=lambda x: short_confidence_map.get(x.get('symbol'), 0.5), reverse=True)
         
         remaining_cash = available_cash
         final_decisions = []

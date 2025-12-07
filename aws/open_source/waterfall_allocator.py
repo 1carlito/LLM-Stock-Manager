@@ -11,11 +11,8 @@ This module provides sequential cash-constrained allocation that ensures:
 import math
 from typing import List, Dict, Any, Optional
 
-
-# Default sector priority mapping used as a tie-breaker when confidences are equal.
-# Higher numbers = higher priority. This is intentionally simple and can be
-# overridden via portfolio_state['sector_priority'].
-DEFAULT_SECTOR_PRIORITY: Dict[str, float] = {
+# Default sector priority map (can be overridden by portfolio_state['sector_priority'])
+DEFAULT_SECTOR_PRIORITY = {
     "Technology": 3.0,
     "Healthcare": 3.0,
     "Financial Services": 2.0,
@@ -27,6 +24,38 @@ DEFAULT_SECTOR_PRIORITY: Dict[str, float] = {
     "Real Estate": 1.0,
     "Utilities": 1.0,
     "Communication Services": 1.0,
+    "Unknown": 0.0,
+}
+
+# Default industry (subsector) priority map (can be overridden by portfolio_state['industry_priority'])
+# These scores are ADDED to sector scores for combined prioritization
+DEFAULT_INDUSTRY_PRIORITY = {
+    # Technology subsectors
+    "Consumer Electronics": 2.0,
+    "Software": 1.5,
+    "Semiconductors": 2.5,
+    "Internet Content & Information": 1.0,
+    "Computer Hardware": 1.0,
+    "Telecom Services": 0.5,
+    
+    # Healthcare subsectors
+    "Biotechnology": 2.5,
+    "Pharmaceuticals": 2.0,
+    "Medical Devices": 1.5,
+    "Healthcare Plans": 1.0,
+    
+    # Financial Services subsectors
+    "Banks - Diversified": 1.5,
+    "Capital Markets": 1.0,
+    "Insurance": 0.5,
+    "Credit Services": 0.5,
+    
+    # Consumer subsectors
+    "Auto Manufacturers": 1.5,
+    "Retail - Cyclical": 1.0,
+    "Packaged Foods": 0.5,
+    
+    # Default
     "Unknown": 0.0,
 }
 
@@ -101,57 +130,63 @@ class WaterfallAllocator:
             if d.get('action', '').upper() not in ('CLOSE', 'COVER', 'SELL', 'SHORT', 'BUY')
         ]
         
-        # Build confidence/short_confidence maps and optional sector priority map
-        confidence_map: Dict[str, float] = {}
-        short_confidence_map: Dict[str, float] = {}
-        sector_priority_map: Dict[str, float] = {}
+        # Build confidence map from stock_decisions (if provided)
+        confidence_map = {}
+        short_confidence_map = {}
         if stock_decisions:
             confidence_map = {
-                d.get('symbol'): d.get('confidence', 0.5)
+                d.get('symbol'): d.get('confidence', 0.5) 
                 for d in stock_decisions
-                if d.get('symbol')
             }
             short_confidence_map = {
-                d.get('symbol'): d.get('short_confidence', d.get('confidence', 0.5))
+                d.get('symbol'): d.get('short_confidence', d.get('confidence', 0.5)) 
                 for d in stock_decisions
-                if d.get('symbol')
             }
-            # Sector priority can be overridden via portfolio_state; fall back to defaults
-            sector_priority_config: Dict[str, float] = (
-                portfolio_state.get('sector_priority') or DEFAULT_SECTOR_PRIORITY
-            )
-            default_priority = sector_priority_config.get('Unknown', 0.0)
+        
+        # Build combined sector + industry priority map
+        # Priority: portfolio_state configs > DEFAULT configs
+        sector_priority_config = portfolio_state.get('sector_priority', DEFAULT_SECTOR_PRIORITY)
+        industry_priority_config = portfolio_state.get('industry_priority', DEFAULT_INDUSTRY_PRIORITY)
+        combined_priority_map = {}
+        
+        # Build per-symbol combined priority (sector_score + industry_score)
+        if stock_decisions:
             for d in stock_decisions:
                 symbol = d.get('symbol')
-                if not symbol:
-                    continue
-                # Accept either 'sector' or 'Sector' keys
-                sector = d.get('sector') or d.get('Sector')
-                if not sector:
-                    sector = 'Unknown'
-                sector_priority_map[symbol] = sector_priority_config.get(
-                    sector, default_priority
-                )
-
-        # Helper sort keys: primary = confidence, secondary = sector priority
-        def _buy_sort_key(decision: Dict[str, Any]):
-            symbol = decision.get('symbol')
+                sector = d.get('sector') or d.get('Sector') or 'Unknown'
+                industry = d.get('industry') or d.get('Industry') or 'Unknown'
+                
+                # Get sector score
+                sector_score = sector_priority_config.get(sector, sector_priority_config.get('Unknown', 0.0))
+                
+                # Get industry (subsector) score
+                industry_score = industry_priority_config.get(industry, industry_priority_config.get('Unknown', 0.0))
+                
+                # Combined score: sector + industry (additive)
+                combined_priority_map[symbol] = sector_score + industry_score
+        
+        # Sort BUY decisions by (confidence, combined_priority, symbol)
+        # Primary: confidence (higher first) - use negative for reverse sort
+        # Secondary: combined_priority (sector + industry, higher first) - use negative for reverse sort
+        # Tertiary: symbol (alphabetical, A-Z first) - normal sort (no negative)
+        def _buy_sort_key(d):
+            symbol = d.get('symbol', '')
             conf = confidence_map.get(symbol, 0.5)
-            sector_pri = sector_priority_map.get(symbol, 0.0)
-            return (conf, sector_pri)
-
-        def _short_sort_key(decision: Dict[str, Any]):
-            symbol = decision.get('symbol')
-            # Fall back to long confidence if short_confidence missing
-            conf = short_confidence_map.get(
-                symbol, confidence_map.get(symbol, 0.5)
-            )
-            sector_pri = sector_priority_map.get(symbol, 0.0)
-            return (conf, sector_pri)
-
-        # Sort BUY and SHORT by (confidence, sector_priority), higher first
-        buy_decisions.sort(key=_buy_sort_key, reverse=True)
-        short_decisions.sort(key=_short_sort_key, reverse=True)
+            combined_pri = combined_priority_map.get(symbol, 0.0)
+            # Negate conf and combined_pri so higher values sort first
+            # symbol stays positive so A-Z sorts first
+            return (-conf, -combined_pri, symbol)
+        
+        def _short_sort_key(d):
+            symbol = d.get('symbol', '')
+            conf = short_confidence_map.get(symbol, confidence_map.get(symbol, 0.5))
+            combined_pri = combined_priority_map.get(symbol, 0.0)
+            # Negate conf and combined_pri so higher values sort first
+            # symbol stays positive so A-Z sorts first
+            return (-conf, -combined_pri, symbol)
+        
+        buy_decisions.sort(key=_buy_sort_key)
+        short_decisions.sort(key=_short_sort_key)
         
         remaining_cash = available_cash
         final_decisions = []
@@ -179,17 +214,29 @@ class WaterfallAllocator:
             final_decisions.extend(short_decisions)
         else:
             # Normal SHORT processing
+            # Get portfolio value for max allocation calculation
+            portfolio_value = portfolio_state.get('total_value', available_cash)
+            max_allocation_pct = portfolio_state.get('max_allocation_pct', 0.30)  # Default 30% max per position
+            
             for decision in short_decisions:
                 symbol = decision.get('symbol')
-                requested_amount = abs(float(decision.get('amount_usd', 0) or 0))
                 price = last_prices.get(symbol, 0)
                 
                 if price <= 0:
                     continue
                 
-                # Calculate cap: per_trade_cap_pct of remaining cash (further limited by short_cap_pct)
-                cap = min(remaining_cash * self.per_trade_cap_pct, remaining_cash * short_cap_pct)
-                capped_amount = min(requested_amount, cap)
+                # Get short_confidence from stock_decisions (if available)
+                short_confidence = short_confidence_map.get(symbol, confidence_map.get(symbol, 0.5))
+                
+                # Calculate allocation: short_confidence * max_allocation
+                # max_allocation = min(portfolio_value * max_allocation_pct, remaining_cash * short_cap_pct)
+                max_allocation_absolute = portfolio_value * max_allocation_pct
+                short_cap_absolute = remaining_cash * short_cap_pct
+                max_allocation = min(max_allocation_absolute, short_cap_absolute)
+                
+                # Calculate amount based on short_confidence
+                requested_amount = max_allocation * short_confidence
+                capped_amount = requested_amount
                 
                 if capped_amount < price:
                     continue  # Skip if can't afford 1 share
@@ -217,7 +264,8 @@ class WaterfallAllocator:
                 decision['reasoning'] = (
                     f"{decision.get('reasoning', '')} "
                     f"(waterfall: ${final_amount:,.2f}, {shares} shares, "
-                    f"spread_fee: ${spread_fee:,.2f})"
+                    f"spread_fee: ${spread_fee:,.2f}, short_conf: {short_confidence:.2f}, "
+                    f"max_alloc: ${max_allocation:,.2f})"
                 )
                 final_decisions.append(decision)
                 
@@ -225,26 +273,35 @@ class WaterfallAllocator:
                 remaining_cash -= (final_amount + spread_fee)
         
         # Process BUY decisions
+        # Get portfolio value for max allocation calculation
+        portfolio_value = portfolio_state.get('total_value', available_cash)
+        max_allocation_pct = portfolio_state.get('max_allocation_pct', 0.30)  # Default 30% max per position
+        
         for decision in buy_decisions:
             symbol = decision.get('symbol')
-            requested_amount = abs(float(decision.get('amount_usd', 0) or 0))
             price = last_prices.get(symbol, 0)
             
             if price <= 0:
                 continue
             
-            # Calculate cap: per_trade_cap_pct of remaining cash
-            buy_cap = remaining_cash * self.per_trade_cap_pct
+            # Get confidence from stock_decisions (if available)
+            confidence = confidence_map.get(symbol, 0.5)
             
-            # Cap the requested amount
-            capped_amount = min(requested_amount, buy_cap)
+            # Calculate allocation: confidence * max_allocation
+            # max_allocation = min(portfolio_value * max_allocation_pct, remaining_cash * per_trade_cap_pct)
+            max_allocation_absolute = portfolio_value * max_allocation_pct
+            per_trade_cap_absolute = remaining_cash * self.per_trade_cap_pct
+            max_allocation = min(max_allocation_absolute, per_trade_cap_absolute)
+            
+            # Calculate amount based on confidence
+            requested_amount = max_allocation * confidence
             
             # Ensure at least 1 share
-            if capped_amount < price:
+            if requested_amount < price:
                 continue  # Skip if can't afford 1 share
             
             # Round down to whole shares
-            shares = int(capped_amount // price)
+            shares = int(requested_amount // price)
             if shares < 1:
                 continue
             
@@ -257,7 +314,8 @@ class WaterfallAllocator:
             decision['amount_usd'] = final_amount
             decision['reasoning'] = (
                 f"{decision.get('reasoning', '')} "
-                f"(waterfall: ${final_amount:,.2f}, {shares} shares)"
+                f"(waterfall: ${final_amount:,.2f}, {shares} shares, confidence: {confidence:.2f}, "
+                f"max_alloc: ${max_allocation:,.2f})"
             )
             final_decisions.append(decision)
         

@@ -22,7 +22,7 @@ from ReasoningAgent import ReasoningAgent
 from SentimentAgent import SentimentAgent
 from ValuationAgent import ValuationAgent
 from FundamentalAgent import FundamentalAgent
-from PortfolioManagerAgent import PortfolioManagerAgent
+from waterfall_allocator import allocate_decisions
 
 
 SHORT_SELLING_CONFIG = {
@@ -86,9 +86,6 @@ class ParallelBacktest:
         
         # Track previous decisions for each symbol
         self.previous_decisions = defaultdict(list)
-        
-        # Initialize Portfolio Manager
-        self.portfolio_manager = PortfolioManagerAgent(data_dir=data_dir)
         
         # Initialize shared analysis agents 
             self.sentiment_agent = None
@@ -509,6 +506,111 @@ class ParallelBacktest:
             return base_rate + (1.0 / math.sqrt(mc_bil))
         return base_rate
 
+    def _convert_to_portfolio_decisions(self, stock_decisions):
+        """
+        Convert ReasoningAgent decisions to portfolio_decisions format.
+        Handles action conversion (SELL → SHORT, BUY → COVER+BUY, etc.)
+        """
+        positions = self.portfolio.get('positions', {})
+        short_positions = self.portfolio.get('short_positions', {})
+        portfolio_decisions = []
+        
+        for decision in stock_decisions:
+            symbol = decision.get('symbol')
+            action = decision.get('decision', 'NEUTRAL').upper()  # BUY/SELL/NEUTRAL/MAINTAIN
+            owns_stock = symbol in positions and positions[symbol].get('shares', 0) > 0
+            has_short = symbol in short_positions and short_positions[symbol].get('shares', 0) > 0
+            
+            # Action conversion logic
+            if action == 'SELL':
+                if owns_stock:
+                    # We own it - close long position
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'SELL',
+                        'amount_usd': 0,  # Close full position
+                        'reasoning': decision.get('reasoning', ''),
+                        'confidence': decision.get('confidence', 0.5),
+                        'sector': decision.get('sector')  # Pass through sector for tie-breaking
+                    })
+                elif not has_short:
+                    # Don't own it - convert to SHORT
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'SHORT',
+                        'amount_usd': 0,  # Will be set by waterfall based on confidence
+                        'reasoning': decision.get('reasoning', ''),
+                        'confidence': decision.get('confidence', 0.5),
+                        'short_confidence': decision.get('short_confidence', decision.get('confidence', 0.5)),
+                        'sector': decision.get('sector')  # Pass through sector for tie-breaking
+                    })
+                else:
+                    # Already have short - maintain it
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'MAINTAIN',
+                        'amount_usd': 0,
+                        'reasoning': f"Maintaining existing short position: {decision.get('reasoning', '')}",
+                        'confidence': decision.get('confidence', 0.5)
+                    })
+            
+            elif action == 'BUY':
+                if has_short:
+                    # Add COVER first to close short
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'COVER',
+                        'amount_usd': 0,  # Close full short position
+                        'reasoning': 'Auto-covering short before BUY',
+                        'confidence': decision.get('confidence', 0.5)
+                    })
+                # Then add BUY
+                portfolio_decisions.append({
+                    'symbol': symbol,
+                    'action': 'BUY',
+                    'amount_usd': 0,  # Will be set by waterfall based on confidence
+                    'reasoning': decision.get('reasoning', ''),
+                    'confidence': decision.get('confidence', 0.5),
+                    'sector': decision.get('sector')  # Pass through sector for tie-breaking
+                })
+            
+            elif action == 'NEUTRAL':
+                # NEUTRAL: No edge found
+                if owns_stock or has_short:
+                    # Own it - keep as NEUTRAL (may close if capital needed)
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'NEUTRAL',
+                        'amount_usd': 0,
+                        'reasoning': decision.get('reasoning', ''),
+                        'confidence': decision.get('confidence', 0.5)
+                    })
+                # If not owned, skip (no action needed)
+            
+            elif action == 'MAINTAIN':
+                # MAINTAIN: Thesis intact, keep position
+                if owns_stock or has_short:
+                    portfolio_decisions.append({
+                        'symbol': symbol,
+                        'action': 'MAINTAIN',
+                        'amount_usd': 0,
+                        'reasoning': decision.get('reasoning', ''),
+                        'confidence': decision.get('confidence', 0.5)
+                    })
+                # If not owned, skip (no action needed)
+            
+            else:
+                # Unknown action - default to NEUTRAL
+                portfolio_decisions.append({
+                    'symbol': symbol,
+                    'action': 'NEUTRAL',
+                    'amount_usd': 0,
+                    'reasoning': f"Unknown action '{action}', defaulting to NEUTRAL",
+                    'confidence': decision.get('confidence', 0.5)
+                })
+        
+        return portfolio_decisions
+    
     def _execute_portfolio_trades(self, portfolio_decisions_list, current_date):
         """
         Executes the trades proposed by the Portfolio Manager after waterfall allocation.
@@ -812,10 +914,11 @@ class ParallelBacktest:
                 self.logger.info(f"   Short P&L: ${short_pnl:,.2f}")
                 self.logger.info(f"   Total Portfolio Value: ${portfolio_value:,.2f}")
                 
-                # --- Prepare PM Agent Arguments ---
-                current_cash = self.portfolio['cash']
+                # --- Convert ReasoningAgent decisions to portfolio_decisions format ---
+                portfolio_decisions = self._convert_to_portfolio_decisions(stock_decisions)
                 
                 # Build full portfolio_state dictionary with all required fields
+                current_cash = self.portfolio['cash']
                 portfolio_state = {
                     'cash': current_cash,
                     'total_value': portfolio_value,
@@ -824,24 +927,27 @@ class ParallelBacktest:
                     'short_positions': self.portfolio.get('short_positions', {}).copy(),
                     'last_prices': self.portfolio['last_prices'].copy(),
                     'market_caps': self.portfolio.get('market_caps', {}).copy(),  # Include market caps for spread calculation
-                    'max_short_per_stock_pct': SHORT_SELLING_CONFIG.get('max_short_per_stock_pct', 25)
+                    'max_short_per_stock_pct': SHORT_SELLING_CONFIG.get('max_short_per_stock_pct', 25),
+                    'max_allocation_pct': 0.30  # 30% max allocation per position
                 }
                 
-                # CALL PM (Now returns a strictly calculated list)
-                portfolio_decisions_list = self.portfolio_manager.get_portfolio_decisions(
-                    stock_decisions,
+                # Apply waterfall allocation directly (confidence-based)
+                allocated_decisions = allocate_decisions(
+                    decisions_list=portfolio_decisions,
                     portfolio_state=portfolio_state,
-                    current_date=current_date,
-                    previous_portfolio_decisions=self._load_previous_portfolio_decisions(current_date)
+                    stock_decisions=stock_decisions,  # For confidence + sector mapping
+                    per_trade_cap_pct=0.25,  # 25% of remaining cash per trade
+                    short_cap_pct=0.25,       # 25% for short positions
+                    cash_threshold_pct=0.25,  # Block shorts when cash < 25% of initial
+                    initial_value=portfolio_state.get('initial_value', 100000)
                 )
                 
-                # 4. EXECUTE TRADES (Pass the list directly)
-                portfolio_decisions = portfolio_decisions_list.get('portfolio_decisions', [])
-                self.logger.info(f"📋 Received {len(portfolio_decisions)} portfolio decisions from PMA")
-                if portfolio_decisions:
-                    self.logger.info(f"   Decisions: {[(d.get('symbol'), d.get('action') or d.get('decision'), d.get('amount_usd', 0)) for d in portfolio_decisions[:10]]}")
+                self.logger.info(f"📋 Allocated {len(allocated_decisions)} portfolio decisions via waterfall")
+                if allocated_decisions:
+                    self.logger.info(f"   Decisions: {[(d.get('symbol'), d.get('action') or d.get('decision'), d.get('amount_usd', 0)) for d in allocated_decisions[:10]]}")
                 
-                trades = self._execute_portfolio_trades(portfolio_decisions, current_date)
+                # 4. EXECUTE TRADES
+                trades = self._execute_portfolio_trades(allocated_decisions, current_date)
                 total_trades += trades
                 self.logger.info(f"✅ Executed {trades} trades this day")
 
