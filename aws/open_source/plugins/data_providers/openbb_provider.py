@@ -168,8 +168,23 @@ class OpenBBProvider:
                 row = profile.iloc[0] if len(profile) > 0 else profile
                 overview['Symbol'] = symbol
                 overview['Name'] = row.get('name', '')
-                overview['Sector'] = row.get('sector', '')
-                overview['Industry'] = row.get('industry', '')
+                
+                # Sector information (extract all available fields)
+                # Most providers return: Sector (main) and Industry (subsector)
+                overview['Sector'] = row.get('sector', '')  # Main sector (e.g., "Technology")
+                overview['Industry'] = row.get('industry', '')  # Industry/Subsector (e.g., "Consumer Electronics")
+                
+                # Additional sector fields (if available, depends on provider)
+                # GICS classification (if provider supports it)
+                overview['GICS_Sector'] = row.get('gics_sector', row.get('gicsSector', ''))
+                overview['GICS_Industry'] = row.get('gics_industry', row.get('gicsIndustry', ''))
+                overview['GICS_SubIndustry'] = row.get('gics_sub_industry', row.get('gicsSubIndustry', ''))
+                
+                # ICB classification (if provider supports it)
+                overview['ICB_Sector'] = row.get('icb_sector', row.get('icbSector', ''))
+                overview['ICB_Subsector'] = row.get('icb_subsector', row.get('icbSubsector', ''))
+                
+                # Other common fields
                 overview['Description'] = row.get('description', '')
                 overview['MarketCapitalization'] = row.get('market_cap', None)
             
