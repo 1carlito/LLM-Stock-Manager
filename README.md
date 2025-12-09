@@ -1,4 +1,5 @@
-# LLM Stock Manager
+
+<img width="618" height="90" alt="Screenshot 2025-12-09 at 14 06 35" src="https://github.com/user-attachments/assets/a2b0a55f-ba02-454e-9fa6-dc46ff25c5f3" />
 
 
 
@@ -7,7 +8,7 @@
 
 
 
-
+![Uploading Screenshot 2025-11-13 at 12.40.51.png…]()
 
 
 
