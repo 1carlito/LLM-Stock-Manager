@@ -9,17 +9,19 @@ Analyzes news sentiment for stocks using Gemini API.
 import os
 import json
 import glob
+import requests
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-from anthropic import Anthropic
 
 # Load environment variables, prefer global ~/.env then local .env
 home_env_path = os.path.expanduser('~/.env')
 if os.path.exists(home_env_path):
     load_dotenv(dotenv_path=home_env_path)
 
-MODEL_NAME = "claude-3-5-haiku-20241022"
+MODEL_NAME = "deepseek-ai/DeepSeek-V3.1-Terminus"
+CHUTES_API_URL = os.getenv("CHUTES_API_URL", "https://llm.chutes.ai/v1/chat/completions")
 
 class SentimentAgent:
     def __init__(
@@ -41,64 +43,26 @@ class SentimentAgent:
         self.stock_data_path = os.path.abspath(stock_data_path) if stock_data_path else None
         self.news_dirs = self._resolve_news_dir()
         
-        # Use override API key if provided, otherwise use dedicated sentiment key
-        api_key = api_key_override or os.getenv("SENTIMENT_CLAUDE_API_KEY")
+        # Use override API key if provided, otherwise use DeepSeek key (fallback to legacy sentiment key)
+        api_key = api_key_override or os.getenv("DEEPSEEK_API_KEY_2") 
         
         if not api_key:
-            raise ValueError("SENTIMENT_CLAUDE_API_KEY environment variable not set and no override provided")
+            raise ValueError("No sentiment API key provided. Set DEEPSEEK_API_KEY_2 (preferred) .")
         
-        # Initialize Claude client
-        self.client = Anthropic(api_key=api_key)
+        self.api_key = api_key
         self.model = MODEL_NAME
         
         # Load stock data for current prices
         self.stock_data = self._load_stock_data()
 
     def _resolve_news_dir(self) -> Dict[str, str]:
-        """Locate the directories that contain news data"""
-        # Check for sentiment_files/stock_news and sentiment_files/general_market_news
-        candidate_stock_dirs = [
-            os.path.join(self.data_dir, "sentiment_files", "stock_news"),
-            os.path.join(self.data_dir, "stock_news"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "sentiment_files", "stock_news"),
-        ]
-        
-        candidate_general_dirs = [
-            os.path.join(self.data_dir, "sentiment_files", "general_market_news"),
-            os.path.join(self.data_dir, "general_market_news"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "sentiment_files", "general_market_news"),
-        ]
-        
-        stock_news_dir = None
-        for path in candidate_stock_dirs:
-            resolved = os.path.abspath(path)
-            if os.path.isdir(resolved):
-                stock_news_dir = resolved
-                break
-        
-        general_news_dir = None
-        for path in candidate_general_dirs:
-            resolved = os.path.abspath(path)
-            if os.path.isdir(resolved):
-                general_news_dir = resolved
-                break
-        
-        # Fallback to old news_data directory if sentiment_files not found
-        if not stock_news_dir:
-            candidate_dirs = [
-                os.path.join(self.data_dir, "news_data"),
-                os.path.join(self.data_dir, "..", "news_data"),
-                os.path.join(self.data_dir, "sentiment_data", "news_data"),
-            ]
-            for path in candidate_dirs:
-                resolved = os.path.abspath(path)
-                if os.path.isdir(resolved):
-                    stock_news_dir = resolved
-                    break
-        
+        """Resolve news directories using fixed locations under sentiment_files."""
+        base = os.path.join(self.data_dir, "sentiment_files")
+        stock_news_dir = os.path.join(base, "stock_news")
+        general_news_dir = os.path.join(base, "general_market_news")
         return {
-            'stock_news': stock_news_dir or os.path.join(self.data_dir, "sentiment_files", "stock_news"),
-            'general_market_news': general_news_dir or os.path.join(self.data_dir, "sentiment_files", "general_market_news")
+            'stock_news': stock_news_dir,
+            'general_market_news': general_news_dir,
         }
 
     def _load_stock_data(self) -> Dict:
@@ -652,17 +616,52 @@ class SentimentAgent:
             - IMPORTANT: Consider both the quantity and quality of news in your assessment
             """
             
-            # Generate sentiment analysis using Claude
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
-            )
+            # Generate sentiment analysis using DeepSeek via Chutes
+            body = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "You are a professional financial news sentiment analyst."},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "max_tokens": 4000,
+                "temperature": 0.2,
+            }
+
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+
+            max_retries = 4
+            base_delay = 2.0
+            response_text = None
+
+            for attempt in range(max_retries):
+                try:
+                    resp = requests.post(
+                        CHUTES_API_URL,
+                        headers=headers,
+                        json=body,
+                        timeout=120,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    response_text = data["choices"][0]["message"]["content"]
+                    break
+                except requests.RequestException as exc:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        print(f"⚠️ SentimentAgent retry {attempt + 1}/{max_retries} in {delay:.1f}s due to {exc}")
+                        time.sleep(delay)
+                        continue
+                    raise RuntimeError(f"Chutes API request failed after {max_retries} attempts: {exc}") from exc
+                except (KeyError, IndexError, TypeError) as exc:
+                    raise RuntimeError(f"Unexpected Chutes response format: {exc}") from exc
             
-            if response and response.content and len(response.content) > 0:
+            if response_text:
                 # Parse the response
-                sentiment_result = self._parse_sentiment_response(response.content[0].text)
+                sentiment_result = self._parse_sentiment_response(response_text)
                 
                 # Add metadata
                 sentiment_result['symbol'] = symbol
