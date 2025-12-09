@@ -15,7 +15,7 @@
 
 
 
-#Overview
+# Overview
 
 This framework exists to stress-test multi-agent trading (MAS) with a simple, rigid REST API based architecture. The goal was to evaluate responses and LLM noise when analyzing financial data. Since free/cheap news APIs provide poor historic coverage, I manually scraped both general and ticker-specific news for the backtest window so the Sentiment Agent’s influence is actually present in the Reasoning Agent’s analysis.
 
