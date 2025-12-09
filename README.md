@@ -5,11 +5,12 @@
 
 
 
-<img width="3420" height="2214" alt="Screenshot 2025-11-13 at 12 40 51" src="https://github.com/user-attachments/assets/6cd62a7c-6be6-4c2e-b0c7-cee6cecf7ab5" />
 
 
 
 
+
+<img width="1098" height="758" alt="Screenshot 2025-12-09 at 13 57 07" src="https://github.com/user-attachments/assets/a7705a65-b685-4902-bfe9-dad713f109df" />
 
 
 
