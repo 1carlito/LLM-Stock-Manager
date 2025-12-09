@@ -1,0 +1,96 @@
+{
+  "stock_symbol": "TENB",
+  "api_articles": 0,
+  "manual_articles": 14,
+  "total_articles": 14,
+  "parsed_results": {
+    "TENB": {
+      "news": [
+        {
+          "title": "Q2 2025 Earnings Date Announced",
+          "date": "2025-07-16",
+          "source": "Manually summarized article",
+          "text": "Tenable scheduled the release of its second-quarter 2025 financial results for July 30, including a same-day conference call."
+        },
+        {
+          "title": "Tenable Named Leader in Unified Vulnerability Management",
+          "date": "2025-07-21",
+          "source": "Manually summarized article",
+          "text": "An independent research firm ranked Tenable as a leader for unified vulnerability management solutions, citing its exposure management strategy."
+        },
+        {
+          "title": "AI-Powered Breakthrough in Vulnerability Prioritization",
+          "date": "2025-07-24",
+          "source": "Manually summarized article",
+          "text": "Tenable introduced new AI-driven capabilities designed to improve how security teams prioritize vulnerabilities across their environments."
+        },
+        {
+          "title": "Tenable Named Customers' Choice by Gartner Peer Insights",
+          "date": "2025-07-28",
+          "source": "Manually summarized article",
+          "text": "Gartner Peer Insights recognized Tenable as a Customers' Choice for Vulnerability Assessment, underscoring strong customer satisfaction."
+        },
+        {
+          "title": "Tenable One Surpasses 300 Integrations",
+          "date": "2025-07-29",
+          "source": "Manually summarized article",
+          "text": "The company highlighted that Tenable One now supports more than 300 integrations, promoting what it called the industry's most open exposure management platform."
+        },
+        {
+          "title": "Q2 2025 Earnings Beat Forecasts",
+          "date": "2025-07-31",
+          "source": "Manually summarized article",
+          "text": "Tenable reported second-quarter 2025 revenue of $247.3 million and EPS of $0.34, both ahead of analyst estimates, while noting 12% year-over-year revenue growth and progress in exposure management."
+        },
+        {
+          "title": "Share Repurchase Program Expansion",
+          "date": "2025-07-31",
+          "source": "Manually summarized article",
+          "text": "The board approved a $250 million increase to Tenable's share repurchase program following its quarterly results."
+        },
+        {
+          "title": "Tenable Names New Chief Financial Officer",
+          "date": "2025-08-21",
+          "source": "Manually summarized article",
+          "text": "Matthew Brown was appointed CFO, succeeding Steve Vintz, who transitioned to the role of Co-Chief Executive Officer."
+        },
+        {
+          "title": "IDC MarketScape Recognizes Tenable as Leader",
+          "date": "2025-08-26",
+          "source": "Manually summarized article",
+          "text": "The IDC MarketScape report named Tenable a leader in worldwide exposure management, citing the strength of the Tenable One platform."
+        },
+        {
+          "title": "State of Cloud and AI Security Report Released",
+          "date": "2025-09-10",
+          "source": "Manually summarized article",
+          "text": "Tenable Research published its State of Cloud and AI Security 2025 study outlining ongoing challenges in cloud-security management."
+        },
+        {
+          "title": "Tenable Ranked #1 in IDC Market Share",
+          "date": "2025-09-16",
+          "source": "Manually summarized article",
+          "text": "IDC reported that Tenable held the top 2024 global market share for device vulnerability and exposure management."
+        },
+        {
+          "title": "Exposure Management Leadership Council Formed",
+          "date": "2025-09-18",
+          "source": "Manually summarized article",
+          "text": "Tenable launched the Exposure Management Leadership Council with leading CISOs to develop proactive risk management frameworks."
+        },
+        {
+          "title": "Tenable Posts Q3 2025 Earnings Beat",
+          "date": "2025-10-29",
+          "source": "Manually summarized article",
+          "text": "Tenable reported third-quarter 2025 revenue of $252.4 million, up 11% year over year, with a 23.3% non-GAAP operating margin and 437 new enterprise platform customers, prompting an increased full-year outlook."
+        },
+        {
+          "title": "Analysts React to Tenable Results",
+          "date": "2025-10-30",
+          "source": "Manually summarized article",
+          "text": "Following earnings, Canaccord Genuity reiterated a Buy rating while D.A. Davidson trimmed its price target to $32 on concerns about growth moderation."
+        }
+      ]
+    }
+  }
+}

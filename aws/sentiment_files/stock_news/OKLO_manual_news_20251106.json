@@ -1,0 +1,132 @@
+{
+  "stock_symbol": "OKLO",
+  "api_articles": 0,
+  "manual_articles": 20,
+  "total_articles": 20,
+  "parsed_results": {
+    "OKLO": {
+      "news": [
+        {
+          "title": "Cantor Fitzgerald Initiates Overweight on Oklo",
+          "date": "2025-07-15",
+          "source": "Manually fetched credible article",
+          "text": "Cantor Fitzgerald began coverage of Oklo with an Overweight rating and a $73 price target, citing strong demand for advanced microreactors."
+        },
+        {
+          "title": "NRC Readiness Assessment Completed",
+          "date": "2025-07-17",
+          "source": "Manually fetched credible article",
+          "text": "Oklo completed the Nuclear Regulatory Commission readiness assessment, advancing licensing efforts for its Aurora powerhouse."
+        },
+        {
+          "title": "Oklo and Vertiv Announce Data Center Collaboration",
+          "date": "2025-07-22",
+          "source": "Manually fetched credible article",
+          "text": "Oklo partnered with Vertiv to co-develop power and cooling solutions tailored to hyperscale and colocation data centers."
+        },
+        {
+          "title": "Oklo Teams with Liberty Energy on Integrated Power",
+          "date": "2025-07-23",
+          "source": "Manually fetched credible article",
+          "text": "Oklo and Liberty Energy unveiled a next-generation integrated power offering combining microreactors with energy services."
+        },
+        {
+          "title": "BNP Paribas Exane Starts Oklo at Underperform",
+          "date": "2025-07-25",
+          "source": "Manually fetched credible article",
+          "text": "BNP Paribas Exane initiated coverage with an Underperform rating and $14 price target, flagging commercialization risks."
+        },
+        {
+          "title": "Daiwa Upgrades Oklo to Outperform",
+          "date": "2025-07-27",
+          "source": "Manually fetched credible article",
+          "text": "Daiwa America upgraded Oklo from Hold to Outperform and raised its price target on improving execution milestones."
+        },
+        {
+          "title": "Q2 2025 Results Call Scheduled",
+          "date": "2025-07-28",
+          "source": "Manually fetched credible article",
+          "text": "Oklo scheduled its second-quarter 2025 financial results and business update call for August 11."
+        },
+        {
+          "title": "Oklo and Lightbridge Evaluate Additional Co-Location Opportunities",
+          "date": "2025-08-11",
+          "source": "Manually fetched credible article",
+          "text": "Oklo said it would explore further co-location sites with Lightbridge to convert legacy nuclear materials into fuel for Oklo reactors."
+        },
+        {
+          "title": "Oklo Chosen for DOE Reactor Pilot Program",
+          "date": "2025-08-13",
+          "source": "Manually fetched credible article",
+          "text": "The U.S. Department of Energy selected Oklo for three projects under its reactor pilot program, supporting commercialization efforts."
+        },
+        {
+          "title": "Oklo Signs MOU with ABB and Opens Monitoring Room",
+          "date": "2025-08-21",
+          "source": "Manually fetched credible article",
+          "text": "Oklo signed a memorandum with ABB and commissioned a monitoring room to prepare workforce training for Aurora deployments."
+        },
+        {
+          "title": "Oklo Announces Tennessee Fuel Recycling Facility",
+          "date": "2025-09-04",
+          "source": "Manually fetched credible article",
+          "text": "Oklo unveiled plans for a fuel recycling facility in Tennessee as the first phase of a potential $1.68 billion advanced fuel center."
+        },
+        {
+          "title": "Groundbreaking Held for First Aurora Powerhouse",
+          "date": "2025-09-22",
+          "source": "Manually fetched credible article",
+          "text": "Oklo broke ground on its inaugural Aurora powerhouse, marking a key step toward commercial deployment."
+        },
+        {
+          "title": "Fuel-Assembly Flow Testing Completed at Argonne",
+          "date": "2025-09-25",
+          "source": "Manually fetched credible article",
+          "text": "The company completed full-scale fuel-assembly flow testing at Argonne National Laboratory to validate reactor components."
+        },
+        {
+          "title": "Oklo and Blykalla Form Transatlantic Partnership",
+          "date": "2025-09-29",
+          "source": "Manually fetched credible article",
+          "text": "Oklo joined with Blykalla to accelerate advanced reactor commercialization across the U.S. and Europe."
+        },
+        {
+          "title": "Barclays Sets $146 Price Target on Oklo",
+          "date": "2025-09-29",
+          "source": "Manually fetched credible article",
+          "text": "Barclays initiated coverage with a $146 target, emphasizing Oklo's long-term market opportunity."
+        },
+        {
+          "title": "NRC Accepts Oklo Topical Report for Accelerated Review",
+          "date": "2025-09-30",
+          "source": "Manually fetched credible article",
+          "text": "The NRC accepted Oklo's principal design criteria topical report under an accelerated review schedule."
+        },
+        {
+          "title": "DOE Selects Oklo for Advanced Fuel Line Pilot Program",
+          "date": "2025-09-30",
+          "source": "Manually fetched credible article",
+          "text": "The Department of Energy chose Oklo among four companies to build pilot advanced nuclear fuel lines."
+        },
+        {
+          "title": "DOE Names Oklo to Advanced Fuel Line Pilot Projects",
+          "date": "2025-10-01",
+          "source": "Manually fetched credible article",
+          "text": "Oklo confirmed DOE selection for advanced nuclear fuel line pilot projects, reinforcing its fuel supply strategy."
+        },
+        {
+          "title": "Oklo and newcleo Forge Strategic Partnership",
+          "date": "2025-10-17",
+          "source": "Manually fetched credible article",
+          "text": "Oklo, newcleo, and Blykalla announced a strategic collaboration to strengthen the nuclear fuel ecosystem."
+        },
+        {
+          "title": "Q3 2025 Earnings Call Date Announced",
+          "date": "2025-10-29",
+          "source": "Manually fetched credible article",
+          "text": "Oklo scheduled its third-quarter 2025 financial results and business update call for November 12."
+        }
+      ]
+    }
+  }
+}

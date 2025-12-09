@@ -1,0 +1,90 @@
+{
+  "stock_symbol": "MRCY",
+  "api_articles": 0,
+  "manual_articles": 13,
+  "total_articles": 13,
+  "parsed_results": {
+    "MRCY": {
+      "news": [
+        {
+          "title": "New Common Processing Architecture Awards Announced",
+          "date": "2025-07-02",
+          "source": "Manually fetched credible article",
+          "text": "Mercury Systems announced receipt of fresh production awards tied to its common processing architecture portfolio."
+        },
+        {
+          "title": "RBC Capital Sets $55 Price Target",
+          "date": "2025-07-03",
+          "source": "Manually fetched credible article",
+          "text": "Analyst Ken Herbert at RBC Capital established a $55 price target for Mercury Systems, underscoring the company's processing technology positioning."
+        },
+        {
+          "title": "Additional Processing Architecture Contracts Secured",
+          "date": "2025-07-08",
+          "source": "Manually fetched credible article",
+          "text": "Mercury Systems received two more common processing architecture production awards, reinforcing demand for its embedded processing solutions."
+        },
+        {
+          "title": "Sensor Processing Agreements Expanded",
+          "date": "2025-07-16",
+          "source": "Manually fetched credible article",
+          "text": "Mercury expanded agreements with a major European defense prime, including a five-year sensor processing contract and broader MMIC supply commitments."
+        },
+        {
+          "title": "Fiscal 2025 Results Announcement Scheduled",
+          "date": "2025-07-21",
+          "source": "Manually fetched credible article",
+          "text": "The company set August 11, 2025, as the release date for its Q4 and full-year fiscal 2025 financial results."
+        },
+        {
+          "title": "Shares Jump on Strong Q4 Performance",
+          "date": "2025-08-12",
+          "source": "Manually fetched credible article",
+          "text": "Mercury Systems' stock surged 22.9% after Q4 results beat expectations thanks to a $30 million revenue pull-forward and strong bookings growth."
+        },
+        {
+          "title": "Strategic Agreements with AeroVironment",
+          "date": "2025-08-14",
+          "source": "Manually fetched credible article",
+          "text": "Mercury Systems signed new hardware production agreements with AeroVironment, strengthening collaboration on defense platforms."
+        },
+        {
+          "title": "European Defense Partnerships Expanded",
+          "date": "2025-08-19",
+          "source": "Manually fetched credible article",
+          "text": "Mercury entered two major agreements with a European defense prime to accelerate sensor processing subsystem production using HDS6605 boards."
+        },
+        {
+          "title": "Executive Insider Sell Transaction Disclosed",
+          "date": "2025-09-16",
+          "source": "Manually fetched credible article",
+          "text": "Vice President and CAO Douglas Munro sold 67 shares at $73.40 under a sell-to-cover program related to vested stock awards."
+        },
+        {
+          "title": "RBC Capital Upgrades to Outperform",
+          "date": "2025-10-01",
+          "source": "Manually fetched credible article",
+          "text": "RBC Capital upgraded Mercury Systems to Outperform and raised its price target from $55 to $90, citing strength in mission-critical processing."
+        },
+        {
+          "title": "Canaccord Initiates Coverage at Buy",
+          "date": "2025-10-02",
+          "source": "Manually fetched credible article",
+          "text": "Canaccord Genuity began coverage with a Buy rating and $88 price target, highlighting Mercury's role in defense electronics."
+        },
+        {
+          "title": "AI-Powered Threat Detection Demo Planned for AUSA",
+          "date": "2025-10-13",
+          "source": "Manually fetched credible article",
+          "text": "Mercury announced plans to showcase its AI-driven threat detection solution at AUSA 2025, underscoring continued innovation in defense AI."
+        },
+        {
+          "title": "Truist Boosts Target to $100",
+          "date": "2025-10-15",
+          "source": "Manually fetched credible article",
+          "text": "Truist Financial raised its price target to $100 while maintaining a Buy rating, signaling confidence in Mercury's turnaround trajectory."
+        }
+      ]
+    }
+  }
+}

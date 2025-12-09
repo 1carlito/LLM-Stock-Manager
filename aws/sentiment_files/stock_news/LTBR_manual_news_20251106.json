@@ -1,0 +1,54 @@
+{
+  "stock_symbol": "LTBR",
+  "api_articles": 0,
+  "manual_articles": 7,
+  "total_articles": 7,
+  "parsed_results": {
+    "LTBR": {
+      "news": [
+        {
+          "title": "CEO to Highlight Strategy at HC Wainwright Conference",
+          "date": "2025-07-09",
+          "source": "Manually fetched credible article",
+          "text": "Lightbridge announced CEO Seth Grae would join a fireside chat at HC Wainwright's Powering the Future virtual conference on July 15 to discuss advanced fuel initiatives."
+        },
+        {
+          "title": "Lightbridge Fabricates Enriched Uranium-Zirconium Samples",
+          "date": "2025-07-28",
+          "source": "Manually fetched credible article",
+          "text": "The company successfully fabricated nuclear material samples using enriched uranium-zirconium alloy for testing in Idaho National Laboratory's Advanced Test Reactor."
+        },
+        {
+          "title": "Lightbridge and Oklo Explore Additional Co-Location Opportunities",
+          "date": "2025-08-11",
+          "source": "Manually fetched credible article",
+          "text": "Lightbridge and Oklo agreed to evaluate additional co-location sites that could convert legacy nuclear materials into advanced fuels."
+        },
+        {
+          "title": "Lightbridge Issues Q2 2025 Business Update",
+          "date": "2025-08-11",
+          "source": "Manually fetched credible article",
+          "text": "Lightbridge reported second-quarter 2025 results, highlighting progress on fuel development programs and regulatory engagement."
+        },
+        {
+          "title": "CEO Set to Speak at Atlantic Council Summit",
+          "date": "2025-09-18",
+          "source": "Manually fetched credible article",
+          "text": "Lightbridge said Seth Grae will participate in the Atlantic Council Nuclear Energy Policy Summit in New York on September 24 to discuss advanced fuel policy."
+        },
+        {
+          "title": "Valuation Spotlight Following S&P Index Interest",
+          "date": "2025-09-24",
+          "source": "Manually fetched credible article",
+          "text": "Simply Wall St examined Lightbridge's valuation after new S&P index additions increased investor attention to advanced nuclear names."
+        },
+        {
+          "title": "Lightbridge Completes Capsule Loading for ATR Experiment",
+          "date": "2025-10-09",
+          "source": "Manually fetched credible article",
+          "text": "The company finished loading capsules containing Lightbridge fuel material samples into an experiment assembly for irradiation testing at the Advanced Test Reactor."
+        }
+      ]
+    }
+  }
+}

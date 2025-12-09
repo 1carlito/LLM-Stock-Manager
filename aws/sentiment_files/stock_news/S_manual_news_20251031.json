@@ -1,0 +1,66 @@
+{
+  "stock_symbol": "S",
+  "api_articles": 0,
+  "manual_articles": 9,
+  "total_articles": 9,
+  "parsed_results": {
+    "S": {
+      "news": [
+        {
+          "title": "Guggenheim Upgrades SentinelOne",
+          "date": "2025-07-23",
+          "source": "Manually summarized article",
+          "text": "Guggenheim upgraded SentinelOne from Neutral to Buy with a $26 target, citing confidence in the company's AI-native cybersecurity platform and noting a brief 3.8% after-hours share gain."
+        },
+        {
+          "title": "SentinelOne's AI-Driven Positioning Highlighted",
+          "date": "2025-07-27",
+          "source": "Manually summarized article",
+          "text": "Barchart.com profiled SentinelOne's AI-focused strategy and argued the stock remained undervalued compared with cybersecurity peers despite recent share price declines."
+        },
+        {
+          "title": "SentinelOne to Acquire Prompt Security",
+          "date": "2025-08-05",
+          "source": "Manually summarized article",
+          "text": "SentinelOne announced plans to acquire Prompt Security in order to strengthen its GenAI and agent security capabilities."
+        },
+        {
+          "title": "SentinelOne Reports Q2 FY2026 Results",
+          "date": "2025-08-28",
+          "source": "Manually summarized article",
+          "text": "The company posted second-quarter fiscal 2026 revenue of $242.2 million, up 22%, and said annualized recurring revenue surpassed $1 billion."
+        },
+        {
+          "title": "Market Reaction to SentinelOne Earnings",
+          "date": "2025-08-29",
+          "source": "Manually summarized article",
+          "text": "Financial outlets reported that despite strong revenue growth, SentinelOne's larger-than-expected net loss triggered volatility in the share price following its earnings release."
+        },
+        {
+          "title": "SentinelOne to Acquire Observo AI",
+          "date": "2025-09-08",
+          "source": "Manually summarized article",
+          "text": "SentinelOne agreed to acquire Observo AI to expand its SIEM and security operations capabilities."
+        },
+        {
+          "title": "D.A. Davidson Raises SentinelOne Price Target",
+          "date": "2025-09-09",
+          "source": "Manually summarized article",
+          "text": "Following strong ARR performance, D.A. Davidson lifted its SentinelOne price target to $19 while reiterating a positive outlook."
+        },
+        {
+          "title": "SentinelOne Wins CISA Contract",
+          "date": "2025-10-10",
+          "source": "Manually summarized article",
+          "text": "SentinelOne secured a $2 million agreement with the Cybersecurity and Infrastructure Security Agency to provide advanced endpoint protection for critical infrastructure."
+        },
+        {
+          "title": "SentinelOne to Showcase at GITEX GLOBAL",
+          "date": "2025-10-14",
+          "source": "Manually summarized article",
+          "text": "The company announced plans to present its AI-powered security operations platform at GITEX GLOBAL 2025 in Dubai."
+        }
+      ]
+    }
+  }
+}

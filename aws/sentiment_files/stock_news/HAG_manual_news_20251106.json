@@ -1,0 +1,36 @@
+{
+  "stock_symbol": "HAG",
+  "api_articles": 0,
+  "manual_articles": 4,
+  "total_articles": 4,
+  "parsed_results": {
+    "HAG": {
+      "news": [
+        {
+          "title": "Major Radar Order to Support Ukraine Air Defence",
+          "date": "2025-07-24",
+          "source": "Manually fetched credible article",
+          "text": "HENSOLDT won a comprehensive order exceeding €340 million to deliver TRML-4D and SPEXER 2000 radars that strengthen Ukraine's air defence network."
+        },
+        {
+          "title": "First-Half 2025 Results Beat Revenue Expectations",
+          "date": "2025-07-31",
+          "source": "Manually fetched credible article",
+          "text": "HENSOLDT reported first-half 2025 revenue slightly above expectations, highlighting a record €7.1 billion order backlog and €1.4 billion order intake."
+        },
+        {
+          "title": "Citi Raises Price Target to EUR 106",
+          "date": "2025-10-15",
+          "source": "Manually fetched credible article",
+          "text": "Citi increased its HENSOLDT price target from EUR 88 to EUR 106 while maintaining a Hold rating due to the company's strong backlog momentum."
+        },
+        {
+          "title": "Kepler Capital Downgrades to Sell",
+          "date": "2025-10-25",
+          "source": "Manually fetched credible article",
+          "text": "Kepler Capital downgraded HENSOLDT to Sell on valuation concerns despite acknowledging the firm's robust fundamentals."
+        }
+      ]
+    }
+  }
+}

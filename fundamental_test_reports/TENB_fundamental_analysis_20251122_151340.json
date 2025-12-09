@@ -1,0 +1,28 @@
+{
+  "symbol": "TENB",
+  "analysis_date": "2025-09-12",
+  "target_date": "2025-09-12",
+  "current_price": 29.9,
+  "pe_ratio": null,
+  "pb_ratio": 10.463645550212558,
+  "raw_response": "RECOMMENDATION: HOLD\nCONFIDENCE: 0.68\nSUMMARY: TENB demonstrates strong revenue growth and cash generation but faces profitability challenges and declining equity value due to aggressive capital allocation decisions.\n\nANALYSIS:\n- Revenue shows consistent growth trajectory: $235.7M (Q4 2024) \u2192 $239.1M (Q1 2025) \u2192 $247.3M (Q2 2025)\n- Gross margins remain strong at approximately 78%, indicating good pricing power\n- Operating expenses are high relative to revenue, particularly R&D and marketing\n- Negative net income in two of last three quarters despite revenue growth\n- Significant cash flow generation from operations ($42.5M-$87.4M quarterly)\n- Substantial share repurchases reducing equity base\n- Debt levels manageable with net debt of $241.6M against cash/investments of $386.5M\n\nSTRENGTHS:\n- Strong and growing revenue base with consistent quarterly increases\n- Excellent gross profit margins around 78%, suggesting competitive advantages\n- Robust operating cash flow generation ($42.5M in Q2 2025)\n- Healthy cash and investment position ($386.5M) providing liquidity buffer\n- Growing deferred revenue ($624.5M current, $173.3M non-current) indicating strong future revenue visibility\n\nWEAKNESSES:\n- Consistent negative net income despite revenue growth (-$14.7M Q2 2025, -$22.9M Q1 2025)\n- High operating expenses consuming gross profits\n- Declining equity value due to accumulated deficits (-$899M retained earnings)\n- Significant share repurchases ($65M in Q2 2025) while unprofitable\n- Acquisition spending ($47.7M in Q2 2025) adding to financial strain\n\nFINANCIAL HEALTH:\nTENB maintains adequate liquidity with $386.5M in cash/short-term investments against $713.3M in current liabilities. The debt-to-equity ratio of 1.19 (total debt $419.2M vs equity $350.7M) is manageable but elevated. The company generates positive operating cash flow but shows negative earnings, indicating accounting losses despite cash generation. The declining equity base and negative retained earnings raise concerns about long-term capital structure sustainability.\n\nCONCLUSION:\nTENB presents a mixed investment case with strong top-line growth and cash generation offset by persistent profitability challenges. The company's high gross margins and growing revenue base suggest underlying business strength, but the inability to translate this to bottom-line results, combined with aggressive capital allocation through share repurchases and acquisitions while unprofitable, creates significant uncertainty. The current valuation at 10.46x book value appears stretched given the profitability issues. A HOLD recommendation is appropriate until the company demonstrates improved expense management and sustainable profitability, though the strong cash flow generation provides some downside protection. Confidence is medium due to the conflicting signals between operational performance and financial results.",
+  "recommendation": "HOLD",
+  "confidence": 0.68,
+  "summary": "TENB demonstrates strong revenue growth and cash generation but faces profitability challenges and declining equity value due to aggressive capital allocation decisions.",
+  "strengths": [
+    "Strong and growing revenue base with consistent quarterly increases",
+    "Excellent gross profit margins around 78%, suggesting competitive advantages",
+    "Robust operating cash flow generation ($42.5M in Q2 2025)",
+    "Healthy cash and investment position ($386.5M) providing liquidity buffer",
+    "Growing deferred revenue ($624.5M current, $173.3M non-current) indicating strong future revenue visibility"
+  ],
+  "weaknesses": [
+    "Consistent negative net income despite revenue growth (-$14.7M Q2 2025, -$22.9M Q1 2025)",
+    "High operating expenses consuming gross profits",
+    "Declining equity value due to accumulated deficits (-$899M retained earnings)",
+    "Significant share repurchases ($65M in Q2 2025) while unprofitable",
+    "Acquisition spending ($47.7M in Q2 2025) adding to financial strain"
+  ],
+  "conclusion": "TENB presents a mixed investment case with strong top-line growth and cash generation offset by persistent profitability challenges. The company's high gross margins and growing revenue base suggest underlying business strength, but the inability to translate this to bottom-line results, combined with aggressive capital allocation through share repurchases and acquisitions while unprofitable, creates significant uncertainty. The current valuation at 10.46x book value appears stretched given the profitability issues. A HOLD recommendation is appropriate until the company demonstrates improved expense management and sustainable profitability, though the strong cash flow generation provides some downside protection. Confidence is medium due to the conflicting signals between operational performance and financial results.",
+  "model_used": "deepseek-ai/DeepSeek-V3.1"
+}

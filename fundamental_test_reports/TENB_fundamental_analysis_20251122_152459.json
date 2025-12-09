@@ -1,0 +1,28 @@
+{
+  "symbol": "TENB",
+  "analysis_date": "2025-10-08",
+  "target_date": "2025-10-08",
+  "current_price": 29.9,
+  "pe_ratio": null,
+  "pb_ratio": 10.463645550212558,
+  "raw_response": "RECOMMENDATION: HOLD\nCONFIDENCE: 0.68\nSUMMARY: TENB shows concerning profitability issues despite stable revenue and strong cash generation, making it a hold until clearer signs of sustainable earnings emerge.\n\nANALYSIS:\n- **Profitability**: Gross margins are strong (78-79%) but operating margins are negative in two of three quarters, indicating high SG&A costs are eroding profitability\n- **Growth**: Revenue shows modest sequential growth (Q4'24: $235.7M \u2192 Q2'25: $247.3M) but earnings are volatile with recent quarterly losses\n- **Cash Flow**: Operating cash flow remains positive ($42.5M in Q2'25) with consistent free cash flow generation\n- **Balance Sheet**: Substantial cash position ($175M) but significant debt ($419M) and negative retained earnings (-$899M)\n- **Valuation**: P/B of 10.46 appears elevated given profitability challenges, though lack of P/E ratio reflects negative earnings\n\nSTRENGTHS:\n- Strong gross profit margins consistently above 78%\n- Robust operating cash flow generation despite net losses\n- Healthy liquidity position with $386.5M in cash and short-term investments\n- Growing deferred revenue ($624.5M current, $173.3M non-current) indicating future revenue visibility\n- Consistent revenue growth trajectory over recent quarters\n\nWEAKNESSES:\n- Negative net income in two of three most recent quarters\n- High operating expenses consuming gross profits\n- Significant accumulated deficit (-$899M in retained earnings)\n- Elevated debt levels with $419M total debt\n- Substantial stock-based compensation impacting shareholder equity\n\nFINANCIAL HEALTH:\nMixed financial health with concerning profitability metrics but strong liquidity. Current ratio of 0.94 (Q2'25) indicates potential liquidity pressure despite cash reserves. Debt/equity ratio of 1.19 suggests moderate leverage. Cash flow coverage of operations remains positive but has declined from previous quarters. The negative retained earnings position indicates historical cumulative losses outweigh profits.\n\nCONCLUSION:\nTENB presents a complex investment case with strong underlying revenue generation and cash flow capabilities offset by persistent profitability challenges. The company's high gross margins suggest a potentially valuable business model, but inability to convert this to bottom-line profitability raises concerns. The current valuation appears stretched given the earnings volatility, though the strong cash position provides some downside protection. Until the company demonstrates consistent profitability and better cost control, a HOLD recommendation is appropriate with medium confidence, acknowledging both the operational strengths and financial weaknesses evident in the current financials.",
+  "recommendation": "HOLD",
+  "confidence": 0.68,
+  "summary": "TENB shows concerning profitability issues despite stable revenue and strong cash generation, making it a hold until clearer signs of sustainable earnings emerge.",
+  "strengths": [
+    "Strong gross profit margins consistently above 78%",
+    "Robust operating cash flow generation despite net losses",
+    "Healthy liquidity position with $386.5M in cash and short-term investments",
+    "Growing deferred revenue ($624.5M current, $173.3M non-current) indicating future revenue visibility",
+    "Consistent revenue growth trajectory over recent quarters"
+  ],
+  "weaknesses": [
+    "Negative net income in two of three most recent quarters",
+    "High operating expenses consuming gross profits",
+    "Significant accumulated deficit (-$899M in retained earnings)",
+    "Elevated debt levels with $419M total debt",
+    "Substantial stock-based compensation impacting shareholder equity"
+  ],
+  "conclusion": "TENB presents a complex investment case with strong underlying revenue generation and cash flow capabilities offset by persistent profitability challenges. The company's high gross margins suggest a potentially valuable business model, but inability to convert this to bottom-line profitability raises concerns. The current valuation appears stretched given the earnings volatility, though the strong cash position provides some downside protection. Until the company demonstrates consistent profitability and better cost control, a HOLD recommendation is appropriate with medium confidence, acknowledging both the operational strengths and financial weaknesses evident in the current financials.",
+  "model_used": "deepseek-ai/DeepSeek-V3.1"
+}

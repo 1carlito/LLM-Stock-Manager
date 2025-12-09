@@ -1,0 +1,72 @@
+{
+  "stock_symbol": "OSCR",
+  "api_articles": 0,
+  "manual_articles": 10,
+  "total_articles": 10,
+  "parsed_results": {
+    "OSCR": {
+      "news": [
+        {
+          "title": "Wells Fargo Moves to Underweight",
+          "date": "2025-07-11",
+          "source": "Manually fetched credible article",
+          "text": "Wells Fargo assigned Oscar Health an Underweight rating with a $10 price target, highlighting worries about rising utilization trends."
+        },
+        {
+          "title": "UBS Downgrades Oscar to Sell",
+          "date": "2025-07-15",
+          "source": "Manually fetched credible article",
+          "text": "UBS cut its rating on Oscar Health to Sell with an $11 target, citing escalating medical costs and profitability risks."
+        },
+        {
+          "title": "Revised 2025 Guidance Signals Higher Losses",
+          "date": "2025-07-22",
+          "source": "Manually fetched credible article",
+          "text": "Oscar Health widened its 2025 operating loss outlook to $200–$300 million due to higher medical costs but lifted revenue guidance to $12.0–$12.2 billion."
+        },
+        {
+          "title": "Barclays Trims Price Target to $11",
+          "date": "2025-07-23",
+          "source": "Manually fetched credible article",
+          "text": "Barclays maintained a cautious view on Oscar Health while lowering its price target to $11 amid concerns about margin pressures."
+        },
+        {
+          "title": "Q2 2025 Results Show Higher MLR",
+          "date": "2025-08-06",
+          "source": "Manually fetched credible article",
+          "text": "Oscar Health reported a Q2 operating loss of $230.5 million on $2.9 billion revenue as its medical loss ratio climbed to 91.1%, though 2026 profitability goals were reaffirmed."
+        },
+        {
+          "title": "Convertible Notes Offering Announced",
+          "date": "2025-09-16",
+          "source": "Manually fetched credible article",
+          "text": "Oscar Health priced $355 million of 2.25% convertible senior subordinated notes due 2030, sending shares lower on expected dilution."
+        },
+        {
+          "title": "Wells Fargo Conference Presentation",
+          "date": "2025-09-03",
+          "source": "Manually fetched credible article",
+          "text": "At the Wells Fargo Healthcare Conference, CFO Scott Blackley detailed Oscar Health's plans to manage utilization trends and navigate regulatory shifts."
+        },
+        {
+          "title": "Motley Fool Weighs Investment Case",
+          "date": "2025-09-12",
+          "source": "Manually fetched credible article",
+          "text": "A Motley Fool analysis discussed whether Oscar Health shares were a buy, focusing on growth prospects versus ongoing losses."
+        },
+        {
+          "title": "Goldman Sachs Begins Coverage at Neutral",
+          "date": "2025-10-14",
+          "source": "Manually fetched credible article",
+          "text": "Goldman Sachs launched coverage with a Neutral rating and $17 target, balancing improving operating metrics against near-term profitability concerns."
+        },
+        {
+          "title": "Strategic Partnership with Elektra Health",
+          "date": "2025-10-21",
+          "source": "Manually fetched credible article",
+          "text": "Oscar Health announced the HelloMeno menopause-focused plan with Elektra Health and highlighted new AI investments to enhance member services."
+        }
+      ]
+    }
+  }
+}

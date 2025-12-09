@@ -1,0 +1,78 @@
+{
+  "stock_symbol": "AKAM",
+  "api_articles": 0,
+  "manual_articles": 11,
+  "total_articles": 11,
+  "parsed_results": {
+    "AKAM": {
+      "news": [
+        {
+          "title": "Akamai Recognized in Forrester Zero Trust Report",
+          "date": "2025-07-17",
+          "source": "Manually summarized article",
+          "text": "The Forrester Wave: Zero Trust Platforms Q3 2025 report cited Akamai as a customer favorite, underscoring the company's strong position in zero-trust security."
+        },
+        {
+          "title": "Customer Trust Spotlight on Zero Trust Platforms",
+          "date": "2025-07-17",
+          "source": "Manually summarized article",
+          "text": "Akamai emphasized how customer feedback contributed to its distinction as a favorite vendor in 2025 Zero Trust platform evaluations."
+        },
+        {
+          "title": "Extortion Evolves: Akamai SOTI Report",
+          "date": "2025-07-29",
+          "source": "Manually summarized article",
+          "text": "Akamai released its State of the Internet report detailing the increasing complexity of ransomware attacks and extortion schemes."
+        },
+        {
+          "title": "Akamai Reports Q2 2025 Earnings Beat",
+          "date": "2025-08-07",
+          "source": "Manually summarized article",
+          "text": "The company delivered second-quarter 2025 revenue of $1.043 billion and EPS of $1.73, exceeding expectations and motivating an increased annual outlook."
+        },
+        {
+          "title": "Reuters Highlights Akamai's Security Momentum",
+          "date": "2025-08-07",
+          "source": "Manually summarized article",
+          "text": "Following earnings, Reuters noted Akamai's continued momentum in security and cloud computing businesses."
+        },
+        {
+          "title": "Akamai Partners with Aptum to Scale Cloud Journeys",
+          "date": "2025-08-13",
+          "source": "Manually summarized article",
+          "text": "Akamai and Aptum announced a partnership focused on helping customers accelerate cloud migrations and improve performance."
+        },
+        {
+          "title": "Akamai and Seraphic Collaborate on Secure Browsing",
+          "date": "2025-09-15",
+          "source": "Manually summarized article",
+          "text": "The company teamed with Seraphic to simplify secure service edge deployments through secure enterprise browsing."
+        },
+        {
+          "title": "Akamai Consolidates Global Partner Program",
+          "date": "2025-09-16",
+          "source": "Manually summarized article",
+          "text": "Akamai streamlined its partner program with localized tiering and targeted incentives to drive channel growth."
+        },
+        {
+          "title": "Akamai CEO Receives Emmy Award",
+          "date": "2025-09-18",
+          "source": "Manually summarized article",
+          "text": "Akamai announced that its CEO earned an Emmy Award recognizing technological contributions to broadcasting."
+        },
+        {
+          "title": "Akamai Introduces Inference Cloud",
+          "date": "2025-10-15",
+          "source": "Manually summarized article",
+          "text": "Akamai announced general availability of the Akamai Inference Cloud, a distributed edge platform built with NVIDIA GPUs to deliver low-latency AI inference workloads."
+        },
+        {
+          "title": "Akamai Highlights Edge AI Transformation",
+          "date": "2025-10-28",
+          "source": "Manually summarized article",
+          "text": "Further detailing the initiative, Akamai described how its Inference Cloud transforms AI deployments from core to edge using NVIDIA technology."
+        }
+      ]
+    }
+  }
+}
