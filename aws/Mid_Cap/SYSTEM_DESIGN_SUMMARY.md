@@ -4,7 +4,13 @@ Overview
 
 Two-tier decision-making: stock-level reasoning is separated from portfolio-level allocation and execution.
 
-Sentiment / Valuation / Fundamental          ↓     Reasoning Agent          ↓ Portfolio Manager Agent          ↓ Parallel Orchestrator (exec)
+Sentiment / Valuation / Fundamental
+          ↓
+     Reasoning Agent
+          ↓
+ Portfolio Manager Agent
+          ↓
+ Parallel Orchestrator (exec)
 
 1) Reasoning Agent
 Role: Stock-level decision maker; portfolio-agnostic.
