@@ -1,0 +1,102 @@
+{
+  "stock_symbol": "NNE",
+  "api_articles": 0,
+  "manual_articles": 15,
+  "total_articles": 15,
+  "parsed_results": {
+    "NNE": {
+      "news": [
+        {
+          "title": "Nano Nuclear Signs MOU with UrAmerica",
+          "date": "2025-07-08",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear entered a memorandum of understanding with UrAmerica to modernize Argentina's nuclear fuel supply chain."
+        },
+        {
+          "title": "H.C. Wainwright Reiterates Buy Rating",
+          "date": "2025-07-22",
+          "source": "Manually fetched credible article",
+          "text": "H.C. Wainwright maintained a Buy rating and $12 price target, citing confidence in Betalutin's potential within NHL therapy."
+        },
+        {
+          "title": "Prototype Annular Linear Induction Pump Completed",
+          "date": "2025-07-23",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear finished assembling a prototype Annular Linear Induction Pump for upcoming testing."
+        },
+        {
+          "title": "Nano Nuclear Joins Canadian Nuclear Association",
+          "date": "2025-07-24",
+          "source": "Manually fetched credible article",
+          "text": "The company joined the Canadian Nuclear Association to advocate for next-generation nuclear energy adoption."
+        },
+        {
+          "title": "Facility Acquired in Oak Brook, Illinois",
+          "date": "2025-07-30",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear purchased an Oak Brook facility to accelerate development of its KRONOS MMR microreactor system."
+        },
+        {
+          "title": "Included in Solactive Global Uranium Index",
+          "date": "2025-08-01",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear was added to the Solactive Global Uranium & Nuclear Components Total Return Index, qualifying it for the Global X Uranium ETF."
+        },
+        {
+          "title": "Q3 2025 Results Highlight Cash Position",
+          "date": "2025-08-14",
+          "source": "Manually fetched credible article",
+          "text": "The company reported a year-to-date operating loss of $35.8 million but noted a stronger balance sheet after a $99 million private placement."
+        },
+        {
+          "title": "MOU Signed with Dioxitek of Argentina",
+          "date": "2025-08-27",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear signed a memorandum with Dioxitek S.A. to pursue opportunities in Argentina's nuclear fuel supply chain."
+        },
+        {
+          "title": "Letter of Intent with Cambridge Atom Works",
+          "date": "2025-09-05",
+          "source": "Manually fetched credible article",
+          "text": "In early September 2025, Nano Nuclear signed a letter of intent with Cambridge Atom Works to commercialize its portable ODIN reactor technology."
+        },
+        {
+          "title": "H.C. Wainwright Reaffirms Buy with $50 Target",
+          "date": "2025-09-12",
+          "source": "Manually fetched credible article",
+          "text": "Analysts reiterated their Buy rating, underscoring confidence in Nano Nuclear's technology roadmap."
+        },
+        {
+          "title": "Added to S&P Global Broad Market Index",
+          "date": "2025-09-17",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear achieved inclusion in the S&P Global BMI, broadening institutional ownership potential."
+        },
+        {
+          "title": "Oversubscribed $400 Million Private Placement Announced",
+          "date": "2025-10-01",
+          "source": "Manually fetched credible article",
+          "text": "In October 2025 the company disclosed a $400 million oversubscribed private placement priced at-the-market under Nasdaq rules."
+        },
+        {
+          "title": "CEO Presents at Benchmark Tech Conference",
+          "date": "2025-10-21",
+          "source": "Manually fetched credible article",
+          "text": "Nano Nuclear's CEO Jay Jiang Yu presented at the Benchmark Company Technology Conference to highlight growth initiatives."
+        },
+        {
+          "title": "Benchmark Initiates Coverage with Buy Rating",
+          "date": "2025-10-23",
+          "source": "Manually fetched credible article",
+          "text": "Benchmark started coverage on Nano Nuclear with a Buy rating and $40 price target."
+        },
+        {
+          "title": "H.C. Wainwright Reiterates Bullish View",
+          "date": "2025-10-27",
+          "source": "Manually fetched credible article",
+          "text": "H.C. Wainwright again reiterated a Buy rating following investor outreach in late October."
+        }
+      ]
+    }
+  }
+}

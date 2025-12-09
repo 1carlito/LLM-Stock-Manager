@@ -1,0 +1,126 @@
+{
+  "stock_symbol": "ASPI",
+  "api_articles": 0,
+  "manual_articles": 19,
+  "total_articles": 19,
+  "parsed_results": {
+    "ASPI": {
+      "news": [
+        {
+          "title": "Aspen Aerogels Sets Q2 2025 Earnings Release",
+          "date": "2025-07-15",
+          "source": "Manually fetched credible article",
+          "text": "Aspen Aerogels scheduled second-quarter 2025 results for July 31 with a post-close conference call."
+        },
+        {
+          "title": "Commercial Production Update Highlights Silicon-28 Progress",
+          "date": "2025-07-17",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes reported enriching Silicon-28 intermediate product to 99% purity and raised annual capacity guidance."
+        },
+        {
+          "title": "New Aerogel Products Target Energy Storage Market",
+          "date": "2025-07-21",
+          "source": "Manually fetched credible article",
+          "text": "Aspen Aerogels launched an aerogel insulation line for energy storage applications, broadening its energy transition offerings."
+        },
+        {
+          "title": "ASP Isotopes Prices $60 Million Offering",
+          "date": "2025-07-23",
+          "source": "Manually fetched credible article",
+          "text": "The company priced a $60 million underwritten registered direct stock offering to fund isotope expansion."
+        },
+        {
+          "title": "South African Regulator Clears Renergen Acquisition",
+          "date": "2025-07-25",
+          "source": "Manually fetched credible article",
+          "text": "The Competition Commission of South Africa approved ASP Isotopes' offer for Renergen Limited."
+        },
+        {
+          "title": "IsoBio Raises Seed Funding with ASP Support",
+          "date": "2025-07-28",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes and IsoBio announced seed financing to advance antibody-isotope conjugate development."
+        },
+        {
+          "title": "Dual Listing on Johannesburg Exchange Expected",
+          "date": "2025-08-08",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes said it anticipated commencing a secondary listing on the Johannesburg Stock Exchange."
+        },
+        {
+          "title": "Joint Venture Planned with Fermi America",
+          "date": "2025-08-15",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes and Quantum Leap Energy signed an MOU with Fermi America to collaborate on advanced nuclear fuel facilities in Texas."
+        },
+        {
+          "title": "Investors Tour South African Isotope Plants",
+          "date": "2025-08-26",
+          "source": "Manually fetched credible article",
+          "text": "The company hosted South African investors ahead of its JSE listing and updated progress on isotope production plants."
+        },
+        {
+          "title": "Renergen Merger Completion Announced",
+          "date": "2025-09-03",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes completed the Renergen merger, giving the partner a majority stake in the business."
+        },
+        {
+          "title": "Industry Veteran Ralph Hunter Joins Board",
+          "date": "2025-09-08",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes added nuclear power veteran Ralph Hunter to its board and to Quantum Leap Energy's board of managers."
+        },
+        {
+          "title": "Secondary Listing on JSE Successfully Launched",
+          "date": "2025-09-10",
+          "source": "Manually fetched credible article",
+          "text": "The company confirmed the commencement of trading on the Johannesburg Stock Exchange."
+        },
+        {
+          "title": "Leadership Changes Announced",
+          "date": "2025-09-29",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes detailed executive management changes at both the parent company and Quantum Leap Energy effective October 2025."
+        },
+        {
+          "title": "Purchase Order Secured for Enriched Barium-137",
+          "date": "2025-09-30",
+          "source": "Manually fetched credible article",
+          "text": "The company received a purchase order from a U.S. customer for enriched Barium-137."
+        },
+        {
+          "title": "Institutional Investor Access Event Planned",
+          "date": "2025-10-10",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes scheduled an institutional investor event in South Africa for November 11-13."
+        },
+        {
+          "title": "Public Offering of Common Stock Proposed",
+          "date": "2025-10-14",
+          "source": "Manually fetched credible article",
+          "text": "The company announced plans for a public offering of common stock to fund expansion."
+        },
+        {
+          "title": "$210 Million Public Offering Priced",
+          "date": "2025-10-15",
+          "source": "Manually fetched credible article",
+          "text": "ASP Isotopes priced a public offering of 17.17 million shares, raising approximately $210 million."
+        },
+        {
+          "title": "Cantor Fitzgerald Starts Coverage at Overweight",
+          "date": "2025-10-22",
+          "source": "Manually fetched credible article",
+          "text": "Cantor Fitzgerald initiated coverage with an Overweight rating and $12 price target, citing isotope market potential."
+        },
+        {
+          "title": "Quantum Leap Completes One 30 Seven Asset Acquisition",
+          "date": "2025-10-23",
+          "source": "Manually fetched credible article",
+          "text": "Quantum Leap Energy, an ASP subsidiary, acquired One 30 Seven assets to address water-soluble nuclear waste processing."
+        }
+      ]
+    }
+  }
+}

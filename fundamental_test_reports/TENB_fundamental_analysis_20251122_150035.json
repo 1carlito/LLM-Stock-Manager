@@ -1,0 +1,26 @@
+{
+  "symbol": "TENB",
+  "analysis_date": "2025-08-14",
+  "target_date": "2025-08-14",
+  "current_price": 29.1,
+  "pe_ratio": null,
+  "pb_ratio": 10.183681789671756,
+  "raw_response": "RECOMMENDATION: HOLD\nCONFIDENCE: 0.68\nSUMMARY: TENB shows concerning profitability and inconsistent growth despite strong gross margins and cash generation, warranting a cautious hold position.\n\nANALYSIS:\n- Profitability metrics: Gross margins are consistently strong (78-79%) but operating margins are negative in two of the last three quarters, indicating high operating expenses\n- Growth trends: Revenue shows modest sequential growth (Q4'24: $235.7M \u2192 Q2'25: $247.3M) but net income has been volatile with recent quarterly losses\n- Debt and stability: Moderate debt levels ($419M total debt) with adequate liquidity ($386.5M cash/short-term investments)\n- Valuation: P/B of 10.18 appears elevated given inconsistent profitability, while P/E is not applicable due to negative earnings\n- Industry positioning: Limited information available on sector/industry, but high R&D and marketing expenses suggest technology/software business\n- Capital allocation: Significant stock repurchases ($125M in last 3 quarters) while reporting net losses raises questions about capital allocation priorities\n\nSTRENGTHS:\n- Strong gross profit margins consistently above 78%\n- Healthy cash generation from operations ($42.5M in Q2'25)\n- Solid balance sheet with good liquidity position\n- Growing deferred revenue ($797.8M total) suggesting future revenue visibility\n\nWEAKNESSES:\n- Inconsistent profitability with recent quarterly losses\n- High operating expenses consuming gross profits\n- Declining cash position over past two quarters\n- Significant stock buybacks during loss periods\n\nFINANCIAL HEALTH:\nModerate financial health with mixed signals. Current ratio of 0.94 (Q2'25) shows adequate short-term liquidity. Debt/equity ratio of 1.19 indicates moderate leverage. Negative retained earnings (-$899M) reflects historical losses. Operating cash flow remains positive but declining from previous quarters.\n\nCONCLUSION:\nTENB presents a mixed investment case with strong underlying gross margins and cash generation offset by inconsistent profitability and questionable capital allocation decisions. The company's inability to translate high gross margins into consistent net income, combined with declining cash reserves and elevated P/B ratio, suggests limited upside potential in the near term. However, the strong deferred revenue and operational cash flow provide some stability. The HOLD recommendation with medium confidence reflects this balance - existing investors may maintain positions awaiting improved profitability, but new investment should wait for clearer signs of sustainable earnings and better capital allocation discipline.",
+  "recommendation": "HOLD",
+  "confidence": 0.68,
+  "summary": "TENB shows concerning profitability and inconsistent growth despite strong gross margins and cash generation, warranting a cautious hold position.",
+  "strengths": [
+    "Strong gross profit margins consistently above 78%",
+    "Healthy cash generation from operations ($42.5M in Q2'25)",
+    "Solid balance sheet with good liquidity position",
+    "Growing deferred revenue ($797.8M total) suggesting future revenue visibility"
+  ],
+  "weaknesses": [
+    "Inconsistent profitability with recent quarterly losses",
+    "High operating expenses consuming gross profits",
+    "Declining cash position over past two quarters",
+    "Significant stock buybacks during loss periods"
+  ],
+  "conclusion": "TENB presents a mixed investment case with strong underlying gross margins and cash generation offset by inconsistent profitability and questionable capital allocation decisions. The company's inability to translate high gross margins into consistent net income, combined with declining cash reserves and elevated P/B ratio, suggests limited upside potential in the near term. However, the strong deferred revenue and operational cash flow provide some stability. The HOLD recommendation with medium confidence reflects this balance - existing investors may maintain positions awaiting improved profitability, but new investment should wait for clearer signs of sustainable earnings and better capital allocation discipline.",
+  "model_used": "deepseek-ai/DeepSeek-V3.1"
+}

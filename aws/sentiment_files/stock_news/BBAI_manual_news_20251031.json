@@ -1,0 +1,78 @@
+{
+  "stock_symbol": "BBAI",
+  "api_articles": 0,
+  "manual_articles": 11,
+  "total_articles": 11,
+  "parsed_results": {
+    "BBAI": {
+      "news": [
+        {
+          "title": "Analyst Rating and Stock Surge",
+          "date": "2025-07-02",
+          "source": "Manually summarized article",
+          "text": "H.C. Wainwright lifted its price target for BigBear.ai from $6 to $9 while reiterating a Buy rating, helping drive a 12.7% jump in the shares."
+        },
+        {
+          "title": "BigBear.ai and DEFCON AI Collaborate",
+          "date": "2025-07-31",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai and DEFCON AI announced a collaboration aimed at advancing next-generation military readiness capabilities."
+        },
+        {
+          "title": "Q2 2025 Earnings Miss Expectations",
+          "date": "2025-08-11",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai reported second-quarter 2025 revenue of $32.5 million, down 18% year over year, with a widened net loss of $228.6 million, missing analyst forecasts and pressuring the stock."
+        },
+        {
+          "title": "Full-Year 2025 Outlook Revised",
+          "date": "2025-08-11",
+          "source": "Manually summarized article",
+          "text": "Following its earnings report, the company lowered full-year 2025 revenue guidance to a range of $125 million to $140 million due to softer Army program volume."
+        },
+        {
+          "title": "Smiths Detection Integration Completed",
+          "date": "2025-08-14",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai and Smiths Detection completed testing and integration of their systems to advance airport security capabilities."
+        },
+        {
+          "title": "BigBear.ai and Narval Holding Launch Cargo Security Solution",
+          "date": "2025-08-15",
+          "source": "Manually summarized article",
+          "text": "The company partnered with Narval Holding Corp. to deploy an AI-powered cargo security management platform in Panama."
+        },
+        {
+          "title": "BigBear.ai and Washington Commanders Partnership",
+          "date": "2025-08-20",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai announced a landmark collaboration with the Washington Commanders to deliver AI-driven insights for football operations."
+        },
+        {
+          "title": "AI Deployment at Nashville International Airport",
+          "date": "2025-09-11",
+          "source": "Manually summarized article",
+          "text": "The company expanded its biometric screening deployment at Nashville International Airport to accelerate U.S. arrivals processing."
+        },
+        {
+          "title": "BigBear.ai Supports Navy UNITAS Exercise",
+          "date": "2025-09-23",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai partnered with SMX to deliver AI-enabled sensor fusion and situational awareness during the U.S. Navy's UNITAS 2025 maritime exercise."
+        },
+        {
+          "title": "BigBear.ai Partners with Tsecond",
+          "date": "2025-10-13",
+          "source": "Manually summarized article",
+          "text": "BigBear.ai and Tsecond agreed to deliver AI-enabled edge infrastructure for battlefield applications, aiming to accelerate decision-making in the field."
+        },
+        {
+          "title": "Chicago O'Hare Deploys BigBear.ai Biometrics",
+          "date": "2025-10-23",
+          "source": "Manually summarized article",
+          "text": "The company announced its biometric system is being used at Chicago O'Hare International Airport to enhance security and streamline international travel."
+        }
+      ]
+    }
+  }
+}

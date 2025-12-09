@@ -1,0 +1,66 @@
+{
+  "stock_symbol": "ATRO",
+  "api_articles": 0,
+  "manual_articles": 9,
+  "total_articles": 9,
+  "parsed_results": {
+    "ATRO": {
+      "news": [
+        {
+          "title": "Envoy Aerospace Acquisition Completed",
+          "date": "2025-07-08",
+          "source": "Manually fetched credible article",
+          "text": "Astronics closed the $8 million purchase of Envoy Aerospace, expanding FAA certification services for aircraft connectivity and cabin modifications."
+        },
+        {
+          "title": "New Land Mobile Radio Service Monitor Announced",
+          "date": "2025-07-22",
+          "source": "Manually fetched credible article",
+          "text": "Astronics unveiled a new land mobile radio service monitor designed to enhance field testing capabilities for communications customers."
+        },
+        {
+          "title": "Q2 2025 Earnings Show Aerospace Strength",
+          "date": "2025-08-06",
+          "source": "Manually fetched credible article",
+          "text": "Astronics reported Q2 revenue of $204.7 million, a 3.3% increase, led by a 9.4% surge in Aerospace sales and raised full-year guidance."
+        },
+        {
+          "title": "Convertible Notes Offering Announced",
+          "date": "2025-09-09",
+          "source": "Manually fetched credible article",
+          "text": "The company planned a $210 million private offering of 0% convertible senior notes due 2031, with proceeds earmarked for capped calls and debt repurchases."
+        },
+        {
+          "title": "Convertible Notes Issued and Proceeds Deployed",
+          "date": "2025-09-16",
+          "source": "Manually fetched credible article",
+          "text": "Astronics issued $225 million in 0% convertible senior notes due 2031, repurchasing $132 million of 5.500% notes due 2030 and entering capped call transactions."
+        },
+        {
+          "title": "Truist Financial Raises Price Target to $58",
+          "date": "2025-09-25",
+          "source": "Manually fetched credible article",
+          "text": "Truist Financial lifted its Astronics price target from $49 to $58 with a Buy rating, citing accelerating growth."
+        },
+        {
+          "title": "Craig-Hallum Initiates Coverage at Buy",
+          "date": "2025-10-10",
+          "source": "Manually fetched credible article",
+          "text": "Craig-Hallum initiated coverage with a Buy rating and $60 price target, noting significant upside potential for Astronics shares."
+        },
+        {
+          "title": "Bühler Motor Aviation Acquisition Announced",
+          "date": "2025-10-13",
+          "source": "Manually fetched credible article",
+          "text": "Astronics agreed to acquire Bühler Motor Aviation, adding seat actuation systems and expanding its motion control portfolio."
+        },
+        {
+          "title": "New $300 Million Credit Facility Secured",
+          "date": "2025-10-20",
+          "source": "Manually fetched credible article",
+          "text": "The company replaced its prior credit agreement with a $300 million revolver running through 2030 to bolster financial flexibility for future investments."
+        }
+      ]
+    }
+  }
+}

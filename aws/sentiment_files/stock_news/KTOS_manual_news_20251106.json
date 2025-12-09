@@ -1,0 +1,120 @@
+{
+  "stock_symbol": "KTOS",
+  "api_articles": 0,
+  "manual_articles": 17,
+  "total_articles": 17,
+  "parsed_results": {
+    "KTOS": {
+      "news": [
+        {
+          "title": "Cantor Fitzgerald Initiates Coverage at Overweight",
+          "date": "2025-07-08",
+          "source": "Manually fetched credible article",
+          "text": "Cantor Fitzgerald began covering Kratos with an Overweight rating and a $335 price target, citing growth prospects across defense platforms."
+        },
+        {
+          "title": "Shares Jump on Space Force Task Order",
+          "date": "2025-07-11",
+          "source": "Manually fetched credible article",
+          "text": "Kratos stock climbed over 10% after securing a $25 million U.S. Space Force satellite communications support task order and other positive developments."
+        },
+        {
+          "title": "Airbus Partnership Delivers Valkyrie Drones to Germany",
+          "date": "2025-07-16",
+          "source": "Manually fetched credible article",
+          "text": "Kratos partnered with Airbus Defence and Space to supply XQ-58A Valkyrie drones to the German Air Force with mission systems integration for 2029 deployment."
+        },
+        {
+          "title": "RBC Capital Raises Target to $300",
+          "date": "2025-07-17",
+          "source": "Manually fetched credible article",
+          "text": "RBC Capital lifted its price target from $275 to $300 and reiterated an Outperform rating on Kratos."
+        },
+        {
+          "title": "5G NTN Demonstration with Intelsat",
+          "date": "2025-07-17",
+          "source": "Manually fetched credible article",
+          "text": "Kratos and Intelsat successfully demonstrated 5G non-terrestrial network connectivity over GEO satellites, highlighting communications expertise."
+        },
+        {
+          "title": "Automated Truck Platoon Supports NASCAR Logistics",
+          "date": "2025-07-29",
+          "source": "Manually fetched credible article",
+          "text": "Kratos and Champion Tire & Wheel launched an automated truck platoon to streamline logistics for the NASCAR Brickyard 400."
+        },
+        {
+          "title": "Earnings Beat Sends Shares Higher",
+          "date": "2025-08-08",
+          "source": "Manually fetched credible article",
+          "text": "Kratos reported Q2 EPS of $0.11 on $351.5 million revenue versus expectations of $0.09 and $305.8 million, boosting stock 9.4% and driving guidance increases."
+        },
+        {
+          "title": "Pentagon Calls for Advanced Uncrewed Systems",
+          "date": "2025-08-11",
+          "source": "Manually fetched credible article",
+          "text": "Kratos shares gained 13% after a Pentagon memo emphasized accelerating advanced uncrewed systems, reinforcing demand for the company's platforms."
+        },
+        {
+          "title": "Added to S&P MidCap 400 Index",
+          "date": "2025-09-18",
+          "source": "Manually fetched credible article",
+          "text": "Kratos joined the S&P MidCap 400 Index, reflecting increased market prominence within the defense sector."
+        },
+        {
+          "title": "Exclusive Manufacturing Deal with Elroy Air",
+          "date": "2025-09-24",
+          "source": "Manually fetched credible article",
+          "text": "Kratos became Elroy Air's exclusive manufacturing partner for the Chaparral cargo drone under a five-year strategic arrangement."
+        },
+        {
+          "title": "Altitude Testing Begins on GEK800 Engine",
+          "date": "2025-09-24",
+          "source": "Manually fetched credible article",
+          "text": "Kratos and GE Aerospace commenced altitude testing on the jointly developed GEK800 engine for next-generation unmanned aircraft systems."
+        },
+        {
+          "title": "Preliminary Design Review Completed for AFCGI",
+          "date": "2025-09-28",
+          "source": "Manually fetched credible article",
+          "text": "Kratos completed the preliminary design review for the Space Development Agency's AFCGI system, moving the program forward."
+        },
+        {
+          "title": "U.S. Navy Awards AN/SPY-1 Sustainment Contract",
+          "date": "2025-10-02",
+          "source": "Manually fetched credible article",
+          "text": "The Navy granted Kratos a Phase 1 contract to sustain AN/SPY-1 radar systems with a potential ceiling of $175 million across multiple phases."
+        },
+        {
+          "title": "Citizens JMP Raises Price Target to $105",
+          "date": "2025-10-02",
+          "source": "Manually fetched credible article",
+          "text": "Citizens JMP Securities lifted its Kratos price target from $70 to $105, highlighting growing demand for defense solutions."
+        },
+        {
+          "title": "Canaccord Boosts Target to $120",
+          "date": "2025-10-09",
+          "source": "Manually fetched credible article",
+          "text": "Canaccord Genuity increased its price target to $120 citing momentum across Kratos' portfolio."
+        },
+        {
+          "title": "Truist Raises Target to $125",
+          "date": "2025-10-15",
+          "source": "Manually fetched credible article",
+          "text": "Truist elevated its price target to $125 with continued optimism over Kratos' growth trajectory."
+        },
+        {
+          "title": "Hypersonic Materials Testing Center Contract",
+          "date": "2025-10-23",
+          "source": "Manually fetched credible article",
+          "text": "Kratos won a $68.3 million contract under Project Helios to build a hypersonic materials testing center supporting U.S. defense capabilities."
+        },
+        {
+          "title": "Strategic Partnership with Korean Aerospace Industries",
+          "date": "2025-10-27",
+          "source": "Manually fetched credible article",
+          "text": "Kratos formed a strategic partnership with Korean Aerospace Industries to advance manned-unmanned teaming and expand international collaboration."
+        }
+      ]
+    }
+  }
+}

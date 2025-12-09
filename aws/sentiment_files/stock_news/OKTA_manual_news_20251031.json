@@ -1,0 +1,42 @@
+{
+  "stock_symbol": "OKTA",
+  "api_articles": 0,
+  "manual_articles": 5,
+  "total_articles": 5,
+  "parsed_results": {
+    "OKTA": {
+      "news": [
+        {
+          "title": "Security Feature Updates for Okta Classic Engine",
+          "date": "2025-07-02",
+          "source": "Manually summarized article",
+          "text": "Okta introduced new security features to the Classic Engine, including enhanced validation rules for user profile attributes in the OIN Wizard."
+        },
+        {
+          "title": "Okta and Palo Alto Networks Unify AI-Driven Security",
+          "date": "2025-07-15",
+          "source": "Manually summarized article",
+          "text": "Okta partnered with Palo Alto Networks to integrate AI-powered identity and security capabilities aimed at combating identity-driven attacks."
+        },
+        {
+          "title": "Okta Reports Q2 FY2026 Results",
+          "date": "2025-08-26",
+          "source": "Manually summarized article",
+          "text": "Okta posted second-quarter fiscal 2026 revenue and EPS ahead of expectations, highlighting 13% year-over-year growth, margin expansion, and strength among large enterprise customers."
+        },
+        {
+          "title": "Okta Launches New AI-Driven Identity Innovations",
+          "date": "2025-09-25",
+          "source": "Manually summarized article",
+          "text": "Okta unveiled new identity security fabric capabilities designed to protect AI-driven enterprises and combat fraud."
+        },
+        {
+          "title": "GSA Renews Okta FedRAMP Authorization",
+          "date": "2025-10-06",
+          "source": "Manually summarized article",
+          "text": "Okta announced the U.S. General Services Administration renewed FedRAMP authorization for its government identity services, reinforcing its public sector footprint."
+        }
+      ]
+    }
+  }
+}

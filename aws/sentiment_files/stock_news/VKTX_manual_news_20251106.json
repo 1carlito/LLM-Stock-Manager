@@ -1,0 +1,66 @@
+{
+  "stock_symbol": "VKTX",
+  "api_articles": 0,
+  "manual_articles": 9,
+  "total_articles": 9,
+  "parsed_results": {
+    "VKTX": {
+      "news": [
+        {
+          "title": "Company Sets Q2 Earnings Release Date",
+          "date": "2025-07-16",
+          "source": "Manually fetched credible article",
+          "text": "Viking Therapeutics announced it would report second-quarter 2025 financial results after market close on July 23."
+        },
+        {
+          "title": "Q2 2025 Results Highlight R&D Spend",
+          "date": "2025-07-23",
+          "source": "Manually fetched credible article",
+          "text": "Viking reported a Q2 net loss of $65.6 million, or $0.58 per share, as obesity program investments lifted R&D expenses beyond expectations."
+        },
+        {
+          "title": "Analysts Update Price Targets",
+          "date": "2025-07-24",
+          "source": "Manually fetched credible article",
+          "text": "Citigroup kept a Neutral stance while raising its price target and Raymond James reaffirmed Strong Buy but trimmed its target following Viking's earnings."
+        },
+        {
+          "title": "Positive VK2735 Phase 2 Oral Data",
+          "date": "2025-08-19",
+          "source": "Manually fetched credible article",
+          "text": "Viking reported encouraging top-line results from the Phase 2 VENTURE oral dosing trial of VK2735 in obesity, supporting further development."
+        },
+        {
+          "title": "HC Wainwright Reiterates Buy Rating",
+          "date": "2025-09-29",
+          "source": "Manually fetched credible article",
+          "text": "HC Wainwright reaffirmed its Buy rating on Viking Therapeutics, emphasizing the long-term opportunity in metabolic disease programs."
+        },
+        {
+          "title": "BTIG Maintains Buy Outlook",
+          "date": "2025-09-22",
+          "source": "Manually fetched credible article",
+          "text": "BTIG Research reiterated a Buy rating on Viking, citing continued momentum in the VK2735 obesity franchise."
+        },
+        {
+          "title": "Corporate Presentation Highlights Pipeline",
+          "date": "2025-09-24",
+          "source": "Manually fetched credible article",
+          "text": "Viking released an investor presentation detailing Phase 3 plans for subcutaneous VK2735 and Phase 2a progress for the oral formulation."
+        },
+        {
+          "title": "Maintenance Dosing Study Initiated",
+          "date": "2025-10-21",
+          "source": "Manually fetched credible article",
+          "text": "Viking launched a maintenance dosing trial for VK2735 exploring multiple subcutaneous and oral regimens ahead of ObesityWeek data."
+        },
+        {
+          "title": "ObesityWeek Presentations Slated for November",
+          "date": "2025-10-29",
+          "source": "Manually fetched credible article",
+          "text": "The company announced plans to present VK2735 obesity program data at ObesityWeek 2025, signaling upcoming clinical visibility."
+        }
+      ]
+    }
+  }
+}
