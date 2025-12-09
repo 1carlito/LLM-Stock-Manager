@@ -1,4 +1,4 @@
-# Stock Agent Eval
+# LLM Stock Manager
 
 
 
@@ -7,7 +7,7 @@
 
 
 
-<img width="1139" height="770" alt="Screenshot 2025-11-14 at 14 47 57" src="https://github.com/user-attachments/assets/c60d6b6d-88d9-406d-ab7e-ad7232d62794" />
+
 
 
 
