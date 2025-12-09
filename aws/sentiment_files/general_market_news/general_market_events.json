@@ -1,0 +1,432 @@
+{
+  "stock_symbol": "GENERAL_MARKET",
+  "api_articles": 0,
+  "manual_articles": 69,
+  "total_articles": 69,
+  "parsed_results": {
+    "GENERAL_MARKET": {
+      "news": [
+        {
+          "title": "Markets Brace for August Tariff Deadline",
+          "date": "2025-07-01",
+          "source": "Manually summarized article",
+          "text": "Global equities began July with restrained trading on July 1-2 as investors assessed the outlook for trade negotiations ahead of the August 1 tariff deadline."
+        },
+        {
+          "title": "U.S.-Vietnam Trade Deal Lifts Wall Street",
+          "date": "2025-07-03",
+          "source": "Manually summarized article",
+          "text": "The United States and Vietnam reached a trade agreement on July 3, propelling the Dow Jones up 0.77%, the S&P 500 up 0.83%, and the Nasdaq up 1.02% to new record closes."
+        },
+        {
+          "title": "Independence Day Market Closure",
+          "date": "2025-07-04",
+          "source": "Manually summarized article",
+          "text": "U.S. markets were closed from July 4-6 for the Independence Day holiday weekend, providing a quiet stretch for global trading."
+        },
+        {
+          "title": "Solid Jobs Data Meets Trade Jitters",
+          "date": "2025-07-07",
+          "source": "Manually summarized article",
+          "text": "Positive U.S. payroll data showing 147,000 new jobs and a 4.1% unemployment rate on July 7 was offset by tariff concerns, leaving the Dow Jones down 0.16% and the S&P 500 down 0.3%."
+        },
+        {
+          "title": "Tariff Pause Sparks Global Rally",
+          "date": "2025-07-08",
+          "source": "Manually summarized article",
+          "text": "The U.S. President temporarily paused tariffs for 14 trading partners on July 8, igniting rallies across Asian and UK markets."
+        },
+        {
+          "title": "Momentum Builds After Tariff Reprieve",
+          "date": "2025-07-09",
+          "source": "Manually summarized article",
+          "text": "Markets extended gains on July 9 as investors continued to welcome the temporary suspension of new tariffs."
+        },
+        {
+          "title": "FTSE 100 Climbs to 9,000",
+          "date": "2025-07-10",
+          "source": "Manually summarized article",
+          "text": "Energy and mining stocks helped the FTSE 100 reach a record 9,000 points on July 10 amid renewed optimism about global trade."
+        },
+        {
+          "title": "Late-Week Trade Focus",
+          "date": "2025-07-11",
+          "source": "Manually summarized article",
+          "text": "From July 11-13, markets stayed fixated on the trajectory of U.S. trade negotiations heading into mid-July."
+        },
+        {
+          "title": "Tariff Threat Pressures Europe",
+          "date": "2025-07-14",
+          "source": "Manually summarized article",
+          "text": "European equities slipped on July 14 after the U.S. President warned that 30% tariffs could be imposed on EU imports if an agreement was not secured by August, sending the Stoxx 600 down 0.6%."
+        },
+        {
+          "title": "FTSE 100 Finds Support",
+          "date": "2025-07-15",
+          "source": "Manually summarized article",
+          "text": "On July 15, the FTSE 100 inched up 0.2%, aided by the UK's existing trade deal with the United States even as tariff risks lingered elsewhere."
+        },
+        {
+          "title": "Markets Consolidate Mid-July",
+          "date": "2025-07-16",
+          "source": "Manually summarized article",
+          "text": "Markets experienced limited catalysts between July 16-22, consolidating while digesting sector developments and a 3% estimate for U.S. Q2 GDP growth."
+        },
+        {
+          "title": "U.S.-Japan Deal Boosts Nikkei",
+          "date": "2025-07-23",
+          "source": "Manually summarized article",
+          "text": "A breakthrough trade agreement between the United States and Japan on July 23 sent the Nikkei surging 3.75%, highlighted by strong gains in automakers."
+        },
+        {
+          "title": "Optimism Builds After Japan Pact",
+          "date": "2025-07-24",
+          "source": "Manually summarized article",
+          "text": "July 24-27 trading reflected improved sentiment as investors anticipated additional trade progress following the U.S.-Japan agreement."
+        },
+        {
+          "title": "U.S.-EU Deal Avoids Major Tariffs",
+          "date": "2025-07-28",
+          "source": "Manually summarized article",
+          "text": "On July 28, the United States and European Union struck a trade deal that prevented the looming 30% tariff and set a 15% baseline, lifting EU indices roughly 0.8%-1%."
+        },
+        {
+          "title": "Markets Build on Trade Clarity",
+          "date": "2025-07-29",
+          "source": "Manually summarized article",
+          "text": "European and U.S. markets continued to enjoy momentum on July 29 as investors digested clearer trade rules."
+        },
+        {
+          "title": "Tariffs Announced on Indian Goods",
+          "date": "2025-07-30",
+          "source": "Manually summarized article",
+          "text": "Fresh 25% tariffs on all goods from India were announced on July 30, weighing on Indian equities as investors assessed supply chain implications."
+        },
+        {
+          "title": "Strong Close to July on AI Strength",
+          "date": "2025-07-31",
+          "source": "Manually summarized article",
+          "text": "Stocks ended July higher on July 31 supported by AI leaders, while the Federal Reserve maintained interest rates at 4.25%-4.50%."
+        },
+        {
+          "title": "Executive Order Triggers Tariff Shock",
+          "date": "2025-08-01",
+          "source": "Manually summarized article",
+          "text": "At the start of August, a U.S. executive order allowing reciprocal tariffs up to 41% rattled Asian markets, pushing South Korea's KOSPI down 3% and Japan's Nikkei down 0.4%."
+        },
+        {
+          "title": "Soft Jobs Data Pulls Yields Lower",
+          "date": "2025-08-04",
+          "source": "Manually summarized article",
+          "text": "U.S. Treasury yields slid on August 4 after a weak July payrolls report and downward revisions increased expectations for a September Federal Reserve rate cut, helping the S&P 500 advance."
+        },
+        {
+          "title": "FTSE 100 Notches Fresh Highs",
+          "date": "2025-08-05",
+          "source": "Manually summarized article",
+          "text": "Between August 5-6 the FTSE 100 added 0.24% to new highs while U.S. tech outperformed on news of a major Apple domestic investment that sent its shares up 5.1%."
+        },
+        {
+          "title": "Earnings Strength Lifts Wall Street",
+          "date": "2025-08-07",
+          "source": "Manually summarized article",
+          "text": "U.S. stocks climbed on August 7 as Apple's momentum and upbeat corporate reports from names such as McDonald's pushed the Nasdaq up 1.2% and the S&P 500 up 0.7%."
+        },
+        {
+          "title": "Tariff Legal Battle Adds Volatility",
+          "date": "2025-08-08",
+          "source": "Manually summarized article",
+          "text": "Markets swung on August 8 amid tariff debates and mixed earnings after a U.S. appeals court ruled sweeping reciprocal tariffs illegal but delayed enforcement, contributing to U.S. equity declines and choppy gold prices."
+        },
+        {
+          "title": "Europe Eyes U.S.-Russia Talks",
+          "date": "2025-08-11",
+          "source": "Manually summarized article",
+          "text": "European stocks edged up 0.3% on August 11 as investors awaited U.S.-Russia talks that spurred tentative hopes for progress in Ukraine."
+        },
+        {
+          "title": "Nasdaq Sets New High on Tech Surge",
+          "date": "2025-08-12",
+          "source": "Manually summarized article",
+          "text": "Technology and growth names powered the Nasdaq Composite to 21,681 points on August 12, underscoring investor confidence in AI-driven earnings."
+        },
+        {
+          "title": "Global Index Hits Record High",
+          "date": "2025-08-13",
+          "source": "Manually summarized article",
+          "text": "On August 13 the MSCI All Country World Index reached a new peak as traders priced in a higher probability of U.S. rate cuts."
+        },
+        {
+          "title": "Peace Hopes Cool Defence Stocks",
+          "date": "2025-08-19",
+          "source": "Manually summarized article",
+          "text": "Speculation about a Russia-Ukraine peace breakthrough on August 19 drove the Stoxx 600 up 0.6% while defence shares lagged on de-escalation expectations."
+        },
+        {
+          "title": "UK Inflation Surprise Fails to Stall Rally",
+          "date": "2025-08-20",
+          "source": "Manually summarized article",
+          "text": "Despite July inflation running at 3.8%, the FTSE 100 advanced 0.67% on August 20, marking yet another record high."
+        },
+        {
+          "title": "Dow Jones Hits Record Close",
+          "date": "2025-08-22",
+          "source": "Manually summarized article",
+          "text": "The Dow Jones Industrial Average closed at a record on August 22 before moderating later in the month as investors rotated across sectors."
+        },
+        {
+          "title": "Oil Rallies on Russia Supply Fears",
+          "date": "2025-08-25",
+          "source": "Manually summarized article",
+          "text": "Concerns about Russian exports drove Brent crude to $68.80 per barrel on August 25, supporting energy shares."
+        },
+        {
+          "title": "Dow Extends Records, Europe Wobbles",
+          "date": "2025-08-28",
+          "source": "Manually summarized article",
+          "text": "The Dow secured another record close on August 28, while French equities weakened on worries about potential government instability."
+        },
+        {
+          "title": "Tariff Scope Widens for U.S. Imports",
+          "date": "2025-08-29",
+          "source": "Manually summarized article",
+          "text": "Markets finished the week cautiously on August 29 after the United States ended the de minimis tariff exemption, broadening levies on consumer goods ahead of the Fed's September meeting."
+        },
+        {
+          "title": "Labor Day Market Closure",
+          "date": "2025-09-01",
+          "source": "Manually summarized article",
+          "text": "U.S. exchanges were closed on September 1 in observance of Labor Day, resulting in muted global volumes."
+        },
+        {
+          "title": "Record Gold Signals Investor Nerves",
+          "date": "2025-09-02",
+          "source": "Manually summarized article",
+          "text": "Gold prices touched a record $3,508.50 per ounce on September 2 as UK, European, and U.S. indices slipped, with the FTSE 100 down 0.43% and the S&P 500 off 1.2%."
+        },
+        {
+          "title": "Markets Await U.S. Data",
+          "date": "2025-09-03",
+          "source": "Manually summarized article",
+          "text": "Caution prevailed on September 3 ahead of key U.S. releases while energy traders focused on upcoming oil inventory data."
+        },
+        {
+          "title": "Airlines Slide on Jet2 Warning",
+          "date": "2025-09-04",
+          "source": "Manually summarized article",
+          "text": "Airline shares dropped on September 4 after Jet2 cut its profit outlook, dragging peers such as easyJet and IAG lower and wiping 14% from Jet2 stock."
+        },
+        {
+          "title": "Markets Poised for Payrolls",
+          "date": "2025-09-05",
+          "source": "Manually summarized article",
+          "text": "Equities treaded water on September 5 as investors awaited a rebound in U.S. non-farm payrolls following July's softness."
+        },
+        {
+          "title": "Trade Sensitivity Persists",
+          "date": "2025-09-08",
+          "source": "Manually summarized article",
+          "text": "On September 8 markets stayed sensitive to trade developments as Chinese export growth to the U.S. slowed."
+        },
+        {
+          "title": "AI Optimism Supports Tech",
+          "date": "2025-09-09",
+          "source": "Manually summarized article",
+          "text": "Tech stocks remained resilient on September 9 with U.S. investors upbeat about continued AI investment."
+        },
+        {
+          "title": "S&P 500 and Nasdaq Break Records",
+          "date": "2025-09-10",
+          "source": "Manually summarized article",
+          "text": "Major U.S. benchmarks hit new closing highs on September 10, underscoring broad strength ahead of the Federal Reserve meeting."
+        },
+        {
+          "title": "Rate-Cut Hopes Lift Wall Street",
+          "date": "2025-09-11",
+          "source": "Manually summarized article",
+          "text": "Expectations for a Federal Reserve rate cut on September 11 lifted the Dow Jones by 0.5% and pushed defence names like BAE Systems up 2.9% amid geopolitical tensions."
+        },
+        {
+          "title": "ECB Holds Rates Steady",
+          "date": "2025-09-12",
+          "source": "Manually summarized article",
+          "text": "The European Central Bank kept its policy rate at 2% on September 12, prompting a muted response from regional equity markets."
+        },
+        {
+          "title": "Alphabet Joins $3 Trillion Club",
+          "date": "2025-09-15",
+          "source": "Manually summarized article",
+          "text": "Alphabet shares surged nearly 4% on September 15, briefly valuing the company at $3 trillion for the first time."
+        },
+        {
+          "title": "Fed Cut Expectations Build",
+          "date": "2025-09-16",
+          "source": "Manually summarized article",
+          "text": "Markets on September 16 priced in a high likelihood of a Federal Reserve rate cut at the upcoming meeting."
+        },
+        {
+          "title": "Fed Delivers First 2025 Rate Cut",
+          "date": "2025-09-17",
+          "source": "Manually summarized article",
+          "text": "The Federal Reserve trimmed rates by 25 basis points to a 4.00%-4.25% target on September 17, with gold rallying toward $3,700 per ounce."
+        },
+        {
+          "title": "Post-Fed Consolidation",
+          "date": "2025-09-18",
+          "source": "Manually summarized article",
+          "text": "From September 18-23 markets consolidated gains, monitoring political developments such as instability in the French government."
+        },
+        {
+          "title": "Defence Stocks Jump on NATO Remarks",
+          "date": "2025-09-24",
+          "source": "Manually summarized article",
+          "text": "European defence names rallied on September 24 after the U.S. President suggested NATO aircraft should intercept Russian planes violating its airspace."
+        },
+        {
+          "title": "U.S. Equities Extend Pullback",
+          "date": "2025-09-25",
+          "source": "Manually summarized article",
+          "text": "Major U.S. indices posted a third straight decline on September 25 as investors reassessed valuations."
+        },
+        {
+          "title": "Pharma Shares Hit by Tariff Threat",
+          "date": "2025-09-26",
+          "source": "Manually summarized article",
+          "text": "Markets digested a September 26 plan for 100% tariffs on medicines and 25%-50% duties on other goods effective October 1, knocking AstraZeneca shares down 1.4%."
+        },
+        {
+          "title": "Robinhood Surges on Guidance",
+          "date": "2025-09-29",
+          "source": "Manually summarized article",
+          "text": "Robinhood shares jumped over 12% on September 29 after the CEO highlighted strong prediction-market performance, while President Trump met lawmakers to avert a shutdown."
+        },
+        {
+          "title": "Markets Look Past Funding Deadline",
+          "date": "2025-09-30",
+          "source": "Manually summarized article",
+          "text": "On September 30 investors stayed focused on the interest-rate path despite the looming U.S. funding deadline, as manufacturing PMI printed at 52."
+        },
+        {
+          "title": "FTSE 100 Opens October at Record",
+          "date": "2025-10-01",
+          "source": "Manually summarized article",
+          "text": "The FTSE 100 set a fresh record on October 1, making AstraZeneca the most valuable UK-listed company."
+        },
+        {
+          "title": "Global Equities Extend Highs",
+          "date": "2025-10-02",
+          "source": "Manually summarized article",
+          "text": "European and U.S. benchmarks added to gains on October 2, with the Stoxx 600 up 0.7% and the S&P 500 opening 0.3% higher."
+        },
+        {
+          "title": "Pre-Data Caution Settles In",
+          "date": "2025-10-03",
+          "source": "Manually summarized article",
+          "text": "From October 3-5 markets turned mixed as traders awaited key U.S. macro releases heading into the weekend."
+        },
+        {
+          "title": "France Political Shake-Up Hits CAC 40",
+          "date": "2025-10-06",
+          "source": "Manually summarized article",
+          "text": "The CAC 40 fell 1.8% on October 6 after the resignation of French Prime Minister Sébastien Lecornu, who lasted less than a month."
+        },
+        {
+          "title": "U.S. Equities Rebound After Volatility",
+          "date": "2025-10-07",
+          "source": "Manually summarized article",
+          "text": "Momentum-driven buying on October 7 helped U.S. stocks recover from earlier swings."
+        },
+        {
+          "title": "Gold Surpasses $4,000",
+          "date": "2025-10-08",
+          "source": "Manually summarized article",
+          "text": "Gold broke above $4,000 per ounce on October 8 as investors sought safe havens amid elevated geopolitical risk."
+        },
+        {
+          "title": "AI Enthusiasm Keeps Tech Rallying",
+          "date": "2025-10-09",
+          "source": "Manually summarized article",
+          "text": "Technology shares continued to gain on October 9 as enthusiasm for artificial intelligence remained robust."
+        },
+        {
+          "title": "Markets Mixed Amid Political Uncertainty",
+          "date": "2025-10-10",
+          "source": "Manually summarized article",
+          "text": "Between October 10-12 equities were mixed as investors weighed France's political turmoil and the risk of a U.S. government shutdown."
+        },
+        {
+          "title": "U.S.-China Tensions Pressure Asia",
+          "date": "2025-10-13",
+          "source": "Manually summarized article",
+          "text": "Asian stocks dipped on October 13 after Washington and Beijing exchanged fresh tariff threats."
+        },
+        {
+          "title": "Earnings Season and Lower Yields Support Markets",
+          "date": "2025-10-14",
+          "source": "Manually summarized article",
+          "text": "Markets consolidated between October 14-16 as corporate earnings season began and U.S. Treasury yields declined on rising rate-cut expectations."
+        },
+        {
+          "title": "Banking Sell-Off Hits U.S. and Europe",
+          "date": "2025-10-17",
+          "source": "Manually summarized article",
+          "text": "Credit concerns on October 17 sparked a sell-off in regional banks, pulling the S&P 500 down 1.2% and erasing nearly £11 billion from UK bank valuations."
+        },
+        {
+          "title": "Markets Await Japanese Political Outcomes",
+          "date": "2025-10-20",
+          "source": "Manually summarized article",
+          "text": "Caution set in on October 20 as investors watched Japanese political developments for potential policy changes."
+        },
+        {
+          "title": "Japan Elects First Female Prime Minister",
+          "date": "2025-10-21",
+          "source": "Manually summarized article",
+          "text": "Japanese equities rebounded on October 21 after Sanae Takaichi won the premiership on promises of looser fiscal policy."
+        },
+        {
+          "title": "Quiet Session for Major Markets",
+          "date": "2025-10-22",
+          "source": "Manually summarized article",
+          "text": "October 22 saw limited market-moving news, with traders awaiting the next catalysts."
+        },
+        {
+          "title": "Sanctions Lift Energy Shares",
+          "date": "2025-10-23",
+          "source": "Manually summarized article",
+          "text": "The United States announced fresh sanctions on Russia on October 23, boosting Brent crude and lifting UK energy majors BP and Shell by 3.5%."
+        },
+        {
+          "title": "Global Benchmarks Set New Records",
+          "date": "2025-10-24",
+          "source": "Manually summarized article",
+          "text": "Following a favorable inflation report on October 24, the FTSE 100 surpassed 9,600 for the first time while the S&P 500 and Nasdaq also posted new highs."
+        },
+        {
+          "title": "Markets Ease After Big Gains",
+          "date": "2025-10-27",
+          "source": "Manually summarized article",
+          "text": "Stocks pulled back modestly on October 27 as investors digested the prior week's rally."
+        },
+        {
+          "title": "U.S. Indices Renew Record Highs",
+          "date": "2025-10-28",
+          "source": "Manually summarized article",
+          "text": "U.S. benchmarks closed at fresh records on October 28 amid ongoing strength in technology and energy names."
+        },
+        {
+          "title": "Tariff Concerns Resurface Late October",
+          "date": "2025-10-29",
+          "source": "Manually summarized article",
+          "text": "Markets turned cautious on October 29-30 on news of new U.S. tariffs targeting India alongside the looming government funding deadline."
+        },
+        {
+          "title": "October Ends with Strong Earnings and Fed Cut",
+          "date": "2025-10-31",
+          "source": "Manually summarized article",
+          "text": "Equities finished October on a firm footing on October 31 thanks to robust Q3 earnings and a Federal Reserve rate cut to 3.75%-4.00%."
+        }
+      ]
+    }
+  }
+}

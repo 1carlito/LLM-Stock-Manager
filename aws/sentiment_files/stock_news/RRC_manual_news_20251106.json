@@ -1,0 +1,72 @@
+{
+  "stock_symbol": "RRC",
+  "api_articles": 0,
+  "manual_articles": 10,
+  "total_articles": 10,
+  "parsed_results": {
+    "RRC": {
+      "news": [
+        {
+          "title": "Range Resources Sets Q2 2025 Earnings Date",
+          "date": "2025-07-17",
+          "source": "Manually fetched credible article",
+          "text": "Range Resources announced it would report second-quarter 2025 results on July 30 with a call the following day."
+        },
+        {
+          "title": "Investor Presentation Outlines Three-Year Plan",
+          "date": "2025-07-22",
+          "source": "Manually fetched credible article",
+          "text": "Range Resources released investor materials detailing growth projections and capital strategy through 2027."
+        },
+        {
+          "title": "Roth Capital Downgrades to Neutral",
+          "date": "2025-08-18",
+          "source": "Manually fetched credible article",
+          "text": "Roth Capital downgraded Range Resources from Buy to Neutral and cut its price target to $35."
+        },
+        {
+          "title": "UBS Trims Price Target, Keeps Neutral",
+          "date": "2025-08-20",
+          "source": "Manually fetched credible article",
+          "text": "UBS reduced its price target while maintaining a Neutral stance as gas price volatility weighed on outlook."
+        },
+        {
+          "title": "Braced Tube Foundation Reviewed by DNV",
+          "date": "2025-08-22",
+          "source": "Manually fetched credible article",
+          "text": "Range Resources said DNV reviewed its Braced Tube Foundation with a first prototype slated to break ground in China."
+        },
+        {
+          "title": "Quarterly Dividend Maintained",
+          "date": "2025-08-29",
+          "source": "Manually fetched credible article",
+          "text": "The board declared a quarterly dividend of $0.09 per share, payable in September."
+        },
+        {
+          "title": "Truist Upgrades Range Resources to Buy",
+          "date": "2025-09-16",
+          "source": "Manually fetched credible article",
+          "text": "Truist Securities upgraded the stock from Hold to Buy and lifted its price target to $47."
+        },
+        {
+          "title": "Raymond James Raises Target to $50",
+          "date": "2025-09-25",
+          "source": "Manually fetched credible article",
+          "text": "Raymond James reiterated a Strong Buy rating and increased its target price to $50 following commodity updates."
+        },
+        {
+          "title": "Q3 2025 Results Miss Expectations",
+          "date": "2025-10-29",
+          "source": "Manually fetched credible article",
+          "text": "Range Resources posted a $0.09 per-share loss on $590 million revenue, missing analyst estimates and pressuring shares."
+        },
+        {
+          "title": "Analysts Cut Targets After Q3 Miss",
+          "date": "2025-10-30",
+          "source": "Manually fetched credible article",
+          "text": "Several analysts, including Stifel Nicolaus, trimmed price targets while maintaining positive ratings after the earnings miss."
+        }
+      ]
+    }
+  }
+}

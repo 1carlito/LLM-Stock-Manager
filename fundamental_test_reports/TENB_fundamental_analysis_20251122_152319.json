@@ -1,0 +1,28 @@
+{
+  "symbol": "TENB",
+  "analysis_date": "2025-10-03",
+  "target_date": "2025-10-03",
+  "current_price": 29.59,
+  "pe_ratio": null,
+  "pb_ratio": 10.355159593002996,
+  "raw_response": "RECOMMENDATION: HOLD\nCONFIDENCE: 0.68\nSUMMARY: TENB shows concerning profitability issues and negative earnings despite stable revenue, but maintains strong cash generation and manageable debt levels.\n\nANALYSIS:\n- Profitability metrics: Gross margins are consistently strong (78-79%) but operating margins are negative in two of three quarters, indicating high operating expenses\n- Growth trends: Revenue shows modest sequential growth (Q4'24: $235.7M \u2192 Q2'25: $247.3M) but earnings are volatile with two quarters of significant losses\n- Debt levels: Total debt of $419M with net debt of $242M in latest quarter, representing manageable leverage relative to cash position\n- Valuation: P/B of 10.36 appears elevated for a company with negative earnings, though P/E is not applicable due to negative earnings\n- Cash flow generation: Strong operating cash flow ($42.5M in Q2'25) and positive free cash flow despite net losses\n- Capital allocation: Significant share repurchases ($65M in Q2'25) while maintaining acquisitions activity\n\nSTRENGTHS:\n- Strong gross profit margins consistently above 78%\n- Robust operating cash flow generation despite net losses\n- Healthy cash position with $175M cash and $211M short-term investments\n- Growing deferred revenue ($624.5M current, $173.3M non-current) indicating strong future revenue visibility\n- Moderate debt levels with interest coverage manageable through cash flows\n\nWEAKNESSES:\n- Consistent net losses in two of three reported quarters\n- High operating expenses, particularly selling/marketing ($107.1M in Q2'25) and R&D ($59.2M)\n- Negative retained earnings (-$899M) indicating historical cumulative losses\n- Declining cash position from $328.6M to $175M over two quarters\n- Elevated P/B ratio suggesting potential overvaluation relative to book value\n\nFINANCIAL HEALTH:\nTENB maintains adequate liquidity with current ratio of 0.94 (current assets $672.5M vs current liabilities $713.3M) and quick ratio of 0.79 when excluding inventory. The company generates positive operating cash flow ($42.5M) that covers capital expenditures, resulting in positive free cash flow. Debt-to-equity ratio of 1.19 indicates moderate leverage, while interest coverage, though negative in operating income terms, is supported by cash flows. The declining cash balance warrants monitoring.\n\nCONCLUSION:\nTENB presents a mixed investment case with strong underlying fundamentals in gross margins and cash generation offset by persistent profitability challenges. The company's ability to maintain revenue growth while generating positive cash flow is encouraging, but the consistent net losses and high operating expenses raise concerns about operational efficiency. The current valuation appears stretched given the earnings profile, though the strong deferred revenue provides some visibility. Given these cross-currents, a HOLD recommendation with medium confidence is appropriate, as the company shows potential for improvement but requires evidence of sustained profitability before warranting a more bullish stance. Investors should monitor upcoming quarters for signs of operating leverage improvement and cost discipline.",
+  "recommendation": "HOLD",
+  "confidence": 0.68,
+  "summary": "TENB shows concerning profitability issues and negative earnings despite stable revenue, but maintains strong cash generation and manageable debt levels.",
+  "strengths": [
+    "Strong gross profit margins consistently above 78%",
+    "Robust operating cash flow generation despite net losses",
+    "Healthy cash position with $175M cash and $211M short-term investments",
+    "Growing deferred revenue ($624.5M current, $173.3M non-current) indicating strong future revenue visibility",
+    "Moderate debt levels with interest coverage manageable through cash flows"
+  ],
+  "weaknesses": [
+    "Consistent net losses in two of three reported quarters",
+    "High operating expenses, particularly selling/marketing ($107.1M in Q2'25) and R&D ($59.2M)",
+    "Negative retained earnings (-$899M) indicating historical cumulative losses",
+    "Declining cash position from $328.6M to $175M over two quarters",
+    "Elevated P/B ratio suggesting potential overvaluation relative to book value"
+  ],
+  "conclusion": "TENB presents a mixed investment case with strong underlying fundamentals in gross margins and cash generation offset by persistent profitability challenges. The company's ability to maintain revenue growth while generating positive cash flow is encouraging, but the consistent net losses and high operating expenses raise concerns about operational efficiency. The current valuation appears stretched given the earnings profile, though the strong deferred revenue provides some visibility. Given these cross-currents, a HOLD recommendation with medium confidence is appropriate, as the company shows potential for improvement but requires evidence of sustained profitability before warranting a more bullish stance. Investors should monitor upcoming quarters for signs of operating leverage improvement and cost discipline.",
+  "model_used": "deepseek-ai/DeepSeek-V3.1"
+}

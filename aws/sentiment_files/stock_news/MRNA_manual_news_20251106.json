@@ -1,0 +1,108 @@
+{
+  "stock_symbol": "MRNA",
+  "api_articles": 0,
+  "manual_articles": 16,
+  "total_articles": 16,
+  "parsed_results": {
+    "MRNA": {
+      "news": [
+        {
+          "title": "Shares Jump on Vaccine Policy Lawsuit",
+          "date": "2025-07-09",
+          "source": "Manually fetched credible article",
+          "text": "Moderna stock gained 8.8% after medical organizations sued over U.S. COVID-19 vaccine policies, raising hopes for supportive policy changes."
+        },
+        {
+          "title": "Cancer Research Funding Risks Highlighted",
+          "date": "2025-07-12",
+          "source": "Manually fetched credible article",
+          "text": "The Guardian warned that political scrutiny of mRNA vaccines could threaten funding for Moderna's cancer research initiatives."
+        },
+        {
+          "title": "FDA Debate Surfaces Around Latest Approval",
+          "date": "2025-07-16",
+          "source": "Manually fetched credible article",
+          "text": "BioPharma Dive reported that Moderna's newest vaccine approval exposed divisions within the FDA over mRNA policy."
+        },
+        {
+          "title": "Moderna Plans 10% Workforce Reduction",
+          "date": "2025-07-31",
+          "source": "Manually fetched credible article",
+          "text": "Moderna announced layoffs affecting 10% of employees to cut costs amid declining COVID-19 vaccine sales."
+        },
+        {
+          "title": "Blackstone Commits Up to $750M for Flu Program",
+          "date": "2025-08-04",
+          "source": "Manually fetched credible article",
+          "text": "Moderna secured up to $750 million in financing from Blackstone Life Sciences to advance its flu vaccine pipeline."
+        },
+        {
+          "title": "Second-Quarter Results Beat Expectations",
+          "date": "2025-08-07",
+          "source": "Manually fetched credible article",
+          "text": "Moderna delivered roughly $3.2 billion in Q2 revenue and exceeded EPS forecasts while reiterating $6 billion COVID-19 vaccine sales guidance."
+        },
+        {
+          "title": "Analysts Raise Targets Following Earnings",
+          "date": "2025-08-08",
+          "source": "Manually fetched credible article",
+          "text": "Truist Securities maintained a Hold rating but lifted its price target from $130 to $150 after reviewing Moderna's cost controls and pipeline updates."
+        },
+        {
+          "title": "BARDA Collaboration Announced",
+          "date": "2025-08-25",
+          "source": "Manually fetched credible article",
+          "text": "Moderna partnered with BARDA to develop a next-generation mRNA vaccine capable of protecting against multiple respiratory viruses."
+        },
+        {
+          "title": "Manufacturing and R&D Hub Opens in UK",
+          "date": "2025-09-25",
+          "source": "Manually fetched credible article",
+          "text": "Moderna inaugurated a state-of-the-art UK facility to expand global R&D and manufacturing capacity."
+        },
+        {
+          "title": "CEO Highlights Strategy at Morgan Stanley Conference",
+          "date": "2025-09-08",
+          "source": "Manually fetched credible article",
+          "text": "CEO Stéphane Bancel outlined priorities in respiratory vaccines, oncology, and international expansion during Morgan Stanley's healthcare conference."
+        },
+        {
+          "title": "Guidance Cut Triggers Share Decline",
+          "date": "2025-09-12",
+          "source": "Manually fetched credible article",
+          "text": "Reuters reported that Moderna delayed its break-even target by two years and lowered 2025 sales projections, prompting a 17% stock drop."
+        },
+        {
+          "title": "Vaccine Safety Scrutiny Intensifies",
+          "date": "2025-09-16",
+          "source": "Manually fetched credible article",
+          "text": "News coverage highlighted renewed scrutiny of COVID-19 vaccine safety claims, with Moderna reaffirming its safety record."
+        },
+        {
+          "title": "Positive Phase 3 Data for Personalized Cancer Vaccine",
+          "date": "2025-10-11",
+          "source": "Manually fetched credible article",
+          "text": "Moderna reported that its PCV with Merck's Keytruda reduced melanoma mortality risk, marking a breakthrough for its oncology pipeline."
+        },
+        {
+          "title": "Analysts Boost Ratings After Cancer Vaccine Update",
+          "date": "2025-10-12",
+          "source": "Manually fetched credible article",
+          "text": "Firms including Morgan Stanley, Goldman Sachs, and Jefferies raised ratings or targets following Moderna's positive cancer vaccine results."
+        },
+        {
+          "title": "Q3 2025 Earnings Release Date Set",
+          "date": "2025-10-23",
+          "source": "Manually fetched credible article",
+          "text": "Moderna scheduled its third-quarter 2025 earnings release for November 6."
+        },
+        {
+          "title": "Partnership Talks on Cancer Vaccine Reported",
+          "date": "2025-10-27",
+          "source": "Manually fetched credible article",
+          "text": "Reports indicated Moderna was negotiating with a major pharmaceutical partner regarding commercialization of its cancer vaccine technology."
+        }
+      ]
+    }
+  }
+}

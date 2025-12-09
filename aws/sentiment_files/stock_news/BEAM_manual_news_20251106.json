@@ -1,0 +1,96 @@
+{
+  "stock_symbol": "BEAM",
+  "api_articles": 0,
+  "manual_articles": 14,
+  "total_articles": 14,
+  "parsed_results": {
+    "BEAM": {
+      "news": [
+        {
+          "title": "Beam Announces Strategic Acquisition",
+          "date": "2025-07-03",
+          "source": "Manually fetched credible article",
+          "text": "Beam Therapeutics agreed to acquire an early-stage life sciences company, offering upfront shares and up to $89 million in milestones to expand capabilities."
+        },
+        {
+          "title": "Shares Pop on Positive Sentiment",
+          "date": "2025-07-10",
+          "source": "Manually fetched credible article",
+          "text": "Beam Therapeutics stock climbed 5.7% amid bullish commentary on analyst targets and recent company developments."
+        },
+        {
+          "title": "Second-Quarter 2025 Results Released",
+          "date": "2025-08-05",
+          "source": "Manually fetched credible article",
+          "text": "Beam reported a wider-than-expected Q2 net loss as R&D spending increased to advance base editing programs, while management voiced confidence in enrollment pace."
+        },
+        {
+          "title": "H.C. Wainwright Reiterates Buy Rating",
+          "date": "2025-08-12",
+          "source": "Manually fetched credible article",
+          "text": "H.C. Wainwright reaffirmed its Buy rating and $125 target, citing encouraging BEAM-101 data and the promise of Beam's base-editing platform."
+        },
+        {
+          "title": "GenomeWeb Highlights New Patent Filing",
+          "date": "2025-08-20",
+          "source": "Manually fetched credible article",
+          "text": "GenomeWeb covered Beam's latest patent filing focused on in vivo base editing delivery methods, boosting IP protection."
+        },
+        {
+          "title": "BioPharma Dive Discusses Gene Editing Competition",
+          "date": "2025-08-28",
+          "source": "Manually fetched credible article",
+          "text": "BioPharma Dive profiled the gene editing \"arms race,\" underscoring Beam's positioning against CRISPR-based peers."
+        },
+        {
+          "title": "DirectorsTalk Interviews Notes 180% Upside",
+          "date": "2025-09-02",
+          "source": "Manually fetched credible article",
+          "text": "An analysis suggested Beam's stock could appreciate 180%, emphasizing market enthusiasm for base editing progress."
+        },
+        {
+          "title": "Piper Sandler Initiates Coverage at Overweight",
+          "date": "2025-09-04",
+          "source": "Manually fetched credible article",
+          "text": "Piper Sandler began coverage with an Overweight rating and $33 price target, highlighting growth potential within Beam's program pipeline."
+        },
+        {
+          "title": "Management Engages at Multiple Healthcare Conferences",
+          "date": "2025-09-03",
+          "source": "Manually fetched credible article",
+          "text": "Beam executives participated in investor meetings at Citi, Wells Fargo, and H.C. Wainwright healthcare conferences to discuss pipeline updates."
+        },
+        {
+          "title": "HC Wainwright Reaffirms Confidence in Base Editing",
+          "date": "2025-09-12",
+          "source": "Manually fetched credible article",
+          "text": "HC Wainwright reiterated a Buy rating and $125 target, underscoring its conviction in Beam's base editing technology platform."
+        },
+        {
+          "title": "GenomeWeb Showcases Base Editing Advances",
+          "date": "2025-10-07",
+          "source": "Manually fetched credible article",
+          "text": "GenomeWeb detailed Beam's progress with BEAM-101 and BEAM-302 programs, framing the company as a leader in base editing."
+        },
+        {
+          "title": "New Patent Agreement Strengthens IP Portfolio",
+          "date": "2025-10-14",
+          "source": "Manually fetched credible article",
+          "text": "Beam announced a patent agreement with a global research institution, further solidifying ownership over key base-editing applications."
+        },
+        {
+          "title": "Q3 2025 Earnings Date Announced",
+          "date": "2025-10-20",
+          "source": "Manually fetched credible article",
+          "text": "Beam scheduled its third-quarter 2025 financial results release for November 5."
+        },
+        {
+          "title": "Fierce Biotech Highlights Gene Editing Rivalry",
+          "date": "2025-10-28",
+          "source": "Manually fetched credible article",
+          "text": "Fierce Biotech discussed the gene editing arms race, featuring Beam's CEO on how base editing differentiates the company from CRISPR competitors."
+        }
+      ]
+    }
+  }
+}

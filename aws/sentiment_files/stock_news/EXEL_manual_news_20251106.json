@@ -1,0 +1,78 @@
+{
+  "stock_symbol": "EXEL",
+  "api_articles": 0,
+  "manual_articles": 11,
+  "total_articles": 11,
+  "parsed_results": {
+    "EXEL": {
+      "news": [
+        {
+          "title": "Second-Quarter Earnings Date Set",
+          "date": "2025-07-14",
+          "source": "Manually fetched credible article",
+          "text": "Exelixis announced it would release Q2 2025 financial results after market close on July 28."
+        },
+        {
+          "title": "Q2 2025 Results and Guidance Update",
+          "date": "2025-07-28",
+          "source": "Manually fetched credible article",
+          "text": "Exelixis reported $568.3 million in Q2 revenue and non-GAAP EPS of $0.75, beating earnings expectations while reiterating full-year guidance."
+        },
+        {
+          "title": "Positive Momentum from Analyst Commentary",
+          "date": "2025-08-05",
+          "source": "Manually fetched credible article",
+          "text": "Shares of Exelixis gained after favorable analyst commentary highlighted continued Cabozantinib strength."
+        },
+        {
+          "title": "Intrinsic Value Analysis Highlights Upside",
+          "date": "2025-08-11",
+          "source": "Manually fetched credible article",
+          "text": "Simply Wall St argued Exelixis could be undervalued by 51% based on discounted cash flow analysis, underscoring long-term potential."
+        },
+        {
+          "title": "Wells Fargo Healthcare Conference Appearance",
+          "date": "2025-09-03",
+          "source": "Manually fetched credible article",
+          "text": "Management participated in fireside chats at Wells Fargo's conference, emphasizing commercialization execution for CABOMETYX."
+        },
+        {
+          "title": "Morgan Stanley Healthcare Conference Presentation",
+          "date": "2025-09-09",
+          "source": "Manually fetched credible article",
+          "text": "Executives spotlighted CABOMETYX performance and pipeline progress during the Morgan Stanley Global Healthcare Conference."
+        },
+        {
+          "title": "H.C. Wainwright Global Investment Conference Participation",
+          "date": "2025-09-10",
+          "source": "Manually fetched credible article",
+          "text": "Exelixis outlined growth priorities at the H.C. Wainwright conference, reinforcing confidence in its oncology portfolio."
+        },
+        {
+          "title": "Bernstein Healthcare Forum Engagement",
+          "date": "2025-09-24",
+          "source": "Manually fetched credible article",
+          "text": "Company leadership met investors at Bernstein's Healthcare Forum to discuss long-term strategy and capital deployment."
+        },
+        {
+          "title": "Q3 2025 Earnings Release Scheduled",
+          "date": "2025-10-22",
+          "source": "Manually fetched credible article",
+          "text": "Exelixis announced it would report third-quarter 2025 results on November 6 after market close."
+        },
+        {
+          "title": "Expectations Build Ahead of Q3 Earnings",
+          "date": "2025-10-24",
+          "source": "Manually fetched credible article",
+          "text": "Financial press previewed Exelixis' Q3 report, citing anticipated growth in earnings and revenue driven by CABOMETYX sales."
+        },
+        {
+          "title": "Zanzalintinib Shows Encouraging Early Data",
+          "date": "2025-10-30",
+          "source": "Manually fetched credible article",
+          "text": "Exelixis reported promising Phase 1/2 results for oral Zanzalintinib in advanced solid tumors, drawing positive analyst commentary."
+        }
+      ]
+    }
+  }
+}

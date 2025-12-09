@@ -1,0 +1,132 @@
+{
+  "stock_symbol": "AVAV",
+  "api_articles": 0,
+  "manual_articles": 18,
+  "total_articles": 18,
+  "parsed_results": {
+    "AVAV": {
+      "news": [
+        {
+          "title": "Financial Commentary Highlights Growth and Backlog",
+          "date": "2025-07-04",
+          "source": "Manually fetched credible article",
+          "text": "Yahoo Finance noted AeroVironment's strong Q4 segment revenue growth, robust order backlog, and fiscal 2026 guidance supported by the BlueHalo acquisition."
+        },
+        {
+          "title": "Chair Wahid Nawabi Sells 17,300 Shares",
+          "date": "2025-07-16",
+          "source": "Manually fetched credible article",
+          "text": "Insider selling disclosure showed Chair Wahid Nawabi sold 17,300 shares for roughly $4.55 million, equal to about 12.4% of his holdings."
+        },
+        {
+          "title": "Skyfall Mars Helicopter Mission Concept Unveiled",
+          "date": "2025-07-24",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment and NASA's JPL introduced the Skyfall concept featuring six scout helicopters to support future Mars missions, targeting a 2028 launch."
+        },
+        {
+          "title": "RBC Capital Lifts Price Target to $300",
+          "date": "2025-07-31",
+          "source": "Manually fetched credible article",
+          "text": "RBC Capital raised its AeroVironment price target to $300 and reiterated an Outperform rating following management meetings."
+        },
+        {
+          "title": "Golden Dome Partnership Announced with SNC",
+          "date": "2025-08-07",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment and SNC publicized a partnership to deliver the Golden Dome solution supporting America's Limited Area Defense architecture."
+        },
+        {
+          "title": "Initial P550 Autonomous Systems Delivered to U.S. Army",
+          "date": "2025-08-20",
+          "source": "Manually fetched credible article",
+          "text": "The company delivered its first P550 autonomous Group 2 eVTOL unmanned aircraft systems to the U.S. Army for the LRR program."
+        },
+        {
+          "title": "Analyst Coverage Expands with New Strong Buy Ratings",
+          "date": "2025-08-26",
+          "source": "Manually fetched credible article",
+          "text": "Needham and Canaccord Genuity initiated coverage with Strong Buy ratings and $300+ price targets, reinforcing a bullish analyst consensus."
+        },
+        {
+          "title": "Shares Surge 30.5% on Earnings and Outlook",
+          "date": "2025-09-30",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment's stock jumped 30.5% in September after record results and raised EPS guidance signaled continued growth momentum."
+        },
+        {
+          "title": "Record Revenue and Backlog Highlight Growth Drivers",
+          "date": "2025-09-12",
+          "source": "Manually fetched credible article",
+          "text": "CEO Wahid Nawabi emphasized record revenue and backlog across Autonomous Systems and Space, Cyber, and Directed Energy segments while increasing EPS guidance."
+        },
+        {
+          "title": "Raymond James and BofA Boost Price Targets",
+          "date": "2025-09-13",
+          "source": "Manually fetched credible article",
+          "text": "Raymond James lifted its target to $348 and Bank of America initiated coverage at $300, citing strong growth opportunities for AeroVironment."
+        },
+        {
+          "title": "UK Expansion and Tomahawk Grip Agreement",
+          "date": "2025-09-11",
+          "source": "Manually fetched credible article",
+          "text": "The company opened a Hereford office and entered a coproduction deal with TIA for the Tomahawk Grip controller to expand UK operations."
+        },
+        {
+          "title": "Switchblade 600 Air Launch Demonstrated",
+          "date": "2025-09-11",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment completed the first air launch of a Switchblade 600 loitering munition from an MQ-9A Reaper UAS, highlighting deployment flexibility."
+        },
+        {
+          "title": "Taiwan Strategic Partnership Announced",
+          "date": "2025-09-18",
+          "source": "Manually fetched credible article",
+          "text": "The company partnered with Taiwan's National Chung-Shan Institute of Science and Technology to support autonomous system deployments with JUMP 20 platforms."
+        },
+        {
+          "title": "Space Force Awards Antenna Contract",
+          "date": "2025-09-25",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment secured a fixed-price contract option from the U.S. Space Force for two advanced antenna systems supporting the SCAR program."
+        },
+        {
+          "title": "HELMSSMAN IDIQ Awarded by U.S. Air Force",
+          "date": "2025-10-02",
+          "source": "Manually fetched credible article",
+          "text": "The Air Force awarded AeroVironment a 10-year HELMSSMAN IDIQ contract worth up to $499 million with two initial task orders totaling $246 million."
+        },
+        {
+          "title": "Golden Dome Deployment Expands at GrandSKY",
+          "date": "2025-10-14",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment broadened its GrandSKY collaboration to deploy Golden Dome counter-UAS capabilities in support of Project ULTRA."
+        },
+        {
+          "title": "HMIF Software Integrator Contract Secured",
+          "date": "2025-10-20",
+          "source": "Manually fetched credible article",
+          "text": "The U.S. Army selected AeroVironment as lead software and systems integrator for the HMIF Increment 1 program leveraging Kinesis mission software."
+        },
+        {
+          "title": "Korean Air Memorandum of Understanding",
+          "date": "2025-10-21",
+          "source": "Manually fetched credible article",
+          "text": "A memorandum with Korean Air made the carrier a priority partner to integrate JUMP 20 VTOL systems for Republic of Korea defense needs."
+        },
+        {
+          "title": "Freedom Eagle Missile Contract Announced",
+          "date": "2025-10-22",
+          "source": "Manually fetched credible article",
+          "text": "AeroVironment won a $95.9 million contract to deliver Freedom Eagle counter-UAS missiles, scaling production with key partners."
+        },
+        {
+          "title": "Mary Clum Named President of SCDE",
+          "date": "2025-10-24",
+          "source": "Manually fetched credible article",
+          "text": "The company appointed Mary Clum as President of the Space, Cyber & Directed Energy segment and elevated senior leadership across mission systems."
+        }
+      ]
+    }
+  }
+}
