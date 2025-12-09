@@ -1,5 +1,27 @@
 # Stock Agent Eval
 
+
+
+
+
+
+
+
+<img width="1139" height="770" alt="Screenshot 2025-11-14 at 14 47 57" src="https://github.com/user-attachments/assets/c60d6b6d-88d9-406d-ab7e-ad7232d62794" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Multi-agent trading research sandbox: Sentiment, Fundamental, and Valuation feed a Reasoning Agent; a Portfolio Manager allocates with risk/execution plugins; an orchestrator runs day-by-day backtests.
 
 - **Agents:** Sentiment (curated historic news), Fundamental, Valuation → Reasoning → Portfolio Manager → Execution/Risk.
