@@ -20,15 +20,15 @@ SELL on unowned → SHORT
 BUY on shorted → COVER then BUY
 SHORT on owned → SELL then SHORT
 
-Short rules:
-Block all new shorts if cash < 25% of initial capital
-Per-short cap: 25% of remaining cash (bounded by max_short_per_stock_pct, default 25%)
-Spread fee on shorts: 0.0006 + 0.0010 + (1 / sqrt(market_cap_bil)), charged on entry and cover
+> Short rules:
+  Block all new shorts if cash < 25% of initial capital
+  Per-short cap: 25% of remaining cash (bounded by max_short_per_stock_pct, default 25%)
+  Spread fee on shorts: 0.0006 + 0.0010 + (1 / sqrt(market_cap_bil)), charged on entry and cover
 
-Long rules:
-Each BUY capped at 25% of remaining cash
-No spread fee applied to BUY in current PM code
-Sorting/priority: Shorts and buys sorted by confidence; CLOSEs always included
+> Long rules:
+  Each BUY capped at 25% of remaining cash
+  No spread fee applied to BUY in current PM code
+  Sorting/priority: Shorts and buys sorted by confidence; CLOSEs always included
 
 3) Parallel Orchestrator
 Role: Runs daily loop; loads latest analyses; calls Reasoning; feeds PM; executes with price lookups and short spreads
