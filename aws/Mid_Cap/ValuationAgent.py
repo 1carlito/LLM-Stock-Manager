@@ -46,85 +46,35 @@ class ValuationAgent:
         print(f"✅ DeepSeek ValuationAgent initialized with {self.model}")
     
     def _find_stock_data(self, symbol: str) -> Dict:
-        """Find the latest stock data for a symbol"""
-        try:
-            # Note: Removed AVAV restriction - now supports all symbols in data file
-            
-            # Primary file: quant_data/mid_cap_stock_data_*.json
-            quant_data_dir = os.path.join(self.data_dir, "quant_data")
-            primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
-            
-            # Try the primary file first
-            if os.path.exists(primary_file):
-                try:
-                    with open(primary_file, 'r') as f:
-                        data = json.load(f)
-                    
-                    # Check if symbol exists in this file
-                    if isinstance(data, dict):
-                        if symbol in data:
-                            print(f"✅ Found {symbol} in {primary_file}")
-                            return data[symbol]
-                        else:
-                            print(f"⚠️ Symbol {symbol} not found in {primary_file}")
-                except Exception as e:
-                    print(f"⚠️ Error reading {primary_file}: {e}")
-            
-            # Fallback: Try to find any mid_cap_stock_data file in quant_data directory
-            if os.path.exists(quant_data_dir):
-                mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
-                if mid_cap_files:
-                    # Sort by modification time (newest first)
-                    mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-                    
-                    for file_path in mid_cap_files:
-                        try:
-                            with open(file_path, 'r') as f:
-                                data = json.load(f)
-                            
-                            if isinstance(data, dict) and symbol in data:
-                                print(f"✅ Found {symbol} in {file_path}")
-                                return data[symbol]
-                        except Exception:
-                            continue
-            
-            # Fallback: Try other patterns
-            patterns = [
-                os.path.join(self.data_dir, f"stock_data_*.json"),
-                os.path.join(self.data_dir, f"**/stock_data_*.json"),
-                os.path.join(self.data_dir, f"**/{symbol.lower()}_*.json"),
-                os.path.join(self.data_dir, f"**/{symbol.upper()}_*.json")
-            ]
-            
-            all_files = []
-            for pattern in patterns:
-                all_files.extend(glob.glob(pattern, recursive=True))
-                
-            if all_files:
-                # Sort by modification time (newest first)
-                all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-                
-                # Try each file until we find data for our symbol
-                for file_path in all_files:
+        """Find stock data for a symbol"""
+        quant_data_dir = os.path.join(self.data_dir, "quant_data")
+        primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
+        
+        # Try primary file first
+        if os.path.exists(primary_file):
+            try:
+                with open(primary_file, 'r') as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and symbol in data:
+                    return data[symbol]
+            except Exception as e:
+                print(f"⚠️ Error reading {primary_file}: {e}")
+        
+        # Fallback: find any mid_cap_stock_data_*.json in quant_data
+        if os.path.exists(quant_data_dir):
+            mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
+            if mid_cap_files:
+                mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                for file_path in mid_cap_files:
                     try:
                         with open(file_path, 'r') as f:
                             data = json.load(f)
-                        
-                        # Check if symbol exists in this file
-                        if isinstance(data, dict):
-                            if symbol in data:
-                                print(f"✅ Found {symbol} in {file_path}")
-                                return data[symbol]
-                            elif len(data) == 1:
-                                # Single stock file
-                                return list(data.values())[0]
+                        if isinstance(data, dict) and symbol in data:
+                            return data[symbol]
                     except Exception:
                         continue
-            
-            raise ValueError(f"Could not find stock data for {symbol} in any file. Checked primary file: {primary_file}")
-            
-        except Exception as e:
-            raise ValueError(f"Error finding stock data: {str(e)}")
+        
+        raise ValueError(f"Could not find stock data for {symbol}. Checked: {primary_file}")
     
     def _calculate_metrics(self, price_data: List[Dict]) -> Dict:
         """Calculate key valuation metrics including RSI and MACD"""
