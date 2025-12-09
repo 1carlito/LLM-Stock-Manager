@@ -38,8 +38,8 @@ source venv/bin/activate
 pip install -r aws/requirements.txt## Run a Backtest (example)
 cd aws/Mid_cap
 python process_all_stocks_all_agents.py --data_dir .. --start_date 2025-07-01 --end_date 2025-11-14
-# outputs analysis of the 3 sub agents
+//* outputs analysis of the 3 sub agents
 
 python ParallelOrchestrator.py --start_date 2025-07-01 --end_date 2025-11-14 Process all stocks with all three analysis agents:
-# Runs the Reasoning Agent on the sub agent analysis, Portfolio Manager takes the Reasoning Agent analysis and allocates available funds accordingly 
+//* Runs the Reasoning Agent on the sub agent analysis, Portfolio Manager takes the Reasoning Agent analysis and allocates available funds accordingly 
 
