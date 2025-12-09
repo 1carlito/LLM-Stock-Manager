@@ -21,7 +21,8 @@ It’s tailored to this specific 20-stock run and not packaged for easy OSS reus
 
 
 For better understanding read these summary files explaining the framework in two parts.
-
+  aws/Mid_Cap/SYSTEM_DESIGN_Part1.md
+  aws/Mid_Cap/SYSTEM_DESIGN_Part2.md
 
 
 - **Results/updates:** X / Twitter — [@Carlos_O_B1](https://x.com/Carlos_O_B1).
