@@ -690,63 +690,32 @@ Make sure your recommendation is consistent with the overall analysis. If the da
             
     def _find_stock_data(self, symbol: str) -> Optional[Dict]:
         """Find stock data in JSON files - uses same data source as ValuationAgent"""
-        try:
-            import glob
-            
-            # Primary file: quant_data/mid_cap_stock_data_*.json (same as ValuationAgent)
-            quant_data_dir = os.path.join(self.data_dir, "quant_data")
-            primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
-            
-            # Try the primary file first
-            if os.path.exists(primary_file):
-                try:
-                    with open(primary_file, 'r') as f:
-                        data = json.load(f)
-                    
-                    # Check if symbol exists in this file
-                    if isinstance(data, dict):
-                        if symbol in data:
-                            print(f"✅ Found {symbol} in {primary_file}")
+        quant_data_dir = os.path.join(self.data_dir, "quant_data")
+        primary_file = os.path.join(quant_data_dir, "mid_cap_stock_data_20250701_20251101_20251116_132209.json")
+        
+        # Try primary file first
+        if os.path.exists(primary_file):
+            try:
+                with open(primary_file, 'r') as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and symbol in data:
+                    return data[symbol]
+            except Exception as e:
+                print(f"⚠️ Error reading {primary_file}: {e}")
+        
+        # Fallback: find any mid_cap_stock_data_*.json in quant_data
+        if os.path.exists(quant_data_dir):
+            mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
+            if mid_cap_files:
+                mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                for file_path in mid_cap_files:
+                    try:
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                        if isinstance(data, dict) and symbol in data:
                             return data[symbol]
-                        else:
-                            print(f"⚠️ Symbol {symbol} not found in {primary_file}")
-                except Exception as e:
-                    print(f"⚠️ Error reading {primary_file}: {e}")
-            
-            # Fallback: Try to find any mid_cap_stock_data file in quant_data directory
-            if os.path.exists(quant_data_dir):
-                mid_cap_files = glob.glob(os.path.join(quant_data_dir, "mid_cap_stock_data_*.json"))
-                if mid_cap_files:
-                    # Sort by modification time (newest first)
-                    mid_cap_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-                    
-                    for file_path in mid_cap_files:
-                        try:
-                            with open(file_path, 'r') as f:
-                                data = json.load(f)
-                            
-                            if isinstance(data, dict) and symbol in data:
-                                print(f"✅ Found {symbol} in {file_path}")
-                                return data[symbol]
-                        except Exception:
-                            continue
-            
-            # Fallback: Try stock_data.json (legacy)
-            file_path = os.path.join(self.data_dir, "stock_data.json")
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, 'r') as f:
-                        data = json.load(f)
-                    
-                    if isinstance(data, dict) and symbol in data:
-                        print(f"✅ Found {symbol} in {file_path}")
-                        return data[symbol]
-                except Exception as e:
-                    print(f"⚠️ Error loading stock_data.json: {e}")
-            
-            print(f"❌ Could not find stock data for {symbol}")
-            return None
-            
-        except Exception as e:
-            print(f"❌ Error finding stock data: {e}")
-            return None
+                    except Exception:
+                        continue
+        
+        print(f"❌ Could not find stock data for {symbol}")
+        return None
