@@ -19,7 +19,7 @@
 
 This framework exists to stress-test multi-agent trading (MAS) with a simple, rigid REST API based architecture. The goal was to evaluate responses and LLM noise when analyzing financial data. Since free/cheap news APIs provide poor historic coverage, I manually scraped both general and ticker-specific news for the backtest window so the Sentiment Agent’s influence is actually present in the Reasoning Agent’s analysis.
 
-It’s tailored to this specific 20-stock run and not packaged for easy OSS reuse. The current design surfaced considerable noise between the Reasoning Agent and Portfolio Manager; despite some insightful LLM outputs, the end-to-end behavior is suboptimal. I’m now building a new MCP-based system with tool-calling and database querying—stay tuned.!
+It’s tailored to this specific 20-stock run and not packaged for easy OSS reuse. The current design surfaced considerable noise between the Reasoning Agent and Portfolio Manager; despite some insightful LLM outputs, the end-to-end behavior is suboptimal. I’m now building a new MCP-based system, with tool-callingdatabase querying with easy integration and substantially more configureable - stay tuned.!
 
 
 For better understanding read these summary files explaining the framework in two parts.
