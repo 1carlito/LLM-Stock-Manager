@@ -4,12 +4,7 @@ Overview
 
 Two-tier decision-making
 
-          
-     Reasoning Agent
-          ↓
- Portfolio Manager Agent
-          ↓
- Parallel Orchestrator (exec)
+Reasoning Agent -> Portfolio Manager Agent -> Parallel Orchestrator (exec)
 
 1) Reasoning Agent
 Role: Stock-level decision maker
