@@ -497,7 +497,7 @@ class ParallelBacktest:
         
         return total_value
 
-    def _get_short_spread_rate(self, symbol):
+    def _get_short_spread_rate(self, symbol):     #r_s = 0.001 + \frac{0.005}{\sqrt{MC}} is the correct spread calculation 
         """
         Calculate spread rate for short positions.
         Formula: 0.0006 + (1.0 / sqrt(market_cap_bil)) + 0.0010
